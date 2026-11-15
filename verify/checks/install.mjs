@@ -9,6 +9,7 @@ const installer = join(repoRoot, "packages", "kit", "dist", "ambitious-install.m
 const release = mkdtempSync(join(tmpdir(), "ambitious-verify-release-"));
 const { version } = JSON.parse(readFileSync(join(repoRoot, "examples", "hello", "package.json"), "utf8"));
 const asset = `ambitious-hello-${version}.mjs`;
+const LATER_VERSION = "999.0.0";
 const sha256 = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const install = (version, from = release) => {
   const run = sh(process.execPath, [installer, "hello", version, "--from", from]);
@@ -31,9 +32,10 @@ try {
   const again = install(version, join(release, "moved-away"));
   must(again.status === 0 && again.envelope.data.action === "unchanged", "installing the same version again changes nothing and downloads nothing");
 
-  writeFileSync(join(release, "ambitious-hello-0.2.0.mjs"), "tampered\n");
-  writeFileSync(join(release, "SHA256SUMS"), `${sha256(join(release, asset))}  ${asset}\n${"0".repeat(64)}  ambitious-hello-0.2.0.mjs\n`);
-  const tampered = install("0.2.0");
+  const laterAsset = `ambitious-hello-${LATER_VERSION}.mjs`;
+  writeFileSync(join(release, laterAsset), "tampered\n");
+  writeFileSync(join(release, "SHA256SUMS"), `${sha256(join(release, asset))}  ${asset}\n${"0".repeat(64)}  ${laterAsset}\n`);
+  const tampered = install(LATER_VERSION);
   must(tampered.status === 1 && tampered.envelope.errors[0].code === "E_INSTALL_CHECKSUM", "a download whose checksum does not match is refused");
   must(readlinkSync(join(home, "bin", "ambitious-hello")) === asset, "after the refused download the link still points at the working version");
 } finally {
