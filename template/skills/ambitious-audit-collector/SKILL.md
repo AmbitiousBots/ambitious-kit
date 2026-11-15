@@ -3,7 +3,7 @@ name: ambitious-audit-collector
 description: For the Ambitious Bot only. Gather a collector document for ambitious-audit from the account the bot can see, write every unseen value as null, and say honestly what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
-Template version: 0.2.4
+Template version: 0.2.5
 
 # Audit collector
 
@@ -43,12 +43,12 @@ Include `schemaVersion` 1, `collectedAt` as UTC, the account, then the bots, rou
 A value no tool returned is `null`. Never write 0 for it, and never estimate.
 
 - `account.kind` is `owner`, `guest` or `team` only when a tool reported the role or the account holder stated it. Otherwise write `unknown`. Do not work the role out from what the bot can or cannot do. The audit still runs with `unknown`.
-- `tasks.open`, `tasks.stale7d` and `tasks.blocked` come from the output of the ambitious-tasks module. If it is not installed or was not run, all three are `null`.
+- `tasks.open`, `tasks.stale7d` and `tasks.blocked` come from `ambitious-tasks counts`. Run it with `{ "list": "..." }`, naming the task list the audit covers, and copy `data.open`, `data.stale7d` and `data.blocked` as returned. Do not count tasks from `list` or `board` output, and do not add the counts of several lists together: when the work is in more than one list, take the list the owner named for the audit and say in the `tasks` signal's `why` which list was counted. If the module is not installed, the command was not run or it failed, all three are `null`.
 - `pages.count` and `pages.updated7d` are `null` when the page tool did not return them.
 - `lastActiveAt` on a bot and `lastRunAt` on a routine are a UTC time, the word `never` when the account shows it has not happened yet, or `null` when the account does not show it.
 - `routineCount` on a bot is `null` when it was not shown.
 - `usage` on each bot and each routine is `{ "unit": "credits", "amount7d": 412.5 }` when the account reports credits, `{ "unit": "percent", "amount7d": 82.5 }` when it reports a share of the total, or `null` when it reports neither for that bot or routine.
-- A connector's `status` is `ok`, `needsAuth`, `needsGrant`, `initializing` or `error`, as the account shows it.
+- `connectors` holds this bot's own connectors, as its connector list shows them. A connector's `status` is `ok`, `needsAuth`, `needsGrant`, `initializing` or `error`, as the list shows it.
 
 ## Visibility
 
@@ -63,6 +63,8 @@ Every `null` needs its signal set to `seen: false`: `accountRole` for an unknown
 ```json
 { "id": "ev-1", "kind": "count", "text": "2 open tasks have not changed in 7 days.", "source": "tasks" }
 ```
+
+Write one evidence line for each connector whose status is `needsAuth` or `needsGrant`, with `source` set to exactly the connector's `name`. Advice about the bot's own connectors is given even when the role is `unknown`, but only for connectors that have such a line.
 
 ## When nothing was observed
 
@@ -84,7 +86,7 @@ This is the smallest document `snapshot` accepts: no tool returned anything and 
     { "signal": "otherBots", "seen": false, "why": "No tool listed the account's other bots." },
     { "signal": "auditLog", "seen": false, "why": "No tool returned the account's audit log." },
     { "signal": "accountRole", "seen": false, "why": "No tool reported the role and the account holder has not stated it." },
-    { "signal": "tasks", "seen": false, "why": "The ambitious-tasks module was not run." },
+    { "signal": "tasks", "seen": false, "why": "The ambitious-tasks counts command was not run." },
     { "signal": "pages", "seen": false, "why": "The page tool returned no counts." },
     { "signal": "botActivity", "seen": false, "why": "No tool returned when a bot was last active." },
     { "signal": "routines", "seen": false, "why": "No tool listed any routines." }

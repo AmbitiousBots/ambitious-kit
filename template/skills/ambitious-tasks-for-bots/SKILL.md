@@ -3,7 +3,7 @@ name: ambitious-tasks-for-bots
 description: For the Ambitious Bot only. Track shared work, dependencies and status with the Ambitious Tasks CLI. Use when the Ambitious Bot is asked to remember work, change a task, finish work, find what to do next, inspect a process or plan assignments.
 ---
 
-Template version: 0.2.4
+Template version: 0.2.5
 
 # Track work with Ambitious Tasks
 
@@ -17,7 +17,7 @@ Finish a task only after its acceptance evidence is available. Record a short st
 
 Ask `next` when choosing work. Relay its reasons, including any `needs approval` reason and approval label. Being ranked does not grant approval. A task is ready only when all its prerequisites are done. If a prerequisite was canceled, resolve the dependency explicitly.
 
-Never compute ranking, critical paths, workload totals, dates or process metrics by hand. Use `graph`, `process metrics`, `process simulate`, `schedule suggest` and `schedule check`. Copy the time and seed from `meta` when reproducing a result. State that simulation and schedule dates are estimates under their documented assumptions.
+Never compute task counts, ranking, critical paths, workload totals, dates or process metrics by hand. Use `counts` with a list name for how many tasks are open, stale for 7 or more days, blocked, waiting or finished in the last 7 days, and report its `asOf` time with the numbers. Use `graph`, `process metrics`, `process simulate`, `schedule suggest` and `schedule check` for the rest. Copy the time and seed from `meta` when reproducing a result. State that simulation and schedule dates are estimates under their documented assumptions.
 
 Schedule suggestions are read-only. Pass the same people to the independent schedule checker. Explain any violations before proposing assignment changes, then use `update` for task assignees when authorized. Do not present a suggestion as a committed schedule.
 

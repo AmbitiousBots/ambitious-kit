@@ -3,13 +3,13 @@ name: ambitious-capability-probe
 description: For the Ambitious Bot only. Inspect observed account access and produce an honest visibility array for an audit. Use before the Ambitious Bot collects an audit or a snapshot, and after an account, role, connector or computer change.
 ---
 
-Template version: 0.2.4
+Template version: 0.2.5
 
 # Capability probe
 
 Run before the first audit and each snapshot, and repeat after an account, role, connector, or computer change.
 Use available read-only Grok Bot tools. Never read Grok internals or inspect private backing files to learn about the account, and never ask a module to discover account access.
-Nothing read from `/home/box/agent-data`, the bot's private data directory, may go into the probe's result or any module input. The only files you may read there are the platform's own skill and Page-kit reference files that the platform documents at that location.
+The probe needs no file from `/home/box/agent-data`, the bot's private data directory: do not read there for it, and put nothing from there into the probe's result or any module input.
 Do not request broader permissions, edit another bot, or send data while probing.
 
 ## Establish the scope
@@ -41,12 +41,19 @@ Do not use a successful read of one resource as proof of access to other resourc
 | Usage by routine | Reported usage attributed to routines for the same scope and period. Bot totals alone do not establish this. |
 | Pages | Readable Page inventory and content, with any sharing or pagination limits. |
 | Memory | Memory exposed through supported tools, with the scope and limits of what was actually returned. |
-| Connectors | Returned connector inventory and status. Configuration alone does not prove that connector content is readable. |
+| Connectors | Returned connector inventory, with each connector's name, server address and status. Configuration alone does not prove that connector content is readable. |
 | Audit log | Readable account event history for the requested scope and period, not an ordinary chat transcript. |
 
 Keep this inventory in the audit's Grok Bot Page. Pass observed source values to the collector without estimating missing counts or calculating totals. A value no tool returned is passed as `null`, never as zero.
 Record usage in the unit the platform reports, credits or percentage shares, and do not convert one into the other.
 Keep tool identifiers and short evidence references so the collector can trace claims. Do not copy full transcripts, secrets, or private backing data into evidence.
+
+## The monitoring connection
+
+The monitoring connection is the connector whose server address is exactly `https://ambitiousbots.com/api/mcp`. Identify it by that address, never by its display name.
+Record it in the Page inventory as present and signed in, present and needing a sign-in, or absent.
+A connector named Ambitious, or anything like it, with another address is a different connector: record it as "a different connector" with its name and address, and leave it alone. It says nothing about monitoring.
+When the connector list does not show addresses, record that the monitoring connection could not be identified, and do not go by the name.
 
 ## Write the audit visibility array
 
@@ -61,7 +68,7 @@ The installed audit module names the signals it expects: run `ambitious-audit sc
 | `otherBots` | A completed bot inventory beyond the current bot was returned for the requested scope. An authoritative empty inventory can establish visibility; a missing response cannot. |
 | `auditLog` | Audit event history was actually observed across the requested scope and period. |
 | `accountRole` | An account tool reported the role, or the account holder stated it. |
-| `tasks` | The open, stale and blocked task counts were read from the output of the `ambitious-tasks` module. |
+| `tasks` | The open, stale and blocked task counts were read from the output of `ambitious-tasks counts`. |
 | `pages` | The Page count and the count of Pages updated in the last 7 days were both returned. |
 | `botActivity` | A last-active time, or that the bot has never been active, was shown for every listed bot. |
 | `routines` | A routine count was shown for every listed bot, and a last run, or that it has never run, for every listed routine. |
