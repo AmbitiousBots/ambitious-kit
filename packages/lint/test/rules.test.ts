@@ -155,6 +155,18 @@ const cases: readonly Case[] = [
     fails: [],
   },
   { name: "network in install", file: "src/install/a.ts", code: 'export const a = fetch("https://example.invalid");\n', fails: [] },
+  {
+    name: "network in the script that downloads the pinned TLA+ tools",
+    file: "scripts/tla2tools.mjs",
+    code: 'export const a = fetch("https://example.invalid");\n',
+    fails: [],
+  },
+  {
+    name: "network in any other script",
+    file: "scripts/a.mjs",
+    code: 'export const a = fetch("https://example.invalid");\n',
+    fails: [`Unexpected use of 'fetch'. ${NETWORK}`],
+  },
 
   { name: "any", file: "src/db/a.ts", code: "export const a = (row: any): unknown => row;\n", fails: [ANY] },
   { name: "any in a test", file: "test/a.test.ts", code: "export const a: any[] = [];\n", fails: [ANY] },

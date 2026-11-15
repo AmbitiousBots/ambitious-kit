@@ -8,6 +8,9 @@
     "node": "24.x"
   },
   "exports": "./src/config.ts",
+  "bin": {
+    "ambitious-standalone": "./bin/ambitious-standalone.mjs"
+  },
   "dependencies": {
     "@typescript-eslint/parser": "8.72.2"
   },

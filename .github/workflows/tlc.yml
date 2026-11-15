@@ -1,0 +1,33 @@
+name: TLC
+
+on:
+  workflow_call:
+    inputs:
+      spec-directory:
+        description: Directory that holds the TLA+ models, with broken variants under broken/.
+        type: string
+        default: spec
+
+permissions:
+  contents: read
+
+jobs:
+  tlc:
+    name: Check every TLA+ model and every broken variant
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      MISE_TRUSTED_CONFIG_PATHS: ${{ github.workspace }}
+    steps:
+      - name: Check out the repository (actions/checkout v7.0.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install the Java and Node versions pinned in .mise.toml (jdx/mise-action v5.2.8)
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
+        with:
+          version: 2026.11.3
+      - name: Run TLC
+        env:
+          SPEC_DIRECTORY: ${{ inputs.spec-directory }}
+        run: node scripts/tlc.mjs "$SPEC_DIRECTORY"
