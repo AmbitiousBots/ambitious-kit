@@ -12,7 +12,7 @@
     "examples/hello"
   ],
   "scripts": {
-    "build": "node examples/hello/scripts/build.mjs",
+    "build": "node examples/hello/scripts/build.mjs && node packages/kit/scripts/build-install.mjs",
     "check:contract": "node scripts/check-envelope-examples.mjs",
     "check:standalone": "node scripts/check-standalone.mjs",
     "typecheck": "tsc --noEmit",
@@ -21,7 +21,14 @@
     "lint": "eslint . && ambitious-standalone",
     "depcruise": "depcruise src packages scripts examples --output-type err-long",
     "contract": "ambitious-contract",
-    "tlc": "node scripts/tlc.mjs && node scripts/tlc.mjs packages/kit/spec && node scripts/tlc.mjs examples/hello/spec"
+    "tlc": "node scripts/tlc.mjs && node scripts/tlc.mjs packages/kit/spec && node scripts/tlc.mjs examples/hello/spec",
+    "build:python": "node scripts/with-pinned-tools.mjs python3 packages/kit-python/examples/hello/build.py",
+    "test:python": "node scripts/with-pinned-tools.mjs python3 -m unittest discover -s packages/kit-python/tests -t packages/kit-python",
+    "lint:python": "node scripts/with-pinned-tools.mjs python3 packages/lint/python/check_comments.py packages/kit-python",
+    "contract:python": "node scripts/with-pinned-tools.mjs python3 -m ambitious_kit.contract packages/kit-python/examples/hello/dist/ambitious-hello.pyz && node scripts/with-pinned-tools.mjs python3 -m ambitious_kit.contract examples/hello/dist/ambitious-hello.mjs && node scripts/with-pinned-tools.mjs ambitious-contract packages/kit-python/examples/hello/dist/ambitious-hello.pyz",
+    "verify": "node verify/run",
+    "release:build": "node scripts/release-build.mjs",
+    "release:check": "node scripts/release-check.mjs"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

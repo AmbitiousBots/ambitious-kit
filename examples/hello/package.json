@@ -9,6 +9,10 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "depcruise": "depcruise src --output-type err-long",
+    "test": "node --test \"test/**/*.test.ts\"",
     "contract": "ambitious-contract dist/ambitious-hello.mjs"
   },
   "devDependencies": {

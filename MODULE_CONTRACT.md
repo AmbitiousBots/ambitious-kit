@@ -35,8 +35,11 @@ Machine-checked parts of this contract:
 | Valid and invalid envelope examples | `examples/envelopes/` | `npm run check:contract` |
 | Every envelope printed in this file | this file | `npm run check:contract` |
 | No internal references or machine-specific paths | every tracked file | `npm run check:standalone` |
+| Envelope shape, exit codes, `--now` and `--seed`, forbidden paths, read-only analysis and clean stdout of a built module | `packages/kit` (TypeScript) and `packages/kit-python` (Python) | `npm run contract -- <binary>` |
+| No clock, randomness, timers, network or comments outside the allowed directories | `packages/lint` | `npm run lint` |
+| Which directory may import what | `packages/depcruise` | `npm run depcruise` |
 
-Everything else in this file becomes machine-checked when the kit's shared helpers, lint rules and contract test suite are first released, under the tag `kit-v0.1.0`. Until that release exists nothing checks most of this contract, so a module repository MUST NOT merge module code before it.
+The kit's shared helpers, lint rules, dependency rules and contract tests are released together, first under the tag `kit-v0.1.0`. A module repository MUST NOT merge module code before it has adopted that release or a later one, because without it nothing checks most of this contract.
 
 ## Part 1: the ten rules
 
@@ -200,6 +203,7 @@ Details fixed by this contract:
 - `--json` MUST be accepted by every command and changes nothing, because output is always JSON. A bot can pass it always.
 - `--in` takes a file path, not inline JSON. Giving both `--in` and non-empty stdin is `E_USAGE`. A command that needs input and gets none fails with `E_INPUT_SCHEMA`.
 - Input MUST be parsed and checked against the command's input schema at the CLI boundary before any logic runs. Input that is not JSON or does not match is `E_INPUT_SCHEMA`, exit 1.
+- Every module MUST provide a `commands` command. It takes no input, opens no database, and lists every command of the module, itself and `selfcheck` included, in `data.commands` as `{ "name", "access", "input" }`: `access` is `"read"`, `"write"` or `"none"` (no database), and `input` says whether the command reads input JSON. A bot can use it to learn what a module offers, and the contract tests use it to find the read commands.
 - Usage errors MUST still produce an envelope on stdout. A module MUST NOT print help text, stack traces or progress to stdout.
 - An unexpected exception MUST be caught at the top of the CLI and reported as `E_INTERNAL`, exit 2, with the stack trace on stderr only.
 
@@ -360,6 +364,14 @@ Installer behavior, for a requested module and exact version:
 | Another version installed | Installs the requested version beside it, then switches the link. |
 | Download fails or its checksum does not match | Deletes the temporary file, leaves the existing install and link untouched, exits non-zero. |
 
+The kit ships the installer as one more bundled file, `ambitious-install-<semver>.mjs`. It takes the module, the exact version and where the release is, either an `https://` address or a directory that already holds the downloaded assets:
+
+```text
+$ node ambitious-install-0.1.0.mjs tasks 0.3.1 --from https://example.com/releases/tasks-v0.3.1
+```
+
+It prints one envelope like a module does. `data.action` is `installed`, `replaced`, `relinked` (the version was already there and only the link changed) or `unchanged`. A failed download is `E_INSTALL_DOWNLOAD` and a checksum that does not match is `E_INSTALL_CHECKSUM`, both exit code 1.
+
 - The installer MUST install an exact version. It MUST NOT resolve "latest".
 - Every file MUST be put in place by a rename within `bin`, so an interrupted run never leaves a half-written binary.
 - The installer MUST NOT read, create or change any module database.
@@ -486,7 +498,7 @@ src/domain/rank.ts: imports node:https
   Network is only allowed in src/ai/ and src/install/. Move the call into src/ai/ and pass its result into src/domain as data.
 ```
 
-Those rules ship with `kit-v0.1.0`. Until then nothing checks this rule, which is one reason module code does not merge before that tag.
+Those rules are `@ambitious/lint` and `@ambitious/depcruise`, part of every kit release from `kit-v0.1.0`.
 
 ### Rule 9: semver and `schemaVersion`
 

@@ -129,6 +129,8 @@ test("input problems are E_INPUT_SCHEMA and usage problems are E_USAGE, each wit
     [["count", "--seed", "4294967296"], undefined, "E_USAGE", "count"],
     [["count", "--seed"], undefined, "E_USAGE", "count"],
     [["count", "--seed", "1", "--seed", "2"], undefined, "E_USAGE", "count"],
+    [["count", "--db="], undefined, "E_USAGE", "count"],
+    [["count", "--db", ""], undefined, "E_USAGE", "count"],
     [["__proto__"], undefined, "E_USAGE", ""],
   ];
   for (const [argv, stdin, code, command] of cases) {
@@ -138,6 +140,12 @@ test("input problems are E_INPUT_SCHEMA and usage problems are E_USAGE, each wit
   }
   const unknown = await run(t, ["cuont"]);
   assert.equal(unknown.envelope.errors[0]?.hint, "Use one of: add, commands, count, count sneaky, dice roll, selfcheck, slow.");
+});
+
+test("input is checked before the database is opened, so a refused write creates nothing", async (t) => {
+  const refused = await run(t, ["add"], { stdin: '{"body":7}' });
+  assert.deepEqual(codes(refused), ["E_INPUT_SCHEMA"]);
+  assert.equal(existsSync(join(refused.home, "notes")), false);
 });
 
 test("every given path is checked against the bot's private data directory before anything else happens", async (t) => {

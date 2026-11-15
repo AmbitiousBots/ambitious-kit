@@ -158,6 +158,8 @@ class RunnerTest(unittest.TestCase):
             (["count", "--now", "noon"], "", "E_USAGE", "count"),
             (["count", "--seed", "4294967296"], "", "E_USAGE", "count"),
             (["count", "--seed"], "", "E_USAGE", "count"),
+            (["count", "--db="], "", "E_USAGE", "count"),
+            (["count", "--db", ""], "", "E_USAGE", "count"),
         ]
         for argv, stdin, code, command in cases:
             result = self.run_cli(argv, stdin)
@@ -167,6 +169,10 @@ class RunnerTest(unittest.TestCase):
             self.run_cli(["cuont"]).envelope.errors[0].hint,
             "Use one of: add, commands, count, count sneaky, dice roll, selfcheck.",
         )
+
+    def test_input_is_checked_before_the_database_is_opened(self) -> None:
+        self.assertEqual(self.run_cli(["add"], '{"body":7}').codes, ["E_INPUT_SCHEMA"])
+        self.assertFalse(os.path.exists(os.path.join(self.home, "notes")))
 
     def test_every_given_path_is_checked_against_the_private_data_directory(self) -> None:
         forbidden = "/home/box/agent-data"

@@ -45,7 +45,7 @@ def parse_args(argv: Sequence[str]) -> ParsedArgs:
             index += 1
         else:
             value = None
-        if value is None:
+        if value is None or value == "":
             problems.append(f"The flag --{name} needs a value.")
             continue
         if name in values:

@@ -133,7 +133,7 @@ export const cliEnvelope = async (spec: ModuleSpec, io: Io): Promise<Envelope> =
   });
   const commands: Readonly<Record<string, Command>> = {
     ...spec.commands,
-    selfcheck: { access: "write", takesInput: false, execute: () => ({}) },
+    selfcheck: { access: "write", takesInput: false, parse: () => () => ({}) },
     commands: pureCommand({ run: describeCommands }),
   };
   const name = words.join(" ");
@@ -159,7 +159,7 @@ export const cliEnvelope = async (spec: ModuleSpec, io: Io): Promise<Envelope> =
     const home = ambitiousHome(io.env);
     const dbPath = refuseAgentData(flags.db ?? join(home, spec.module, `${spec.module}.sqlite`));
     if (flags.in !== null) refuseAgentData(flags.in);
-    const rawInput = await readInput(name, command.takesInput, flags, io);
+    const run = command.parse(await readInput(name, command.takesInput, flags, io));
     if (name === "selfcheck") {
       return envelope.ok(identity(name), selfcheck({ module: spec.module, dbPath, binaryPath: io.binaryPath, migrations: spec.migrations }));
     }
@@ -175,9 +175,9 @@ export const cliEnvelope = async (spec: ModuleSpec, io: Io): Promise<Envelope> =
         return opened;
       },
     };
-    if (command.access !== "write") return envelope.ok(identity(name), await command.execute(rawInput, runtime));
+    if (command.access !== "write") return envelope.ok(identity(name), await run(runtime));
     const opened = runtime.openDb();
-    const data = await inTransaction(opened, () => command.execute(rawInput, { ...runtime, openDb: () => opened }));
+    const data = await inTransaction(opened, () => run({ ...runtime, openDb: () => opened }));
     return envelope.ok(identity(name), data);
   } catch (error) {
     const { errors, data } = errorsOf(error, io);
@@ -190,7 +190,11 @@ export const cliEnvelope = async (spec: ModuleSpec, io: Io): Promise<Envelope> =
 const readAll = async (stream: NodeJS.ReadStream): Promise<string> => {
   if (stream.isTTY) return "";
   const chunks: Buffer[] = [];
-  for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  try {
+    for await (const chunk of stream) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  } catch {
+    return "";
+  }
   return Buffer.concat(chunks).toString("utf8");
 };
 

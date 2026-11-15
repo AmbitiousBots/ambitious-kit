@@ -38,9 +38,9 @@ export const parseArgs = (argv: readonly string[]): ParsedArgs => {
     }
     const value = equals === -1 ? argv[index + 1] : token.slice(equals + 1);
     if (equals === -1) index += 1;
-    if (value === undefined || (equals === -1 && value.startsWith("--"))) {
+    if (value === undefined || value === "" || (equals === -1 && value.startsWith("--"))) {
       problems.push(`The flag --${name} needs a value.`);
-      if (value !== undefined) index -= 1;
+      if (value !== undefined && equals === -1 && value !== "") index -= 1;
       continue;
     }
     if (values.has(name)) problems.push(`The flag --${name} was given more than once.`);

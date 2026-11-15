@@ -20,7 +20,7 @@ export type Runtime = Omit<CommandContext<never>, "input"> & { readonly openDb: 
 export type Command = {
   readonly access: Access;
   readonly takesInput: boolean;
-  readonly execute: (rawInput: unknown, runtime: Runtime) => Output;
+  readonly parse: (rawInput: unknown) => (runtime: Runtime) => Output;
 };
 
 type InputOf<Input> = { readonly input: (raw: unknown) => Input };
@@ -38,9 +38,9 @@ const withDb = (access: "read" | "write") => {
     return {
       access,
       takesInput: spec.input !== undefined,
-      execute: (rawInput, { openDb, ...context }) => {
+      parse: (rawInput) => {
         const input = parsed(spec, rawInput);
-        return spec.run({ ...context, input, db: openDb() });
+        return ({ openDb, ...context }) => spec.run({ ...context, input, db: openDb() });
       },
     };
   }
@@ -59,6 +59,9 @@ export function pureCommand<Input>(
   return {
     access: "none",
     takesInput: spec.input !== undefined,
-    execute: (rawInput, { openDb: _openDb, ...context }) => spec.run({ ...context, input: parsed(spec, rawInput) }),
+    parse: (rawInput) => {
+      const input = parsed(spec, rawInput);
+      return ({ openDb: _openDb, ...context }) => spec.run({ ...context, input });
+    },
   };
 }

@@ -59,6 +59,17 @@ const violations: readonly Violation[] = [
     fix: "Network is only allowed in src/ai/ and src/install/.",
   },
   {
+    fixture: "domain-imports-package-db",
+    headline:
+      "error src/domain may not import src/db, src/cli, src/ai or src/install: src/domain/rank.ts → node_modules/@example/helpers/src/db/store.js",
+    fix: "Move the IO into src/db, src/ai or src/cli and pass its result into src/domain as data.",
+  },
+  {
+    fixture: "unresolvable-import",
+    headline: "error every import must resolve: src/cli/main.ts → @example/missing/thing",
+    fix: "Install the package it names, or fix the path, so the import resolves to a file.",
+  },
+  {
     fixture: "cycle",
     headline: "error no import cycles: src/domain/a.ts → src/domain/b.ts → src/domain/a.ts",
     fix: "Move what both sides need into a file that imports neither",

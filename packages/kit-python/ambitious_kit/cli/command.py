@@ -37,7 +37,7 @@ class Runtime:
 class Command:
     access: Access
     takes_input: bool
-    execute: Callable[[object, Runtime], JsonObject]
+    parse: Callable[[object], Callable[[Runtime], JsonObject]]
 
 
 def no_input(_raw: object) -> None:
@@ -47,11 +47,11 @@ def no_input(_raw: object) -> None:
 def _with_db[Input](
     access: Access, run: Callable[[DbContext[Input]], JsonObject], parse_input: Callable[[object], Input]
 ) -> Command:
-    def execute(raw: object, runtime: Runtime) -> JsonObject:
+    def parse(raw: object) -> Callable[[Runtime], JsonObject]:
         parsed = parse_input(raw)
-        return run(DbContext(parsed, runtime.now, runtime.rng, runtime.env, runtime.open_db()))
+        return lambda runtime: run(DbContext(parsed, runtime.now, runtime.rng, runtime.env, runtime.open_db()))
 
-    return Command(access, parse_input is not no_input, execute)
+    return Command(access, parse_input is not no_input, parse)
 
 
 def read_command[Input](
@@ -67,7 +67,8 @@ def write_command[Input](
 
 
 def pure_command[Input](run: Callable[[Context[Input]], JsonObject], parse_input: Callable[[object], Input]) -> Command:
-    def execute(raw: object, runtime: Runtime) -> JsonObject:
-        return run(Context(parse_input(raw), runtime.now, runtime.rng, runtime.env))
+    def parse(raw: object) -> Callable[[Runtime], JsonObject]:
+        parsed = parse_input(raw)
+        return lambda runtime: run(Context(parsed, runtime.now, runtime.rng, runtime.env))
 
-    return Command("none", parse_input is not no_input, execute)
+    return Command("none", parse_input is not no_input, parse)

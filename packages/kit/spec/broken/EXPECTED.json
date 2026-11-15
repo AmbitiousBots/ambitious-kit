@@ -1,0 +1,10 @@
+{
+  "InstallNoVerify": {
+    "invariant": "OnlyVerifiedAssetsInPlace",
+    "because": "the installer moves the downloaded file into place without comparing its SHA-256 with SHA256SUMS, so a damaged download becomes the installed binary"
+  },
+  "InstallLinkFirst": {
+    "invariant": "LinkNeverDangles",
+    "because": "the installer switches the link before the asset is in place, so a crash between the two steps leaves the link pointing at a file that is not there"
+  }
+}

@@ -157,7 +157,7 @@ def cli_envelope(spec: ModuleSpec, io: Io) -> Envelope:
             ]
         }
 
-    commands["selfcheck"] = Command("write", False, lambda _raw, _runtime: {})
+    commands["selfcheck"] = Command("write", False, lambda _raw: lambda _runtime: {})
     commands["commands"] = pure_command(describe_commands, no_input)
     name = " ".join(args.words)
     command = commands.get(name)
@@ -191,7 +191,7 @@ def cli_envelope(spec: ModuleSpec, io: Io) -> Envelope:
         db_path = refuse_agent_data(args.db or os.path.join(home, spec.module, f"{spec.module}.sqlite"))
         if args.input_file is not None:
             refuse_agent_data(args.input_file)
-        raw_input = _read_input(name, command.takes_input, args, io)
+        run = command.parse(_read_input(name, command.takes_input, args, io))
         if name == "selfcheck":
             return ok(
                 identity(name),
@@ -212,11 +212,11 @@ def cli_envelope(spec: ModuleSpec, io: Io) -> Envelope:
 
         runtime = Runtime(instant, random.Random(used_seed), io.env, open_for_command)
         if command.access != "write":
-            return ok(identity(name), command.execute(raw_input, runtime))
+            return ok(identity(name), run(runtime))
         db = open_for_command()
         db.execute("BEGIN IMMEDIATE")
         try:
-            data = command.execute(raw_input, runtime)
+            data = run(runtime)
             db.execute("COMMIT")
         except BaseException:
             if db.in_transaction:

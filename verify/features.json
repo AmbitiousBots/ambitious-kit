@@ -1,5 +1,50 @@
 [
   {
+    "id": "build",
+    "userVisible": "The example module and the installer each build into a single file that runs with nothing but Node.",
+    "check": "npm run --silent build && node examples/hello/dist/ambitious-hello.mjs commands --now 2026-01-01T00:00:00Z --seed 1"
+  },
+  {
+    "id": "selfcheck",
+    "userVisible": "A module can check itself on every start: it creates its database, applies its migrations and reports that everything is in order.",
+    "check": "node examples/hello/dist/ambitious-hello.mjs selfcheck --now 2026-01-01T00:00:00Z | tee /dev/stderr | grep -q '\"ok\":true'"
+  },
+  {
+    "id": "greet-and-list",
+    "userVisible": "A bot can ask a module to store something and later read back everything it stored, and gets the same answer for the same question.",
+    "check": "node verify/checks/greet-and-list.mjs"
+  },
+  {
+    "id": "contract",
+    "userVisible": "Every module answers the same way: one JSON answer per command, fixed exit codes, repeatable output, no access to the bot's private data, and analysis that never changes data.",
+    "check": "npm run --silent contract -- examples/hello/dist/ambitious-hello.mjs"
+  },
+  {
+    "id": "contract-python",
+    "userVisible": "A module written in Python is held to exactly the same rules as one written in TypeScript, and each language's tests accept the other's module.",
+    "check": "npm run --silent build:python && npm run --silent contract:python"
+  },
+  {
+    "id": "install",
+    "userVisible": "A bot can install a module on every start: the download is checked against its published checksum, installing twice changes nothing, and a damaged download never replaces a working module.",
+    "check": "node verify/checks/install.mjs"
+  },
+  {
+    "id": "comment-ban",
+    "userVisible": "A stray code comment is refused with a message that says what to do instead.",
+    "check": "node verify/checks/rule-catches.mjs comment"
+  },
+  {
+    "id": "import-rule",
+    "userVisible": "Pure logic that reaches for the database is refused with a message that says where the code belongs.",
+    "check": "node verify/checks/rule-catches.mjs sqlite"
+  },
+  {
+    "id": "adopt",
+    "userVisible": "A new module repository can take the kit from the release files alone and pass every check from its first commit.",
+    "check": "node verify/checks/adopt.mjs"
+  },
+  {
     "id": "standalone",
     "userVisible": "Anyone can read and contribute to this repository: nothing in it points at a private plan or at one person's machine.",
     "check": "node scripts/check-standalone.mjs"
@@ -7,6 +52,6 @@
   {
     "id": "models",
     "userVisible": "Every model of how the software behaves passes the model checker, and every deliberately broken copy is caught breaking the rule it was written to break.",
-    "check": "node scripts/tlc.mjs"
+    "check": "npm run --silent tlc"
   }
 ]

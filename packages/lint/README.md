@@ -12,7 +12,7 @@ import { ambitiousLint } from "@ambitious/lint";
 export default ambitiousLint({ root: import.meta.dirname });
 ```
 
-Options: `root` (the repo root; the comment budget is counted under it), `ignores` (extra globs to skip) and `defaultExportFiles` (globs where a framework needs a default export). The package is TypeScript run directly by Node 24, so it is used as a workspace package, not installed from a tarball.
+Options: `root` (the repo root; the comment budget is counted under it), `ignores` (extra globs to skip) and `defaultExportFiles` (globs where a framework needs a default export). Inside this repository the package is TypeScript that Node 24 runs directly. A module installs the compiled `ambitious-lint-<version>.tgz` from a kit release, which has the same exports.
 
 ## Rules
 
