@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Ambitious module output envelope, version 1",
-  "description": "The single JSON document every ambitious-<module> command writes to stdout. See MODULE_CONTRACT.md rule 1.",
+  "description": "The single JSON document every ambitious-<module> command writes to stdout, on success and on error. MODULE_CONTRACT.md rule 1 explains each field; examples are in examples/envelopes.",
   "type": "object",
   "additionalProperties": false,
   "required": ["ok", "schemaVersion", "module", "command", "data", "errors", "meta"],
