@@ -3,9 +3,11 @@ name: ambitious-tasks-for-bots
 description: For the Ambitious Bot only. Track shared work, dependencies and status with the Ambitious Tasks CLI. Use when the Ambitious Bot is asked to remember work, change a task, finish work, find what to do next, inspect a process or plan assignments.
 ---
 
+Template version: 0.2.2
+
 # Track work with Ambitious Tasks
 
-Use the installed `ambitious-tasks` binary. Run `selfcheck` at routine start and read `data.problems`; resolve a reported problem before writing tasks. `commands` lists the available operations. Read the repository README for every input shape and the meaning of estimates and schedules.
+Use the installed `ambitious-tasks` binary. Run `selfcheck` at routine start and read `data.problems`; resolve a reported problem before writing tasks. `commands` lists the available operations. Every input shape and the meaning of estimates and schedules are documented at https://github.com/AmbitiousBots/ambitious-tasks#readme; that documentation is not a file on this computer.
 
 Create a task with `add` when there is a concrete outcome to track. Include a useful title and `done_when`. Link prerequisites with `depends_on` or `dep add`; never describe an unrecorded dependency as enforced. Use `get` or `list` before editing existing work. Change details with `update`, state with `status`, and prerequisites with `dep add` or `dep rm`.
 

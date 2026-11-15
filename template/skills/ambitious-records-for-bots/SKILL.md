@@ -3,6 +3,8 @@ name: ambitious-records-for-bots
 description: For the Ambitious Bot only. Keep typed records that move through declared stages with the Ambitious Records CLI. Use when the owner asks the Ambitious Bot to track things of one kind, such as requests, orders or applications, with fixed fields, stages and rules for moving between stages.
 ---
 
+Template version: 0.2.2
+
 # Keep typed records with Ambitious Records
 
 Use the installed `ambitious-records` binary in `/workspace/ambitious/bin`. A record type declares fields, stages and the allowed moves between stages; a record can move only along a declared move, once every field that move requires has a value. It makes no network calls and needs no key.

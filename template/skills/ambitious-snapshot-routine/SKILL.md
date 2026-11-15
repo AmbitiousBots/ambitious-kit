@@ -3,6 +3,8 @@ name: ambitious-snapshot-routine
 description: For the Ambitious Bot only. Run ambitious-audit on a schedule, show the result for review, and send a report only after the customer has approved that tool. Use in the Ambitious Bot's ambitious-snapshot routine.
 ---
 
+Template version: 0.2.2
+
 # Snapshot routine
 
 Run once a day for the first seven days, then once a week.

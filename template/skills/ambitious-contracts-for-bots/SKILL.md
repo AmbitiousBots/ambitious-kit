@@ -3,6 +3,8 @@ name: ambitious-contracts-for-bots
 description: For the Ambitious Bot only. Maintain a literal-quote obligation register with the Ambitious Contracts CLI, apply amendments, inspect due work and hand suggested payloads to the tasks module. Use when the Ambitious Bot is asked to track obligations from a contract or an amendment.
 ---
 
+Template version: 0.2.2
+
 # Contracts for bots
 
 Use this skill to track obligations from a contract or amendment. The module verifies literal evidence and dates. It does not decide what a clause legally means. Have a person review the proposed interpretation before relying on it.
@@ -32,6 +34,4 @@ Use `in-force` on both sides of the effective date to inspect the change. Earlie
 
 ## Evidence and errors
 
-Use the [README](../../README.md) for command shapes, recurrence grammar and error hints. Dates are calendar dates; stored quote offsets are UTF-16 indices into normalized text. The module stores history but does not render documents. A bot can use the returned data to write a document for review.
-
-Run `verify/run` from a source checkout to exercise this workflow with synthetic text in temporary databases. No API key or model call is needed.
+Command shapes, the recurrence grammar and error hints are documented at https://github.com/AmbitiousBots/ambitious-contracts#readme; that documentation is not a file on this computer, and every error also carries its own hint. Dates are calendar dates; stored quote offsets are UTF-16 indices into normalized text. The module stores history but does not render documents. A bot can use the returned data to write a document for review. The module makes no model call and needs no API key.
