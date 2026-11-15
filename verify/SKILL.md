@@ -63,6 +63,7 @@ The contract tests for any built module, `.mjs` or `.pyz`: `npm run contract -- 
 | `contract` | `npm run contract` on the built module | All six contract checks print `ok`. |
 | `contract-python` | Builds the Python example and runs both test suites on both binaries | Three `contract: ok` lines. |
 | `install` | `verify/checks/install.mjs` installs from a release directory, twice, then offers a damaged file | The link runs the module; the second install is `unchanged`; the damaged file is refused and the link is untouched. |
+| `sync` | The sync tests install fixture modules from a mirror directory, then remove a binary, alter one, remove a link, move a pin and offer a swapped file | Each module reports `installed`, `reinstalled`, `upgraded` or `unchanged` as expected; a file that does not match its pin is refused and the working version stays linked. |
 | `comment-ban` | Copies the example, adds `// note`, runs ESLint | ESLint fails with the message that says what to do instead. |
 | `import-rule` | Copies the example, imports `node:sqlite` in `src/domain`, runs dependency-cruiser | It fails with the message that says where the code belongs. |
 | `adopt` | Builds the release files, creates a repository from the template, installs the tarballs with npm and runs that repository's own checks | Typecheck, lint, dependency rules, tests, build and contract all pass there, and both rule breaks are caught there too. |

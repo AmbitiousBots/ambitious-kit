@@ -1,6 +1,6 @@
 {
   "name": "ambitious-kit",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -27,6 +27,9 @@
     "lint:python": "node scripts/with-pinned-tools.mjs python3 packages/lint/python/check_comments.py packages/kit-python",
     "contract:python": "node scripts/with-pinned-tools.mjs python3 -m ambitious_kit.contract packages/kit-python/examples/hello/dist/ambitious-hello.pyz && node scripts/with-pinned-tools.mjs python3 -m ambitious_kit.contract examples/hello/dist/ambitious-hello.mjs && node scripts/with-pinned-tools.mjs ambitious-contract packages/kit-python/examples/hello/dist/ambitious-hello.pyz",
     "verify": "node verify/run",
+    "template:generate": "node scripts/template-generate.mjs",
+    "template:test": "node --test template/",
+    "template:e2e": "node --test template/test/e2e.test.mjs",
     "release:build": "node scripts/release-build.mjs",
     "release:check": "node scripts/release-check.mjs"
   },

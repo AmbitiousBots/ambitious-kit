@@ -17,11 +17,11 @@ It needs the pinned tools (`mise trust && mise install`): Java, and `tla2tools.j
 
 ## What is covered
 
-Last confirmed in step with the code at commit `44512904db82e603a57e327e3299765e42f5672c`. Move this commit forward only after you have read the covered code at the new commit and confirmed that the model still describes it.
+Last confirmed in step with the code at commit `32303bf2e0991a6f7848eae5a8e1eb0226494fa6`. Move this commit forward only after you have read the covered code at the new commit and confirmed that the model still describes it.
 
 | Model | Covers | Each model step is this code |
 |---|---|---|
-| `packages/kit/spec/Install.tla` | `install` in `packages/kit/src/install/install.ts` | `AlreadyInstalled`: the early return when the installed file matches its recorded checksum (it only switches the link). `Download`: the two `fetched` calls, into memory. `RejectBadChecksum`: the `E_INSTALL_CHECKSUM` failures, before anything is written. `Place`: the first `placeByRename`, one rename of the verified bytes. `Record`: the second `placeByRename`, for `SHA256SUMS`. `SwitchLink`: `switchLink`, one rename of a new symbolic link. `Crash`: the process stopping between any two of those. `Damage`: something outside the installer corrupting an installed file. |
+| `packages/kit/spec/Install.tla` | `install` in `packages/kit/src/install/install.ts` | `AlreadyInstalled`: the early return when the installed file matches its recorded checksum and, when a pin is given, the pin (it only switches the link). `Download`: the two `fetched` calls, into memory. `RejectBadChecksum`: the `E_INSTALL_CHECKSUM` failures, including a `SHA256SUMS` line that differs from the pin, before anything is written. `Place`: the first `placeByRename`, one rename of the verified bytes. `Record`: the second `placeByRename`, for `SHA256SUMS`. `SwitchLink`: `switchLink`, one rename of a new symbolic link. `Crash`: the process stopping between any two of those. `Damage`: something outside the installer corrupting an installed file. |
 | `examples/hello/spec/Greetings.tla` | `greet` and `list` in `examples/hello/src/cli/main.ts` with `examples/hello/src/db/greetings.ts` | `Greet`: one `INSERT`, inside the single transaction the kit wraps around a write command. `List`: the read-only `SELECT`. |
 | `spec/Sample.tla` | Nothing in the kit. It is the starting example every module repository gets. | |
 

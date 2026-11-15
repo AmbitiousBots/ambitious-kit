@@ -28,6 +28,7 @@ const STEPS = [
   ["contract:python", "the Python and TypeScript contract tests each pass the other's module"],
   ["tlc", "every TLA+ model passes and every broken variant is caught"],
   ["verify", "every user-visible feature passes against a fresh AMBITIOUS_HOME"],
+  ["template:test", "the bot template is complete, its pins match the published releases, and the pinned modules install and selfcheck"],
   ["release:build", "the release files build"],
 ];
 
