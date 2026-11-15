@@ -1,0 +1,6 @@
+CREATE TABLE greetings (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 100),
+  text TEXT NOT NULL,
+  created_at TEXT NOT NULL
+) STRICT;
