@@ -1,11 +1,11 @@
 ---
 name: getting-started
-description: Ask three setup questions, check observable capabilities, and write the first audit as a Grok Bot Page.
+description: Ask three setup questions, check observable capabilities, and write the first audit as a Grok Bot Page. Use on first chat, after the module sync.
 ---
 
 # Getting started
 
-Run [module-installer](../module-installer/SKILL.md) on first chat. Explain unavailable releases or failed selfchecks without blocking the setup conversation.
+On first chat, run the sync command from the `module-installer` skill first. Explain any problem it reports without blocking the setup conversation.
 Ask these three questions, using any answers the owner already gave instead of asking again.
 
 1. What does your business do, and what would you like help with?
@@ -17,11 +17,11 @@ A yes records interest in monitoring. It does not authorize a subscription, a co
 
 ## First audit Page
 
-Run [capability-probe](../capability-probe/SKILL.md). Record the observed role and scope, capability inventory and audit `visibility` array.
-If a ready audit module and its matching skills are installed, follow its `audit-collector` skill to pass observed JSON into its CLI in `/workspace/ambitious/bin`.
-Use its `audit-page` skill to write the first audit Page, taking findings, recommendations and every reported number from successful module output.
+Run the `capability-probe` skill. Record the observed role and scope, capability inventory and audit `visibility` array.
+If the sync reported the audit module installed with its selfcheck ok, follow the `audit-collector` skill to pass observed JSON into `/workspace/ambitious/bin/ambitious-audit` (under `AMBITIOUS_HOME` when that variable is set).
+Use the `audit-page` skill to write the first audit Page, taking findings, recommendations and every reported number from successful module output.
 Do not fill missing required collector values with zero or a guess. Explain that collection is incomplete if the installed collector schema cannot represent an unknown value.
-When releases are unpinned or an audit cannot run, still create the first audit Page with the setup answers, observed capabilities, visibility gaps and an explanation that module-backed findings and metrics are unavailable.
+When the audit module is unavailable or an audit cannot run, still create the first audit Page with the setup answers, observed capabilities, visibility gaps and an explanation that module-backed findings and metrics are unavailable.
 Do not fabricate snapshot identifiers, recommendations, counts, scores or a passing audit.
 
 The Page contains the scope, setup choices, observations, unseen signals, available module results and next actions.
@@ -32,7 +32,7 @@ Return the actual Page link after creation succeeds. If Page writing is unavaila
 
 For no, leave monitoring off. The owner can return to the audit Page without sending a report.
 For yes, inspect whether the account already has an authenticated monitoring connection through available tools. Never infer that a copied template inherited a usable connection.
-If the connection is missing or requires sign-in, explain that the owner must add or authenticate it through the platform's supported connection flow. Do not connect a production endpoint or collect credentials yourself.
-Record monitoring as pending until the required releases, connection and owner's routine choice are in place.
-When monitoring actually starts, record the start time and schedule time zone, then apply [the snapshot cadence](../../routines.md).
-Before any report or feedback leaves, follow [the instructions' tool-approval boundary](../../INSTRUCTIONS.md). A review or setup answer never substitutes for it.
+The monitoring MCP server is `https://ambitiousbots.com/api/mcp`, for Ambitious subscribers. If the connection is missing or requires sign-in, explain that the owner must add or authenticate it through the platform's supported connection flow. Do not connect a production endpoint or collect credentials yourself.
+Record monitoring as pending until the required modules, connection and owner's routine choice are in place.
+When monitoring actually starts, record the start time and schedule time zone, then turn on the paused `ambitious-snapshot` routine with the owner: daily for the first 7 days, then weekly.
+Before any report or feedback leaves, follow the tool-approval boundary in the bot instructions. A review or setup answer never substitutes for it.

@@ -1,29 +1,44 @@
 # Routines
 
+Each `ambitious-` section below is one routine: its schedule, whether it starts paused, and the prompt it runs.
 Configure routines only within the owner's requested scope. Record their schedule and time zone in the setup Page.
-Every routine starts with [module-installer](skills/module-installer/SKILL.md). Missing pins or a failed prerequisite stop dependent work with a plain-language explanation.
+
+## How a copy of this template stays current
+
+A bot made from this template keeps its own copy of these instructions and skills; later template changes may not reach it.
+The module pins therefore travel with the installer, not with the copy. The sync command in the `module-installer` skill starts
+by looking for the latest template release. When that release is newer, it downloads the release's installer, checks it against
+the release's published SHA-256, and hands over to it, so the copy installs the modules pinned by the latest template release.
+When the check cannot be made, the sync says so in `data.problems` and uses the pins it already has.
 
 ## ambitious-selfcheck
 
-Run daily. Run `module-installer` only, including each pinned module's selfcheck.
-Report the returned problems without collecting an audit or sending data.
-An empty lock means no module checks ran, not that all modules are healthy.
+Schedule: every day
+Starts: active
+
+Follow the `module-installer` skill: run its sync command and nothing else.
+The command reinstalls a missing or altered module, upgrades a module whose pin moved, and runs every module's selfcheck.
+Report each entry of `data.problems` in plain words, with the module it names. If there are none, say that every module is installed and its selfcheck is ok.
+Do not collect an audit, write a report or send anything in this routine.
 
 ## ambitious-snapshot
 
-Run daily for the first 7 days after monitoring starts, then weekly. Use the recorded monitoring start time, not template installation time.
-Keep monitoring pending until the owner has chosen to enable it and the required modules, matching skills and authenticated connection are ready.
+Schedule: every day
+Starts: paused
 
-1. Run the installer and [capability-probe](skills/capability-probe/SKILL.md) again. Role and connector access can change between runs.
-2. Follow the installed audit module's `snapshot-routine` and `audit-collector` skills. Collect observed JSON, run the audit CLI, and retain its returned evidence and metadata.
-3. Write or update a review Page using the installed `audit-page` skill. Include findings, recommendations, visibility gaps and the proposed report. All reported numbers come from module output.
+Run daily for the first 7 days after monitoring starts, then weekly: after day 7, end the run at once on days when the last snapshot is less than 7 days old. Use the recorded monitoring start time, not template installation time.
+Keep this routine paused until the owner has chosen monitoring and the required modules, matching skills and authenticated connection are ready.
+
+1. Run the `module-installer` sync command and the `capability-probe` skill again. Role and connector access can change between runs.
+2. Follow the `snapshot-routine` and `audit-collector` skills. Collect observed JSON, run the audit CLI, and retain its returned evidence and metadata.
+3. Write or update a review Page using the `audit-page` skill. Include findings, recommendations, visibility gaps and the proposed report. All reported numbers come from module output.
 4. Build the report through the audit CLI. Complete any required human review and keep the module's report state consistent with what actually happened. A Page draft alone is not a completed review.
 5. Present the exact report for the owner's `send_report` tool approval. Require approval for this call unless the platform confirms an existing owner-granted pre-approval for that tool covers it. Never infer approval from the schedule, monitoring choice or review.
 6. After approval, call only `send_report` with the module-built payload. Use the service result to record delivery through the module's documented commands. A timeout or missing acknowledgement is not proof of receipt; retry with the same module-provided report identifier under the same approval rules.
 
 If approval is denied or absent, retain the review Page and leave the report unsent. Explain the pending step without sending by another channel.
 If the module or connection is unavailable, retain a Page explaining the blocked audit or delivery. Do not invent successful results.
-Feedback follows the installed audit module's `send-feedback` skill and needs its own `send_feedback` tool approval under the same boundary.
+Feedback follows the `send-feedback` skill and needs its own `send_feedback` tool approval under the same boundary.
 
 ## Routines from packs
 

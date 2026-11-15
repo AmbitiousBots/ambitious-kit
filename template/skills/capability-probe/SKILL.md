@@ -66,8 +66,8 @@ Carry every gap into the audit Page and report review. Do not claim the report c
 
 The fixtures are expected arrays for synthetic tool observations. They do not establish real account permissions or replace live probing.
 
-For [the owner fixture](fixtures/owner.expected.json), the account tool identifies an owner. A complete bot inventory, requested transcripts, and bot usage are returned. Routine usage and audit history are unavailable. Pages, memory, and connector status are readable within the requested scope and belong in the separate Page inventory.
+In the owner scenario (`fixtures/owner.expected.json` beside this skill in the template source), the account tool identifies an owner. A complete bot inventory, requested transcripts, and bot usage are returned. Routine usage and audit history are unavailable. Pages, memory, and connector status are readable within the requested scope and belong in the separate Page inventory.
 
-For [the guest fixture](fixtures/guest.expected.json), the account tool identifies a guest. Only the current shared bot and its shared Page are readable. The tools deny transcripts, usage, and other bot inventory; no audit log tool is available. Memory and connector status are unavailable and belong in the separate Page inventory.
+In the guest scenario (`fixtures/guest.expected.json`), the account tool identifies a guest. Only the current shared bot and its shared Page are readable. The tools deny transcripts, usage, and other bot inventory; no audit log tool is available. Memory and connector status are unavailable and belong in the separate Page inventory.
 
 For a team account, repeat the same evidence tests against its actual shared scope. Do not substitute either role fixture as an account default.
