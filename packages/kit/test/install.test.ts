@@ -147,3 +147,13 @@ test("a release can be installed from a directory that holds the downloaded asse
   assert.equal(outcome.action, "installed");
   assert.equal(readFileSync(outcome.path, "utf8"), V1);
 });
+
+test("a release address that is not https is refused before anything is fetched", () => {
+  for (const address of ["http://example.com/releases", "ftp://example.com/releases", "HTTP://example.com"]) {
+    assert.throws(
+      () => releaseSource(address),
+      (error) => error instanceof Failure && error.errors[0].code === "E_USAGE" && error.errors[0].message.includes("https"),
+      address,
+    );
+  }
+});

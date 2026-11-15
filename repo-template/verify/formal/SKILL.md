@@ -43,7 +43,7 @@ Also write down the bounds (how many items, how many actors) and what the model 
 
 1. Decide whether the change alters a step in the coverage table: a new state, a different order, a new way to fail. If it does not, run `npm run tlc` and you are done.
 2. If it does, change the model first so it describes the new design, run `npm run tlc`, then change the code to match.
-3. If TLC reports a violation, read it with the pstack `/statechart` skill (pstack is a public plugin of agent skills; `/statechart` turns TLC output into the shortest failing path in plain words, and draws the state chart when the check passes). Retell the path in the code's terms.
+3. If TLC reports a violation, read it with the pstack `/statechart` skill (pstack is a public plugin of agent skills for the Cursor editor; install it from the plugin marketplace inside Cursor by searching for "pstack". `/statechart` turns TLC output into the shortest failing path in plain words, and draws the state chart when the check passes. Without it, read the numbered states TLC prints from top to bottom: each one is one step, and the last is where the rule broke). Retell the path in the code's terms.
 4. Decide which is wrong. If the path can happen in the code, it is a real bug: fix the code, keep the property. If it cannot, the model is wrong: fix the model so it matches the code, and say in the pull request what was wrong with it. Never weaken or delete an invariant to get a pass.
 5. For a new protection, add a broken variant that removes only that protection, with its entry in `EXPECTED.json`.
 6. Update the coverage table and the sync commit above.

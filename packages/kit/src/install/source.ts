@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { failure } from "../domain/failure.ts";
 import { refuseAgentData } from "../paths/refuse-agent-data.ts";
 import type { Download } from "./install.ts";
 
@@ -14,4 +15,10 @@ const fromWeb = (base: string): Download => async (fileName) => {
   return new Uint8Array(await response.arrayBuffer());
 };
 
-export const releaseSource = (from: string): Download => (from.startsWith("https://") ? fromWeb(from) : fromDirectory(from));
+export const releaseSource = (from: string): Download => {
+  if (from.startsWith("https://")) return fromWeb(from);
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(from)) {
+    throw failure("E_USAGE", `The release address ${from} is not an https address.`, "Give an https:// address or the path of a directory that holds the release files.");
+  }
+  return fromDirectory(from);
+};
