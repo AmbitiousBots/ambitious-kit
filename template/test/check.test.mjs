@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, relative } from 'node:path';
 import test from 'node:test';
 import { LOCK_PATTERNS, parseLock } from '../../packages/kit/src/domain/lock.ts';
-import { buildInstaller, lock, readJson, releasedText, repoRoot, sha256, SKILL_PREFIX, sync, templateRoot as root } from './support.mjs';
+import { buildInstaller, lock, readJson, releasedText, repoRoot, sha256, SKILL_PREFIX, sync, templateRoot as root, VERSION_LINE } from './support.mjs';
 
 const schema = readJson(join(root, 'modules.lock.schema.json'));
 const sources = readJson(join(root, 'skills', 'SOURCES.json'));
@@ -14,6 +14,8 @@ const ownSkills = ['ambitious-capability-probe', 'ambitious-getting-started', 'a
 const expectedSkills = [...ownSkills, ...sources.copied.map(({ skill }) => skill), ...sources.written.map(({ skill }) => skill)].sort();
 const pinnedModules = ['audit', 'compliance', 'contracts', 'records', 'tasks', 'video'];
 const visibilitySignals = ['auditLog', 'otherBots', 'transcripts', 'usage'];
+const { version: templateVersion } = readJson(join(repoRoot, 'package.json'));
+const fixtureNames = ['guest', 'owner', 'role-unknown'].map((role) => `ambitious-capability-probe/${role}.expected.json`);
 
 async function filesIn(directory) {
   const entries = (await readdir(directory, { withFileTypes: true })).filter((entry) => !(directory === root && entry.name === 'test'));
@@ -84,7 +86,7 @@ function validateLock(value) {
 test('the required template files and skill frontmatter are present', async () => {
   const files = await filesIn(root);
   const paths = files.map((path) => relative(root, path));
-  for (const path of ['INSTRUCTIONS.md', 'routines.md', 'bot.json', 'modules.lock.json', 'modules.lock.schema.json', 'skills/SOURCES.json', ...expectedSkills.map((name) => `skills/${name}/SKILL.md`)]) {
+  for (const path of ['INSTRUCTIONS.md', 'routines.md', 'bot.json', 'modules.lock.json', 'modules.lock.schema.json', 'skills/SOURCES.json', ...fixtureNames.map((name) => `fixtures/${name}`), ...expectedSkills.map((name) => `skills/${name}/SKILL.md`)]) {
     assert(paths.includes(path), `Missing ${path}`);
   }
   const skills = files.filter((path) => path.endsWith('/SKILL.md'));
@@ -169,9 +171,9 @@ test('lock validation accepts exact releases and rejects invalid pins', () => {
   assert.throws(() => checkSchema({ ...schema, minItems: 1 }), /Unsupported schema keyword/u);
 });
 
-for (const role of ['owner', 'guest']) {
+for (const role of ['owner', 'guest', 'role-unknown']) {
   test(`${role} visibility fixture uses only the collector fields and signals`, async () => {
-    const path = join(root, 'skills', 'ambitious-capability-probe', 'fixtures', `${role}.expected.json`);
+    const path = join(root, 'fixtures', 'ambitious-capability-probe', `${role}.expected.json`);
     const rows = JSON.parse(await readFile(path, 'utf8'));
     assert(Array.isArray(rows));
     assert.deepEqual(rows.map((row) => row.signal).sort(), visibilitySignals);
@@ -181,17 +183,20 @@ for (const role of ['owner', 'guest']) {
       assert.equal(typeof row.why, 'string');
       assert(row.why.trim().length > 0, `${role}: explain each observation or gap`);
     }
-    const expectedSeen = role === 'owner'
-      ? { transcripts: true, usage: false, otherBots: true, auditLog: false }
-      : { transcripts: false, usage: false, otherBots: false, auditLog: false };
-    assert.deepEqual(Object.fromEntries(rows.map((row) => [row.signal, row.seen])), expectedSeen);
+    const expectedSeen = {
+      owner: { transcripts: true, usage: false, otherBots: true, auditLog: false },
+      guest: { transcripts: false, usage: false, otherBots: false, auditLog: false },
+      'role-unknown': { transcripts: false, usage: false, otherBots: true, auditLog: false },
+    };
+    assert.deepEqual(Object.fromEntries(rows.map((row) => [row.signal, row.seen])), expectedSeen[role]);
   });
 }
 
-test('every module skill names where it came from, and a copied skill is the recorded file apart from its recorded name and description lines', () => {
+test('every module skill names the pinned release it describes, and a copied skill is the recorded file apart from its recorded name and description lines and its template version line', () => {
   for (const entry of [...sources.copied, ...sources.written]) {
     assert.match(entry.repository, /^AmbitiousBots\/ambitious-[a-z]+$/u);
-    assert.equal(entry.tag, `${entry.repository.split('-').at(-1)}-v0.1.0`);
+    const module = entry.repository.split('-').at(-1);
+    assert.equal(entry.tag, `${module}-v${lock().find((row) => row.module === module)?.version}`, `${entry.skill}: the record must name the pinned release of ambitious-${module}`);
     assert.match(entry.commit, /^[0-9a-f]{40}$/u);
     assert(lock().some((row) => `${row.module}-v${row.version}` === entry.tag), `${entry.skill}: ${entry.tag} is not a pinned release`);
   }
@@ -201,10 +206,74 @@ test('every module skill names where it came from, and a copied skill is the rec
     const releasedName = entry.skill.slice(SKILL_PREFIX.length);
     assert.equal(entry.path, `skills/${releasedName}/SKILL.md`);
     assert.equal(entry.releasedFrontmatter.name, `name: ${releasedName}`);
-    assert.equal(sha256(releasedText(entry)), entry.sha256, `${entry.skill} differs from the file copied from ${entry.tag} in more than its name and description lines`);
+    assert.equal(sha256(releasedText(entry)), entry.sha256, `${entry.skill} differs from the file copied from ${entry.tag} in more than its name and description lines and its template version line`);
   }
-  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-for-bots', 'ambitious-tasks-page', 'ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback', 'ambitious-contracts-for-bots']);
-  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
+  for (const entry of sources.written) assert.deepEqual(Object.keys(entry), ['skill', 'repository', 'tag', 'commit']);
+  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback']);
+  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-tasks-for-bots', 'ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
+});
+
+test('the instructions and every skill body start with the template version, so a shared skill library can tell which template wrote a skill', () => {
+  const bot = readJson(join(root, 'bot.json'));
+  assert.equal(bot.version, templateVersion);
+  assert.equal(bot.instructions.split('\n')[0], `Template version: ${templateVersion}`);
+  for (const skill of bot.skills) {
+    const [first, second] = skill.body.split('\n');
+    assert.match(first, VERSION_LINE, `${skill.name}: the first line of the body must be the template version`);
+    assert.equal(first, `Template version: ${templateVersion}`, skill.name);
+    assert.equal(second, '', `${skill.name}: a blank line follows the template version`);
+  }
+});
+
+test('no instruction, routine or skill points at a file that is not on the bot\'s computer', async () => {
+  const prose = [join(root, 'INSTRUCTIONS.md'), join(root, 'routines.md'), ...(await filesIn(join(root, 'skills'))).filter((path) => path.endsWith('.md'))];
+  const fixtures = (await filesIn(join(root, 'fixtures'))).map((path) => relative(join(root, 'fixtures'), path));
+  assert.deepEqual(fixtures, fixtureNames);
+  for (const path of prose) {
+    const where = relative(root, path);
+    const text = await readFile(path, 'utf8');
+    for (const [, target] of text.matchAll(/\]\(([^)\s]+)\)/gu)) assert.match(target, /^https:\/\//u, `${where}: the link target ${target} is not a public address`);
+    for (const line of text.split('\n')) {
+      if (/\bREADME\b|\breadme\b/u.test(line)) assert.match(line, /https:\/\/github\.com\/AmbitiousBots\/ambitious-[a-z]+#readme/u, `${where}: a README is named without its public address: ${line}`);
+      assert.doesNotMatch(line, /source checkout|template source|beside this skill|verify\/run|\.\.\//u, `${where}: ${line}`);
+      for (const [named] of line.matchAll(/[A-Za-z0-9-]+\.expected\.json/gu)) {
+        assert(fixtures.some((fixture) => fixture.endsWith(`/${named}`)), `${where} names the fixture ${named}, which the installer does not place`);
+      }
+    }
+    for (const [, directory] of text.matchAll(/template\/fixtures\/([a-z0-9-]+)/gu)) {
+      assert(fixtures.some((fixture) => fixture.startsWith(`${directory}/`)), `${where} names template/fixtures/${directory}, which holds no fixture`);
+    }
+  }
+});
+
+test('the private data directory rule is exact: modules and module input never read it, and the bot reads only the platform\'s documented reference files there', async () => {
+  const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
+  for (const required of [
+    'Modules and module input never read `/home/box/agent-data`, the bot\'s private data directory.',
+    'Never give a module a path under it, and never put anything read from it into module input.',
+    'You yourself may read there only the platform\'s own skill and Page-kit reference files that the platform documents at that location, and nothing else under it.',
+  ]) assert(instructions.includes(required), `INSTRUCTIONS.md must say: ${required}`);
+  for (const path of [join(root, 'INSTRUCTIONS.md'), join(root, 'routines.md'), ...(await filesIn(join(root, 'skills'))).filter((file) => file.endsWith('.md'))]) {
+    assert.doesNotMatch(await readFile(path, 'utf8'), /Never read (?:Grok internals or )?`\/home\/box\/agent-data`/u, `${relative(root, path)} still forbids every read of the private data directory`);
+  }
+});
+
+test('the audit skills write an unseen value as null, run with an unknown role, and send the bot to the schema command when unsure', () => {
+  const skill = (name) => readFileSync(join(root, 'skills', name, 'SKILL.md'), 'utf8');
+  for (const name of ['ambitious-audit-collector', 'ambitious-capability-probe', 'ambitious-getting-started', 'ambitious-audit-page']) {
+    const text = skill(name);
+    assert.match(text, /`ambitious-audit schema`/u, `${name} must name the schema command`);
+    assert.match(text, /`null`/u, `${name} must say an unseen value is null`);
+    assert.match(text, /never (?:as |show it as |write )?(?:zero|0)/iu, `${name} must rule out zero for an unseen value`);
+    assert.match(text, /`unknown`/u, `${name} must cover an unknown account role`);
+    assert.doesNotMatch(text, /defer collector input/u, name);
+  }
+  const collector = skill('ambitious-audit-collector');
+  for (const required of ['`needsGrant`', '`initializing`', '`credits`', '`percent`', '`source` is optional', 'partial mode', 'names the failing field']) {
+    assert(collector.includes(required), `ambitious-audit-collector must mention ${required}`);
+  }
+  assert.match(skill('ambitious-capability-probe'), /do not put the audit off/u);
+  assert.match(skill('ambitious-getting-started'), /Do not put the audit off/u);
 });
 
 test('every skill is named for the Ambitious Bot and says so first in its description', () => {
@@ -246,7 +315,7 @@ test('the installer pin in the ambitious-module-installer skill and bot.json are
 
 test('bot.json is a complete payload for creating the bot', () => {
   const bot = readJson(join(root, 'bot.json'));
-  assert.deepEqual(Object.keys(bot), ['name', 'description', 'instructions', 'skills', 'routines']);
+  assert.deepEqual(Object.keys(bot), ['name', 'description', 'version', 'instructions', 'skills', 'routines']);
   assert.equal(bot.name, 'Ambitious Bot');
   assert(bot.description.length > 0 && bot.description.length <= 300);
   assert.equal(bot.instructions, readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8'));
@@ -258,18 +327,35 @@ test('bot.json is a complete payload for creating the bot', () => {
   }
   assert.deepEqual(bot.routines.map(({ name, paused }) => [name, paused]), [['ambitious-selfcheck', false], ['ambitious-snapshot', true]]);
   for (const routine of bot.routines) {
-    assert.deepEqual(Object.keys(routine), ['name', 'schedule', 'prompt', 'paused']);
-    assert(routine.schedule.trim().length > 0 && routine.prompt.trim().length > 0, routine.name);
+    assert.deepEqual(Object.keys(routine), ['name', 'schedule', 'timeZone', 'destination', 'prompt', 'paused']);
+    assert.match(routine.schedule, /^every day at (?:[1-9]|1[0-2]):[0-5][0-9] (?:AM|PM)$/u, `${routine.name}: the schedule needs a default time`);
+    assert.equal(routine.timeZone, 'the owner\'s time zone, or UTC until the owner has given one', routine.name);
+    assert.equal(routine.destination, 'the owner\'s chat with this bot', routine.name);
+    assert(routine.prompt.trim().length > 0, routine.name);
   }
-  const [selfcheck] = bot.routines;
+});
+
+test('the selfcheck routine is quiet when nothing is wrong and speaks only about problems, and the instructions say the same', () => {
+  const [selfcheck] = readJson(join(root, 'bot.json')).routines;
   assert.match(selfcheck.prompt, /`ambitious-module-installer` skill: run its sync command and nothing else/u);
-  assert.match(selfcheck.prompt, /Do not collect an audit, write a report or send anything/u);
+  assert.match(selfcheck.prompt, /When `ok` is true and `data\.problems` is empty, end the run without posting any message\./u);
+  assert.match(selfcheck.prompt, /When `data\.problems` is not empty, post one message to the owner's chat with this bot/u);
+  assert.match(selfcheck.prompt, /Do not collect an audit, write a report, or call `send_report`, `send_feedback` or any other connection tool/u);
+  assert.doesNotMatch(selfcheck.prompt, /say that every module is installed/u);
+  const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
+  assert.doesNotMatch(instructions, /sends nothing/u);
+  assert(instructions.includes('It posts nothing when `data.problems` is empty, and posts the problems to the owner\'s chat with this bot when it is not.'));
+  assert(instructions.includes('The `ambitious-selfcheck` routine runs the sync command every day at 7:00 AM in the owner\'s time zone.'));
 });
 
 test('the instructions state the boundaries a copy of the template must keep', () => {
   const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
   for (const required of [
-    'Nothing leaves this computer except through `send_report` and `send_feedback`, each after the owner\'s tool approval.',
+    'Nothing leaves this computer except through the Ambitious MCP tools, each call after the owner\'s tool approval.',
+    'Audit data leaves only through `send_report` and `send_feedback`. A Factory tool call carries only the business details the owner gave for that call.',
+    'It serves `send_report` and `send_feedback`, and the Factory tools `factory_environment`, `factory_match`, `factory_plan` and `factory_version`.',
+    'The command never downloads, installs or runs a newer template release.',
+    'A skill is written only when none is stored or the stored one is older.',
     '`/workspace/ambitious/bin`',
     '`/home/box/agent-data`',
     'https://ambitiousbots.com/api/mcp',
@@ -285,48 +371,78 @@ const scratch = (t) => {
   return directory;
 };
 
-test('the first-run lines in the ambitious-module-installer skill fetch the pinned installer, and it then runs', (t) => {
+test('each of the three ways to fetch the installer in the ambitious-module-installer skill ends in the same pin check, which alone makes the link', (t) => {
   const built = buildInstaller();
-  const { version } = readJson(join(repoRoot, 'package.json'));
-  const asset = `ambitious-modules-${version}.mjs`;
+  const asset = `ambitious-modules-${templateVersion}.mjs`;
+  const tag = `kit-v${templateVersion}`;
   const skill = readFileSync(join(root, 'skills', 'ambitious-module-installer', 'SKILL.md'), 'utf8');
   const blocks = [...skill.matchAll(/```sh\n([\s\S]*?)```/gu)].map(([, block]) => block);
-  const firstRun = blocks.find((block) => block.includes('sha256sum'));
-  assert(firstRun, 'the skill needs a first-run block that checks the pin');
-  assert(firstRun.includes(`https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v${version}/${asset}`));
-  assert(firstRun.includes(`${sha256(readFileSync(built))}  ${asset}`));
+  const only = (what, test) => {
+    const found = blocks.filter(test);
+    assert.equal(found.length, 1, `the skill needs exactly one block that ${what}`);
+    return found[0];
+  };
+  const fetches = {
+    curl: only('downloads with curl', (block) => block.includes('curl ')),
+    gh: only('downloads with the GitHub CLI', (block) => block.includes('gh release download')),
+    mirror: only('copies from a mirror', (block) => block.includes('$AMBITIOUS_MODULE_MIRROR')),
+  };
+  const verify = only('checks the pin', (block) => block.includes('sha256sum'));
+  assert(fetches.curl.includes(`https://github.com/AmbitiousBots/ambitious-kit/releases/download/${tag}/${asset}`));
+  assert(fetches.gh.includes(`gh release download ${tag} --repo AmbitiousBots/ambitious-kit --pattern ${asset}`));
+  assert(fetches.mirror.includes(`"$AMBITIOUS_MODULE_MIRROR/${tag}/${asset}"`));
+  assert(verify.includes(`${sha256(readFileSync(built))}  ${asset}`));
+  for (const block of Object.values(fetches)) assert.doesNotMatch(block, /ln |chmod |node /u, 'a fetch block must not link or run the file; only the pin check may');
+  assert.equal(blocks.filter((block) => block.includes('ln ')).length, 1, 'only the pin check block may make the link');
+  assert.doesNotMatch(skill, /another way/u);
   assert(blocks.some((block) => block.trim() === 'node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" sync --json'));
 
   const tools = scratch(t);
-  const fakeCurl = (source) => {
-    writeFileSync(join(tools, 'curl'), `#!/bin/sh\nfor last; do :; done\ncp "${source}" "$(basename "$last")"\n`);
-    chmodSync(join(tools, 'curl'), 0o755);
-  };
-  const firstRunIn = (home) => spawnSync('sh', ['-c', firstRun], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home, PATH: `${tools}${delimiter}${process.env.PATH}` } });
-
   const tampered = join(tools, 'tampered.mjs');
   writeFileSync(tampered, `${readFileSync(built, 'utf8')}\n`);
-  fakeCurl(tampered);
-  const refusedHome = scratch(t);
-  assert.notEqual(firstRunIn(refusedHome).status, 0, 'a download that does not match the pin must stop the first run');
-  assert.throws(() => readlinkSync(join(refusedHome, 'bin', 'ambitious-modules')));
+  const serve = (source) => {
+    writeFileSync(join(tools, 'curl'), `#!/bin/sh\nfor last; do :; done\ncp "${source}" "$(basename "$last")"\n`);
+    writeFileSync(join(tools, 'gh'), `#!/bin/sh\ncp "${source}" "${asset}"\n`);
+    for (const tool of ['curl', 'gh']) chmodSync(join(tools, tool), 0o755);
+    const mirror = scratch(t);
+    mkdirSync(join(mirror, tag));
+    writeFileSync(join(mirror, tag, asset), readFileSync(source));
+    return mirror;
+  };
+  const shell = (block, home, mirror) =>
+    spawnSync('sh', ['-c', block], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home, AMBITIOUS_MODULE_MIRROR: mirror, PATH: `${tools}${delimiter}${process.env.PATH}` } });
 
-  fakeCurl(built);
-  const home = scratch(t);
-  const run = firstRunIn(home);
-  assert.equal(run.status, 0, run.stdout + run.stderr);
-  assert.equal(readlinkSync(join(home, 'bin', 'ambitious-modules')), asset);
+  for (const [way, fetch] of Object.entries(fetches)) {
+    const refusedHome = scratch(t);
+    const badMirror = serve(tampered);
+    assert.equal(shell(fetch, refusedHome, badMirror).status, 0, way);
+    assert.notEqual(shell(verify, refusedHome, badMirror).status, 0, `${way}: a file that does not match the pin must fail the check`);
+    assert.throws(() => readlinkSync(join(refusedHome, 'bin', 'ambitious-modules')), `${way}: no link may be made for a file that failed the check`);
+    assert.throws(() => readFileSync(join(refusedHome, 'bin', asset)), `${way}: a file that failed the check is deleted`);
 
-  const emptyLock = join(tools, 'empty.lock.json');
-  writeFileSync(emptyLock, '[]\n');
-  const viaLink = spawnSync(process.execPath, [join(home, 'bin', 'ambitious-modules'), 'sync', '--json', '--lock', emptyLock], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
-  const envelope = JSON.parse(viaLink.stdout);
-  assert.equal(envelope.ok, true);
-  assert.equal(envelope.meta.version, version);
-  assert.equal(envelope.data.summary, 'No modules are pinned, so nothing was installed or checked.');
+    const home = scratch(t);
+    mkdirSync(join(home, 'bin'));
+    writeFileSync(join(home, 'bin', 'ambitious-modules-0.0.1.mjs'), 'an older installer');
+    symlinkSync('ambitious-modules-0.0.1.mjs', join(home, 'bin', 'ambitious-modules'));
+    const goodMirror = serve(built);
+    const fetched = shell(fetch, home, goodMirror);
+    assert.equal(fetched.status, 0, `${way}: ${fetched.stdout}${fetched.stderr}`);
+    assert.equal(readlinkSync(join(home, 'bin', 'ambitious-modules')), 'ambitious-modules-0.0.1.mjs', `${way}: fetching alone must not switch the link`);
+    const checked = shell(verify, home, goodMirror);
+    assert.equal(checked.status, 0, `${way}: ${checked.stdout}${checked.stderr}`);
+    assert.equal(readlinkSync(join(home, 'bin', 'ambitious-modules')), asset);
+
+    const emptyLock = join(tools, 'empty.lock.json');
+    writeFileSync(emptyLock, '[]\n');
+    const viaLink = spawnSync(process.execPath, [join(home, 'bin', 'ambitious-modules'), 'sync', '--json', '--lock', emptyLock], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
+    const envelope = JSON.parse(viaLink.stdout);
+    assert.equal(envelope.ok, true);
+    assert.equal(envelope.meta.version, templateVersion);
+    assert.equal(envelope.data.summary, 'No modules are pinned, so nothing was installed or checked.');
+  }
 });
 
-test('the sync command refuses the private data directory, an unknown command and a lock that is not a list of pins', (t) => {
+test('the installer refuses the private data directory, an unknown command or option and a lock that is not a list of pins', (t) => {
   buildInstaller();
   const home = scratch(t);
   const forbidden = sync('/home/box/agent-data/ambitious');
@@ -338,9 +454,13 @@ test('the sync command refuses the private data directory, an unknown command an
   assert.equal(invalid.status, 1);
   assert.equal(invalid.envelope.errors[0].code, 'E_INPUT_SCHEMA');
   mkdirSync(join(home, 'mirror'));
-  const run = spawnSync(process.execPath, [buildInstaller(), 'install'], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
-  assert.equal(run.status, 1);
-  assert.equal(JSON.parse(run.stdout).errors[0].code, 'E_USAGE');
+  for (const args of [['install'], ['sync', '--updated-from', '0.0.1'], ['sync', '--in', badLock], ['skills', '--lock', badLock]]) {
+    const run = spawnSync(process.execPath, [buildInstaller(), ...args], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
+    assert.equal(run.status, 1, args.join(' '));
+    assert.equal(JSON.parse(run.stdout).errors[0].code, 'E_USAGE', args.join(' '));
+  }
+  const privateInput = spawnSync(process.execPath, [buildInstaller(), 'skills', '--in', '/home/box/agent-data/skills.json'], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
+  assert.equal(JSON.parse(privateInput.stdout).errors[0].code, 'E_FORBIDDEN_PATH');
 });
 
 await import('./releases.test.mjs');

@@ -6,17 +6,19 @@ import { join } from "node:path";
 
 const USAGE = `Usage: node scripts/template-generate.mjs [--check]
 
-Regenerates the two generated parts of the Ambitious Bot template in template/:
+Regenerates the generated parts of the Ambitious Bot template in template/:
 
+  INSTRUCTIONS.md and every skills/*/SKILL.md
+             the "Template version: x.y.z" line, set to the version in package.json
   skills/ambitious-module-installer/SKILL.md
              the release tag, file name and SHA-256 pin of the bundled installer,
              ambitious-modules-<version>.mjs
   bot.json   the payload for creating a bot from the template: its name, description,
-             instructions, skills and routines
+             version, instructions, skills and routines
 
-Both are derived from the other files: the installer is built from packages/kit with
-template/modules.lock.json embedded, and bot.json is INSTRUCTIONS.md, every
-skills/*/SKILL.md and the "ambitious-" sections of routines.md.
+All are derived from the other files: the installer is built from packages/kit with
+template/modules.lock.json and template/fixtures embedded, and bot.json is
+INSTRUCTIONS.md, every skills/*/SKILL.md and the "ambitious-" sections of routines.md.
 
 With --check nothing is written; the exit code is 1 when a generated part is out of date.
 Needs "npm ci" first.
@@ -44,12 +46,19 @@ const frontmatter = (text, where) => {
   return { name: value("name"), description: value("description"), body: match[2] };
 };
 
-const skills = () =>
+const skillNames = () =>
   readdirSync(join(template, "skills"), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .sort()
-    .map((name) => frontmatter(read(join(template, "skills", name, "SKILL.md")), `skills/${name}/SKILL.md`));
+    .sort();
+
+const skills = (version, installerText) =>
+  skillNames().map((name) => {
+    const where = `skills/${name}/SKILL.md`;
+    const skill = frontmatter(name === "ambitious-module-installer" ? installerText : versioned(read(join(template, "skills", name, "SKILL.md")), version, where), where);
+    if (!skill.body.startsWith(`Template version: ${version}\n`)) throw new Error(`${where}: the first line of the body must be "Template version: ${version}".`);
+    return skill;
+  });
 
 const routines = () =>
   read(join(template, "routines.md"))
@@ -64,17 +73,25 @@ const routines = () =>
         return lines.splice(index, 1)[0].slice(label.length + 2).trim();
       };
       const schedule = setting("Schedule");
+      const timeZone = setting("Time zone");
+      const destination = setting("Destination");
       const starts = setting("Starts");
       if (starts !== "active" && starts !== "paused") throw new Error(`The routine ${name} in routines.md must have "Starts: active" or "Starts: paused".`);
-      return { name, schedule, prompt: lines.join("\n").trim(), paused: starts === "paused" };
+      return { name, schedule, timeZone, destination, prompt: lines.join("\n").trim(), paused: starts === "paused" };
     });
 
-const pinnedInstallerSkill = () => {
+const VERSION_LINE = /^Template version: [0-9]+\.[0-9]+\.[0-9]+$/m;
+
+const versioned = (text, version, where) => {
+  if (!VERSION_LINE.test(text)) throw new Error(`${where} needs a "Template version: x.y.z" line for the generator to keep current.`);
+  return text.replace(VERSION_LINE, `Template version: ${version}`);
+};
+
+const pinnedInstallerSkill = (version) => {
   execFileSync(process.execPath, [join(repoRoot, "packages", "kit", "scripts", "build-install.mjs")], { stdio: ["ignore", "ignore", "inherit"] });
-  const { version } = JSON.parse(read(join(repoRoot, "package.json")));
   const sha256 = createHash("sha256").update(readFileSync(join(repoRoot, "packages", "kit", "dist", "ambitious-modules.mjs"))).digest("hex");
   const semver = "[0-9]+\\.[0-9]+\\.[0-9]+";
-  const pinned = read(installerSkill)
+  const pinned = versioned(read(installerSkill), version, "skills/ambitious-module-installer/SKILL.md")
     .replace(new RegExp(`kit-v${semver}`, "g"), `kit-v${version}`)
     .replace(new RegExp(`ambitious-modules-${semver}\\.mjs`, "g"), `ambitious-modules-${version}.mjs`)
     .replace(/[0-9a-f]{64}(?= {2}ambitious-modules-)/g, sha256);
@@ -91,8 +108,16 @@ const generate = (check) => {
     if (check) stale.push(path);
     else writeFileSync(path, wanted);
   };
-  settle(installerSkill, pinnedInstallerSkill());
-  const bot = { name: BOT_NAME, description: BOT_DESCRIPTION, instructions: read(join(template, "INSTRUCTIONS.md")), skills: skills(), routines: routines() };
+  const { version } = JSON.parse(read(join(repoRoot, "package.json")));
+  const instructions = join(template, "INSTRUCTIONS.md");
+  settle(instructions, versioned(read(instructions), version, "INSTRUCTIONS.md"));
+  for (const name of skillNames().filter((skill) => join(template, "skills", skill, "SKILL.md") !== installerSkill)) {
+    const path = join(template, "skills", name, "SKILL.md");
+    settle(path, versioned(read(path), version, `skills/${name}/SKILL.md`));
+  }
+  const installerText = pinnedInstallerSkill(version);
+  settle(installerSkill, installerText);
+  const bot = { name: BOT_NAME, description: BOT_DESCRIPTION, version, instructions: versioned(read(instructions), version, "INSTRUCTIONS.md"), skills: skills(version, installerText), routines: routines() };
   const wanted = `${JSON.stringify(bot, null, 2)}\n`;
   try {
     settle(botFile, wanted);
@@ -105,7 +130,7 @@ const generate = (check) => {
     process.stdout.write(`template: out of date: ${stale.join(", ")}.\nRun "npm run template:generate" and commit the result.\n`);
     return 1;
   }
-  process.stdout.write(check ? "template: the installer pin and bot.json are up to date.\n" : "template: wrote the installer pin and bot.json.\n");
+  process.stdout.write(check ? "template: the version lines, the installer pin and bot.json are up to date.\n" : "template: wrote the version lines, the installer pin and bot.json.\n");
   return 0;
 };
 
