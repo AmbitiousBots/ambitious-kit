@@ -1,0 +1,10 @@
+{
+  "missing-meta.json": { "pointer": "", "keyword": "required" },
+  "ok-true-with-errors.json": { "pointer": "/errors", "keyword": "maxItems" },
+  "ok-false-without-errors.json": { "pointer": "/errors", "keyword": "minItems" },
+  "error-without-hint.json": { "pointer": "/errors/0", "keyword": "required" },
+  "error-code-not-upper-snake.json": { "pointer": "/errors/0/code", "keyword": "pattern" },
+  "extra-top-level-field.json": { "pointer": "/log", "keyword": "additionalProperties" },
+  "data-is-a-list.json": { "pointer": "/data", "keyword": "type" },
+  "now-not-utc-milliseconds.json": { "pointer": "/meta/now", "keyword": "pattern" }
+}

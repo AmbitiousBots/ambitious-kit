@@ -1,0 +1,15 @@
+{
+  "ok": false,
+  "schemaVersion": 1,
+  "module": "tasks",
+  "command": "dep add",
+  "data": { "cycle": ["T-12", "T-9", "T-12"] },
+  "errors": [
+    {
+      "code": "E_CYCLE",
+      "message": "T-12 cannot depend on T-9 because T-9 already depends on T-12.",
+      "hint": "Remove the dependency of T-9 on T-12 first, or choose a different task."
+    }
+  ],
+  "meta": { "now": "2026-01-01T00:00:00.000Z", "seed": 7, "version": "0.1.0" }
+}

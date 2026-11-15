@@ -1,0 +1,15 @@
+{
+  "ok": false,
+  "schemaVersion": 1,
+  "module": "tasks",
+  "command": "",
+  "data": {},
+  "errors": [
+    {
+      "code": "E_USAGE",
+      "message": "Unknown command \"nxt\".",
+      "hint": "Use one of: add, next, dep add, dep rm, selfcheck."
+    }
+  ],
+  "meta": { "now": "2026-01-01T00:00:00.000Z", "seed": 7, "version": "0.1.0" }
+}

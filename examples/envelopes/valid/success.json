@@ -1,0 +1,9 @@
+{
+  "ok": true,
+  "schemaVersion": 1,
+  "module": "tasks",
+  "command": "next",
+  "data": { "task": { "id": "T-12", "title": "Write the release notes" }, "reasons": ["all dependencies done", "earliest due date"] },
+  "errors": [],
+  "meta": { "now": "2026-01-01T00:00:00.000Z", "seed": 7, "version": "0.1.0" }
+}
