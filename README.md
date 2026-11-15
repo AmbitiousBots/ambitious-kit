@@ -15,19 +15,22 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 | [packages/depcruise](packages/depcruise) | `@ambitious/depcruise`: which directory may import what. |
 | [examples/hello](examples/hello) | A complete module on the kit: two commands, one migration, tests, a TLA+ model, bundled into one file. |
 | [repo-template](repo-template) | The files every repo starts with: agent files, the contributing guide, code of conduct and security policy, issue and PR templates, license, directory layout, the pinned toolchain, the checks in `scripts/`, the verification skill in `verify/`, and a sample TLA+ model with a broken variant. |
+| [template](template) | The Ambitious Bot template: the instructions, skills and routines of the free bot, and the list of module releases it installs. See [The Ambitious Bot template](#the-ambitious-bot-template). |
 | [verify](verify) | The kit's own verification skill: [verify/SKILL.md](verify/SKILL.md), the feature list, `verify/run`, and the formal-verification skill in [verify/formal](verify/formal/SKILL.md). |
 | [spec](spec) | TLA+ models and how they are checked; see [spec/README.md](spec/README.md). The installer's model is in [packages/kit/spec](packages/kit/spec). |
 | [.github/workflows](.github/workflows) | `ci.yml` checks this repo. `tlc.yml` and `lean.yml` are reusable workflows for every module. |
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.1.1`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.2.0`.
 
 | File | Use |
 |---|---|
 | `ambitious-kit-<version>.tgz`, `ambitious-lint-<version>.tgz`, `ambitious-depcruise-<version>.tgz` | The three npm packages, compiled to JavaScript with type declarations. A TypeScript module installs them as development dependencies. |
 | `ambitious_kit-<version>.pyz` | The Python kit. A Python module unpacks it into its repository; run as a program it contract-tests a binary. |
-| `ambitious-install-<version>.mjs` | The installer a bot runs to put a module into `$AMBITIOUS_HOME/bin`. |
+| `ambitious-install-<version>.mjs` | The installer for one module: it puts a named release into `$AMBITIOUS_HOME/bin`. |
+| `ambitious-modules-<version>.mjs` | The installer a bot runs: one `sync` command installs, repairs, upgrades and selfchecks every module pinned by this release. |
+| `ambitious-template-<version>.tgz` | The Ambitious Bot template: its instructions, skills, routines, module pins and `bot.json`. |
 | `ambitious-hello-<version>.mjs` | The example module, to try the installer and the contract tests on. |
 | `SHA256SUMS` | The SHA-256 of every file above. |
 
@@ -39,9 +42,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.1.1.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.1.1.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.1.1.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.2.0.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.2.0.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.2.0.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -83,10 +86,27 @@ npm run release:check
 | `npm test` | Builds the example, then runs the tests for the kit, the rules, the template, the example and the checks themselves. `npm run test:python` runs the Python kit's tests. |
 | `npm run contract -- <binary>` | The contract tests against a built module. `npm run contract:python` runs the Python and TypeScript suites on each other's example module. |
 | `npm run tlc` | Every TLA+ model in `spec/`, `packages/kit/spec/` and `examples/hello/spec/` passes TLC, and every broken variant breaks the invariant listed for it. |
+| `npm run template:test` | The bot template in [template](template): every file and skill is present with no placeholder, `bot.json` and the installer pin are up to date, each module pin matches the published file and its release's `SHA256SUMS`, and the six pinned modules install, repair, upgrade and selfcheck in a temporary `AMBITIOUS_HOME`. The checks that download releases need a signed-in [GitHub CLI](https://cli.github.com) (`gh`), or `AMBITIOUS_MODULE_MIRROR` naming a directory that holds the release files; without either they are skipped and say so. `npm run template:e2e` runs the install test alone. |
 | `npm run verify` | `verify/run`: every user-visible feature in `verify/features.json`, each against a fresh temporary `AMBITIOUS_HOME`. |
 | `npm run release:build` | Writes the release files and `SHA256SUMS` into `release/`, which git ignores. |
 
 `check:standalone` can also check only changed files, a saved pull request description and commit messages, and can take extra patterns from a file kept outside the repository; run `node scripts/check-standalone.mjs --help`. Paths that are part of the documented runtime, such as the default home directory, are listed with a reason in [.standalone.json](.standalone.json).
+
+## The Ambitious Bot template
+
+[template](template) is the free Ambitious Bot: a Grok Bot that installs and checks every Ambitious module, audits what an account can honestly see, and keeps its documents in Grok Bot Pages. [Ambitious](https://ambitiousbots.com) is a bot configuration and monitoring service; the template works without a subscription, and monitoring adds reports sent to the service after the owner approves each send.
+
+| File | What it is |
+|---|---|
+| [template/INSTRUCTIONS.md](template/INSTRUCTIONS.md) | The bot's instructions: its role, what may leave the computer, and how it runs modules. At most 120 lines. |
+| [template/skills](template/skills) | One directory per skill. `module-installer`, `capability-probe` and `getting-started` are written here. The skills listed under `copied` in [template/skills/SOURCES.json](template/skills/SOURCES.json) are byte-for-byte copies from a module's release tag; those under `written` were written here from that module's documentation at the tag. |
+| [template/routines.md](template/routines.md) | The routines: a daily selfcheck, and a snapshot that starts paused. |
+| [template/modules.lock.json](template/modules.lock.json) | The pins: one `{ module, version, url, sha256 }` row per module release, described by [template/modules.lock.schema.json](template/modules.lock.schema.json). |
+| [template/bot.json](template/bot.json) | Everything above as one payload for creating the bot: `name`, `description`, `instructions`, `skills` and `routines`. Generated. |
+
+The bot runs one command, `node "$AMBITIOUS_HOME/bin/ambitious-modules" sync --json`, described in [packages/kit](packages/kit/README.md#installer). The pins are embedded in that installer when it is built, so a kit release carries its own pins in `ambitious-modules-<version>.mjs`. A bot made from the template keeps its own copy of the skills, which later template changes may not reach; the installer therefore looks for the latest kit release at the start of every run and hands over to that release's installer, after checking it against the release's `SHA256SUMS`.
+
+To change a pin, edit `template/modules.lock.json` with the release's asset address and the SHA-256 of the downloaded asset, then run `npm run template:generate`. It rebuilds the installer and rewrites the two generated parts: the installer's own SHA-256 in the `module-installer` skill, and `bot.json`. `npm run template:test` fails when either is out of date.
 
 ## Release
 

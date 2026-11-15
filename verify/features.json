@@ -30,6 +30,11 @@
     "check": "node verify/checks/install.mjs"
   },
   {
+    "id": "sync",
+    "userVisible": "A bot keeps every pinned module in place with one command: it installs what is missing, replaces what was removed or altered, upgrades when a pin moves, runs each selfcheck and says in plain words what happened.",
+    "check": "node --test packages/kit/test/sync.test.ts"
+  },
+  {
     "id": "comment-ban",
     "userVisible": "A stray code comment is refused with a message that says what to do instead.",
     "check": "node verify/checks/rule-catches.mjs comment"

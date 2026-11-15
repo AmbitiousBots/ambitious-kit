@@ -1,40 +1,57 @@
 ---
 name: module-installer
-description: Install checksum-pinned module releases and run their selfchecks on first chat and every routine start.
+description: Install, repair, upgrade and selfcheck every pinned Ambitious module with one sync command. Use on first chat and at the start of every routine.
 ---
 
 # Module installer
 
-Read [the lock file](../../modules.lock.json) and validate it against [its schema](../../modules.lock.schema.json) before downloading or changing anything.
-Each row has `module`, `version`, `url` and `sha256`. The module is the CLI suffix, such as `tasks`, and the version is an exact semantic version.
-Reject repeated module names, unknown fields, non-HTTPS locations and any asset filename that differs from the module and version in the row.
-The asset filename is `ambitious-` followed by the module, a hyphen, the version, then `.mjs` or `.pyz`.
-Never resolve a moving release alias or edit the pins during a routine.
+Run one command. It does every install and check step itself; never do those steps by hand, and never edit pins.
 
-The shipped empty array is intentional. Report "No module releases are pinned. Installation and module selfchecks did not run."
-Do not describe that result as a successful module health check or discover substitute downloads.
+```sh
+node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" sync --json
+```
 
-## Install a pinned release
+`/workspace/ambitious` is the default of `AMBITIOUS_HOME` on a Grok Bot computer. The command needs Node 24 and nothing else.
 
-1. Use `/workspace/ambitious/bin`, or `bin` under an explicitly configured `AMBITIOUS_HOME`. Refuse paths resolving into `/home/box/agent-data` before opening or creating anything. Use Node 24 for `.mjs` or Python 3.13 for `.pyz`; report a missing or wrong runtime instead of installing packages.
-2. Check the installed versioned asset and the `ambitious-` module link. If the asset checksum matches the lock, skip the download. If the link and checksum record also match, make no installation writes. Repair only a missing or incorrect link or checksum record for that verified asset.
-3. Otherwise download the exact asset URL and its sibling `SHA256SUMS` into unique temporary files inside `bin`. Keep transport requests free of account and business data. Require successful HTTPS downloads; do not execute downloaded bytes yet.
-4. Compute SHA-256 locally. Require the result to match both the lock's `sha256` and the one checksum line naming that exact asset in `SHA256SUMS`. Reject missing, duplicate or conflicting entries. A downloaded checksum list alone cannot replace the lock's trusted digest.
-5. Make the verified asset executable. Rename it into its versioned filename within `bin`. Stage the module link and local `SHA256SUMS` record in `bin`, then rename them into place. Keep checksum lines for other installed modules. Each replacement uses a rename within `bin`, never a partially written final file.
-6. A different installed version stays beside the requested one until the requested asset is verified and the link switches. On a download or verification failure, remove only this run's temporary files, leave the existing asset, link and checksum record untouched, and report failure. Do not delete module databases or older versions.
+For every pinned module the command puts the release file into `bin` under `AMBITIOUS_HOME`, after its SHA-256 matched both the pin and the release's `SHA256SUMS`.
+It changes nothing when a module is already in place, installs again a module whose file or link was removed or altered, and upgrades a module whose pin moved; the old version stays until the new one is verified.
+Then it runs each module's `selfcheck --json`. It refuses `/home/box/agent-data`, the bot's private data directory.
+It first looks for a newer template release and, when there is one, uses that release's installer and pins.
 
-Serialize installer runs on this computer so overlapping routines do not overwrite each other's link or checksum changes.
-Rerunning after an interruption must converge on the pinned asset, link and checksum record. Repeat these checks after Update Bot's Computer.
-Installation itself never opens, creates or changes a module database. Do not run package managers or install runtime dependencies.
-Use only module skills supplied with the same pinned release through its documented, checksum-verified distribution. If those skills are unavailable, report the missing skills instead of copying instructions from a moving branch.
+## Read the result
 
-## Selfcheck and handoff
+The command prints one JSON envelope. Read it; do not rely on the exit code alone.
 
-After installation, call `selfcheck --json` through each pinned module's link in `bin`, including modules whose installation was already current.
-For example, a pinned tasks module is called as `/workspace/ambitious/bin/ambitious-tasks selfcheck --json`.
-Selfcheck is separate from installation; it may create the module database and apply the module's pending forward migrations.
-Check the exit status and envelope as required by [the bot instructions](../../INSTRUCTIONS.md).
-Read the reported runtime version, binary checksum, database integrity result, schema version and `data.problems`.
-Require the reported binary checksum to match the pin and `data.problems` to be empty before marking that module ready.
-If a module fails, show its plain-language problem and next action. Continue checking independent modules, but do not start work that depends on a failed module.
-If a command cannot start or its output is invalid, say what failed without inventing an envelope or a clean selfcheck.
+| Field | Meaning |
+| --- | --- |
+| `data.summary` | One sentence to relay to the owner. |
+| `data.modules[].state` | `installed`, `unchanged`, `reinstalled`, `upgraded` or `failed`. |
+| `data.modules[].selfcheck` | `ok`, `problems` or `not run`. |
+| `data.problems` | Every problem in plain words, each starting with the module it concerns. Empty means every module is installed and its selfcheck is ok. |
+| `data.template` | The template release whose pins were used, and whether a newer one was found. |
+
+Report every entry of `data.problems` to the owner as written, with what to do next. Do not start work that depends on a module whose state is `failed` or whose selfcheck is not `ok`; the other modules stay usable.
+Python 3.13 is needed only by the video module. When it is missing, that is a reported problem for video alone.
+When `ok` is false, relay `errors[].message` and `errors[].hint`. If the command cannot start or prints no JSON, say what failed. Never invent a result or a clean selfcheck.
+
+## When the command is not there yet
+
+On a new computer, or after the computer was reset, `bin/ambitious-modules` is missing. Fetch it once, then run the sync command above:
+
+```sh
+home="${AMBITIOUS_HOME:-/workspace/ambitious}"
+mkdir -p "$home/bin" && cd "$home/bin" &&
+curl -fsSLO https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.2.0/ambitious-modules-0.2.0.mjs &&
+echo "a9e9e68370b1804bde74b4cf3234ed74117cc7d63e807260b050ec6071d01859  ambitious-modules-0.2.0.mjs" | sha256sum -c - &&
+chmod 755 ambitious-modules-0.2.0.mjs && ln -sfn ambitious-modules-0.2.0.mjs ambitious-modules
+```
+
+The `sha256sum` line is the pin. If it fails, delete the downloaded file, do not run it, and report the failure.
+If the download is refused, get the same file another way and then run the same lines from `echo` on:
+
+- With a signed-in GitHub CLI: `gh release download kit-v0.2.0 --repo AmbitiousBots/ambitious-kit --pattern ambitious-modules-0.2.0.mjs`.
+- From a mirror directory the owner names: copy `kit-v0.2.0/ambitious-modules-0.2.0.mjs` out of it.
+
+A mirror directory holds each release's files in a directory named after its tag, for example `tasks-v0.1.0/ambitious-tasks-0.1.0.mjs` beside that release's `SHA256SUMS`.
+To make the sync command read a mirror instead of the network, add `--from` and the directory, or set `AMBITIOUS_MODULE_MIRROR` to it. Files from a mirror pass the same checksum checks.
+Never ask for, store or print an access token. If no source works, report that the modules could not be fetched and stop there.

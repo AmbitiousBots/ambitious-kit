@@ -18,7 +18,9 @@ is, so the build never deletes a file it did not write:
   ambitious-depcruise-<version>.tgz  @ambitious/depcruise, compiled the same way
   ambitious_kit-<version>.pyz        the Python kit; import it from a module, or run it to contract-test a binary
   ambitious-hello-<version>.mjs      the example module, one bundled file
-  ambitious-install-<version>.mjs    the installer, one bundled file
+  ambitious-install-<version>.mjs    the installer for one module, one bundled file
+  ambitious-modules-<version>.mjs    the installer a bot runs: every pinned module, one bundled file
+  ambitious-template-<version>.tgz   the Ambitious Bot template: the git-tracked files under template/, without its tests
   SHA256SUMS                         the SHA-256 of every file above
 
 The version is the "version" in the root package.json, and every package
@@ -90,7 +92,7 @@ const packPackage = (name, version, scratch, output) => {
   return filename;
 };
 
-const RELEASE_FILE = /^(SHA256SUMS|ambitious-(kit|lint|depcruise)-[0-9A-Za-z.+-]+\.tgz|ambitious_kit-[0-9A-Za-z.+-]+\.pyz|ambitious-(hello|install)-[0-9A-Za-z.+-]+\.mjs)$/;
+const RELEASE_FILE = /^(SHA256SUMS|ambitious-(kit|lint|depcruise|template)-[0-9A-Za-z.+-]+\.tgz|ambitious_kit-[0-9A-Za-z.+-]+\.pyz|ambitious-(hello|install|modules)-[0-9A-Za-z.+-]+\.mjs)$/;
 
 const emptyOfEarlierRelease = (output) => {
   if (!existsSync(output)) return;
@@ -106,6 +108,17 @@ const emptyOfEarlierRelease = (output) => {
   for (const entry of entries) rmSync(join(output, entry.name));
 };
 
+const packTemplate = (version, output) => {
+  const files = run("git", ["ls-files", "-z", "--", "template"])
+    .split("\0")
+    .filter((file) => file !== "" && file !== "template/package.json" && !file.startsWith("template/test/"));
+  if (files.length === 0) throw new Error("git lists no files under template/. Build the release from a git checkout of this repository.");
+  execFileSync("tar", ["-czf", join(output, `ambitious-template-${version}.tgz`), "-C", repoRoot, ...files], {
+    env: { ...process.env, COPYFILE_DISABLE: "1" },
+    stdio: ["ignore", "ignore", "inherit"],
+  });
+};
+
 const build = (output) => {
   const { version } = readJson(join(repoRoot, "package.json"));
   emptyOfEarlierRelease(output);
@@ -115,6 +128,8 @@ const build = (output) => {
     run("npm", ["run", "--silent", "build"]);
     cpSync(join(repoRoot, "examples", "hello", "dist", "ambitious-hello.mjs"), join(output, `ambitious-hello-${version}.mjs`));
     cpSync(join(repoRoot, "packages", "kit", "dist", "ambitious-install.mjs"), join(output, `ambitious-install-${version}.mjs`));
+    cpSync(join(repoRoot, "packages", "kit", "dist", "ambitious-modules.mjs"), join(output, `ambitious-modules-${version}.mjs`));
+    packTemplate(version, output);
     for (const name of PACKAGES) packPackage(name, version, scratch, output);
     run(process.execPath, [
       join(repoRoot, "scripts", "with-pinned-tools.mjs"),
