@@ -21,7 +21,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files:
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.1.1`.
 
 | File | Use |
 |---|---|
@@ -39,16 +39,21 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.1.0.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.1.0.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.1.0.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.1.1.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.1.1.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.1.1.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
      "eslint": "10.15.0",
      "typescript": "6.0.3"
+   },
+   "overrides": {
+     "@typescript-eslint/typescript-estree": { "minimatch": "11.0.8" }
    }
    ```
+
+   The `overrides` block is needed because npm applies overrides only from the package being installed, so the kit cannot carry it for a module. `@ambitious/lint` uses `@typescript-eslint/parser`, whose newest release still asks for minimatch 10, and every minimatch from 7.0.0 up to 11.0.0 has the denial-of-service advisory [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). The override installs the fixed minimatch, so `npm audit` is clean. Drop it once the parser depends on minimatch 11.0.1 or later.
 
 4. Copy `eslint.config.js`, `.dependency-cruiser.mjs`, `tsconfig.json`, `scripts/build.mjs` and the `scripts` block of `package.json` from [examples/hello](examples/hello), and keep the template's standalone check in `lint`: `"lint": "eslint . && node scripts/check-standalone.mjs"`. Change the module name in `scripts/build.mjs`.
 5. Write the module in `src/` as the example does, add an entry to `verify/features.json` for each command, and run `npm run typecheck`, `npm run lint`, `npm run depcruise`, `npm test`, `npm run build`, `npm run contract`, `npm run tlc` and `node verify/run`.
