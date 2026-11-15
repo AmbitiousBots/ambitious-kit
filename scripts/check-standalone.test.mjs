@@ -118,6 +118,17 @@ test("an allowed path does not allow a sibling whose name merely starts the same
   assert.match(result.stdout, /1 finding\(s\)/);
 });
 
+test("an allowed path does not excuse an unrelated machine path", () => {
+  const repo = makeRepo({
+    "README.md": `Home is ${RUNTIME_HOME}. My notes are in ${MAC_PATH}.\n`,
+    ".standalone.json": allowFile({ pattern: RUNTIME_HOME, reason: "Documented default home directory." }),
+  });
+  const result = check(repo);
+  assert.equal(result.status, 1);
+  assert.ok(result.stdout.includes(`README.md:1: machine-path "${MAC_PATH}"`), result.stdout);
+  assert.match(result.stdout, /1 finding\(s\)/);
+});
+
 test("an allow entry without a reason is refused and allows nothing", () => {
   const repo = makeRepo({
     "README.md": `The default home is ${RUNTIME_HOME}.\n`,
