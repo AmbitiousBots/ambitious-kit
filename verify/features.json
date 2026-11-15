@@ -35,6 +35,11 @@
     "check": "node --test packages/kit/test/sync.test.ts"
   },
   {
+    "id": "instructions",
+    "userVisible": "A bot whose instructions come from an earlier template is told so, with the newer text and the lines that differ. A text the owner wrote is recognised as theirs and left alone. Only the owner ever changes a bot's instructions, and the skills keep working with the earlier ones.",
+    "check": "node --test --test-name-pattern=instructions packages/kit/test/sync.test.ts"
+  },
+  {
     "id": "comment-ban",
     "userVisible": "A stray code comment is refused with a message that says what to do instead.",
     "check": "node verify/checks/rule-catches.mjs comment"

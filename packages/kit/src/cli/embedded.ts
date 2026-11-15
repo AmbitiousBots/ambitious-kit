@@ -36,3 +36,12 @@ export const embeddedTemplateFiles = (): unknown => {
   }
   return AMBITIOUS_TEMPLATE_FILES;
 };
+
+declare const AMBITIOUS_INSTRUCTIONS: unknown;
+
+export const embeddedInstructions = (): unknown => {
+  if (typeof AMBITIOUS_INSTRUCTIONS === "undefined") {
+    throw new Error("The template's instructions and their known versions are embedded when the installer is bundled. Run the file in dist/.");
+  }
+  return AMBITIOUS_INSTRUCTIONS;
+};
