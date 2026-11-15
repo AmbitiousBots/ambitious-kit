@@ -1,0 +1,1 @@
+{ "ok": false, "schemaVersion": 1, "module": "tasks", "command": "next", "data": {}, "errors": [{ "code": "cycle", "message": "A cycle.", "hint": "Remove it." }], "meta": { "now": "2026-01-01T00:00:00.000Z", "seed": 7, "version": "0.1.0" } }

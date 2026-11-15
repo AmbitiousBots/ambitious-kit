@@ -1,0 +1,15 @@
+{
+  "ok": false,
+  "schemaVersion": 1,
+  "module": "tasks",
+  "command": "add",
+  "data": {},
+  "errors": [
+    {
+      "code": "E_DB",
+      "message": "The database file could not be opened for writing.",
+      "hint": "Run ambitious-tasks selfcheck and read data.problems."
+    }
+  ],
+  "meta": { "now": "2026-01-01T00:00:00.000Z", "seed": 7, "version": "0.1.0" }
+}

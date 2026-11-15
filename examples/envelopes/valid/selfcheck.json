@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "schemaVersion": 1,
+  "module": "hello",
+  "command": "selfcheck",
+  "data": {
+    "runtime": { "name": "node", "version": "24.11.0" },
+    "binary": {
+      "path": "/workspace/ambitious/bin/ambitious-hello-0.1.0.mjs",
+      "sha256": "2c0fe275a7597255d97fd47be41e75e2bf911c493b7a85c44096202aaaf5ba39"
+    },
+    "db": {
+      "path": "/workspace/ambitious/hello/hello.sqlite",
+      "integrityCheck": "ok",
+      "userVersion": 2,
+      "migrationsApplied": ["0002_add_greeting_index"]
+    },
+    "problems": []
+  },
+  "errors": [],
+  "meta": { "now": "2026-01-01T00:00:00.000Z", "seed": 7, "version": "0.1.0" }
+}
