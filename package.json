@@ -12,8 +12,9 @@
   ],
   "scripts": {
     "check:contract": "node scripts/check-envelope-examples.mjs",
+    "check:standalone": "node scripts/check-standalone.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\"",
+    "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"scripts/*.test.mjs\"",
     "lint": "eslint .",
     "depcruise": "depcruise src packages scripts --output-type err-long"
   },
