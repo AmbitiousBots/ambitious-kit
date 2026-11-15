@@ -284,6 +284,41 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
   const named = (text, values, where) => {
     for (const value of values) assert(text.includes(`\`${value}\``), `${where} must name \`${value}\`, which the pinned audit module's schema lists`);
   };
+  const shapeOfSchema = (schema) => {
+    const [fields, values] = [{}, {}];
+    const walk = (node, path) => {
+      const at = node.$ref === undefined ? node : schema.$defs[node.$ref.slice('#/$defs/'.length)];
+      if (at.enum !== undefined) values[path] = at.enum.map(String);
+      if (Object.hasOwn(at, 'const')) values[path] = [String(at.const)];
+      if (at.items !== undefined) walk(at.items, `${path}[]`);
+      if (at.properties === undefined) return;
+      const required = at.required ?? [];
+      fields[path] = { required, optional: Object.keys(at.properties).filter((name) => !required.includes(name)) };
+      for (const [name, child] of Object.entries(at.properties)) walk(child, path === '' ? name : `${path}.${name}`);
+    };
+    walk(schema, '');
+    return { fields, values };
+  };
+  const VALUES_HEADING = 'These fields take only the values listed:';
+  const shapeInSkill = (text) => {
+    const section = text.split('\n## ').find((part) => part.startsWith('Fields\n')) ?? '';
+    const quoted = (line) => [...line.matchAll(/`([^`]+)`/gu)].map(([, name]) => name);
+    const lists = (block) =>
+      block.split('\n').filter((line) => line.startsWith('- ')).flatMap((line) => {
+        const colon = line.indexOf(': ');
+        const head = line.slice(2, colon);
+        return (head === 'The document' ? [''] : quoted(head)).map((path) => [path, line.slice(colon + 2)]);
+      });
+    const [fieldLists, valueLists = ''] = section.split(VALUES_HEADING);
+    return {
+      fields: Object.fromEntries(lists(fieldLists).map(([path, list]) => {
+        const [required, optional = ''] = list.split('; optional ');
+        return [path, { required: quoted(required), optional: quoted(optional) }];
+      })),
+      values: Object.fromEntries(lists(valueLists).map(([path, list]) => [path, quoted(list)])),
+    };
+  };
+  const jsonBlocks = (text) => [...text.matchAll(/```json\n([\s\S]*?)\n```/gu)].map(([, block]) => JSON.parse(block));
   const probeFixture = (role) => readJson(join(home, 'template', 'fixtures', 'ambitious-capability-probe', `${role}.expected.json`));
 
   await t.test('the audit skills name exactly the signals, values, limits and commands that the pinned audit module\'s schema command prints', () => {
@@ -302,12 +337,8 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
     assert.deepEqual([...probeSkill.matchAll(/^\| `([A-Za-z]+)` \| /gmu)].map(([, signal]) => signal), signals);
     for (const role of ['owner', 'guest', 'role-unknown']) assert.deepEqual(probeFixture(role).map(({ signal }) => signal), signals, `${role} fixture`);
 
-    named(collectorSkill, collector.required.filter((field) => !['account', 'bots', 'routines', 'connectors', 'tasks', 'pages'].includes(field)), 'ambitious-audit-collector');
     for (const group of ['tasks', 'pages']) named(collectorSkill, collector.properties[group].required.map((field) => `${group}.${field}`), 'ambitious-audit-collector');
-    named(collectorSkill, [...defs.bot.required, ...defs.routine.required].filter((field) => !['id', 'name', 'botId', 'schedule', 'state'].includes(field)), 'ambitious-audit-collector');
-    named(collectorSkill, collector.properties.account.properties.kind.enum, 'ambitious-audit-collector');
     named(probeSkill, collector.properties.account.properties.kind.enum, 'ambitious-capability-probe');
-    named(collectorSkill, defs.connector.properties.status.enum, 'ambitious-audit-collector');
     for (const unit of defs.usage.properties.unit.enum) assert(collectorSkill.includes(`"unit": "${unit}"`), `ambitious-audit-collector must show usage in ${unit}`);
     assert(defs.usage.type.includes('null') && defs.lastSeen.type.includes('null'));
     assert.match(defs.lastSeen.pattern, /never/u);
@@ -333,6 +364,39 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
     named(feedback, ['reportId', 'text'], 'ambitious-send-feedback');
     for (const from of note.properties.from.enum) assert(feedback.includes(`"${from}"`), `ambitious-send-feedback must name the sender "${from}"`);
     assert(feedback.includes(`at most ${note.properties.text.maxLength} characters`));
+  });
+
+  await t.test('the field lists in the collector skill are exactly the objects, required and optional fields, and allowed values that the pinned audit module\'s collector schema holds', () => {
+    const inSchema = shapeOfSchema(inputSchema());
+    const collectorSkill = skillText('ambitious-audit-collector');
+    const inSkill = shapeInSkill(collectorSkill);
+    assert.deepEqual(Object.keys(inSkill.fields).sort(), Object.keys(inSchema.fields).sort(), 'the collector skill must have one field list for each object in the schema');
+    for (const [path, listed] of Object.entries(inSchema.fields)) assert.deepEqual(inSkill.fields[path], listed, `the collector skill's field list for ${path === '' ? 'the document' : path} must be the schema's`);
+    assert.deepEqual(inSkill.values, inSchema.values, 'the collector skill must list the allowed values of every field the schema restricts');
+
+    assert(inSchema.fields['evidence[]'].required.includes('kind') && inSchema.values['evidence[].kind'].length > 0, 'the schema walk reaches fields behind a list and a reference');
+    assert.notDeepEqual(shapeInSkill(collectorSkill.replace('`id`, `kind`, `text`', '`id`, `text`')).fields, inSchema.fields, 'a field list that omits a required field is caught');
+    assert.notDeepEqual(shapeInSkill(collectorSkill.replace('`excerpt`, `count`', '`excerpt`')).values, inSchema.values, 'a value list that omits an allowed value is caught');
+  });
+
+  await t.test('the two examples in the collector skill are accepted as written: the document with nothing observed and an unknown role, and the evidence entry once it is added to that document', () => {
+    const [entry, nothingObserved, ...rest] = jsonBlocks(skillText('ambitious-audit-collector'));
+    assert.deepEqual(rest, []);
+    assert.equal(nothingObserved.account.kind, 'unknown');
+    assert.deepEqual([nothingObserved.bots, nothingObserved.routines, nothingObserved.connectors, nothingObserved.evidence], [[], [], [], []]);
+    assert.deepEqual([...Object.values(nothingObserved.tasks), ...Object.values(nothingObserved.pages)], [null, null, null, null, null]);
+    assert.deepEqual(nothingObserved.visibility.map(({ seen }) => seen), nothingObserved.visibility.map(() => false));
+
+    const snapshot = audit(['snapshot'], nothingObserved);
+    assert.equal(snapshot.ok, true, JSON.stringify(snapshot.errors));
+    assert.equal(audit(['findings'], { snapshotId: snapshot.data.snapshotId }).data.mode, 'partial');
+
+    const withEvidence = audit(['snapshot'], { ...nothingObserved, evidence: [entry] });
+    assert.equal(withEvidence.ok, true, JSON.stringify(withEvidence.errors));
+    const { kind: _kind, ...withoutKind } = entry;
+    const refused = audit(['snapshot'], { ...nothingObserved, evidence: [withoutKind] });
+    assert.equal(refused.ok, false);
+    assert.match(refused.errors.map(({ message }) => message).join(' '), /\/evidence\/0\/kind is required/u);
   });
 
   const collected = (role) => {

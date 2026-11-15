@@ -22,7 +22,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.2.3`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.2.4`.
 
 | File | Use |
 |---|---|
@@ -42,9 +42,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.2.3.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.2.3.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.2.3.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.2.4.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.2.4.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.2.4.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -86,7 +86,7 @@ npm run release:check
 | `npm test` | Builds the example, then runs the tests for the kit, the rules, the template, the example and the checks themselves. `npm run test:python` runs the Python kit's tests. |
 | `npm run contract -- <binary>` | The contract tests against a built module. `npm run contract:python` runs the Python and TypeScript suites on each other's example module. |
 | `npm run tlc` | Every TLA+ model in `spec/`, `packages/kit/spec/` and `examples/hello/spec/` passes TLC, and every broken variant breaks the invariant listed for it. |
-| `npm run template:test` | The bot template in [template](template): every file and skill is present with no placeholder, `bot.json` and the installer pin are up to date, each module pin matches the published file and its release's `SHA256SUMS`, the six pinned modules install, repair, upgrade and selfcheck in a temporary `AMBITIOUS_HOME`, and the audit skills are held to the installed audit module: they name what its `schema` command prints, and a collector document written their way runs from `snapshot` to a report that waits for review. The checks that download releases need a signed-in [GitHub CLI](https://cli.github.com) (`gh`), or `AMBITIOUS_MODULE_MIRROR` naming a directory that holds the release files; without either they are skipped and say so. `npm run template:e2e` runs the install test alone. |
+| `npm run template:test` | The bot template in [template](template): every file and skill is present with no placeholder, `bot.json` and the installer pin are up to date, each module pin matches the published file and its release's `SHA256SUMS`, the six pinned modules install, repair, upgrade and selfcheck in a temporary `AMBITIOUS_HOME`, and the audit skills are held to the installed audit module: they name what its `schema` command prints, the field lists and value lists in the `ambitious-audit-collector` skill are exactly the fields and allowed values in that schema, the example documents in that skill are accepted by `snapshot`, and a collector document written their way runs from `snapshot` to a report that waits for review. The checks that download releases need a signed-in [GitHub CLI](https://cli.github.com) (`gh`), or `AMBITIOUS_MODULE_MIRROR` naming a directory that holds the release files; without either they are skipped and say so. `npm run template:e2e` runs the install test alone. |
 | `npm run verify` | `verify/run`: every user-visible feature in `verify/features.json`, each against a fresh temporary `AMBITIOUS_HOME`. |
 | `npm run release:build` | Writes the release files and `SHA256SUMS` into `release/`, which git ignores. |
 
