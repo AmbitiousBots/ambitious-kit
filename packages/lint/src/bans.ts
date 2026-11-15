@@ -10,7 +10,7 @@ export type Ban = {
 };
 
 const CLI = ["**/src/cli/**"];
-const NETWORK = ["**/src/ai/**", "**/src/install/**"];
+const NETWORK = ["**/src/ai/**", "**/src/install/**", "**/scripts/tla2tools.mjs"];
 
 const NETWORK_MODULES = [
   "http",

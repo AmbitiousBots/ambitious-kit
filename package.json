@@ -15,8 +15,9 @@
     "check:standalone": "node scripts/check-standalone.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"scripts/*.test.mjs\"",
-    "lint": "eslint .",
-    "depcruise": "depcruise src packages scripts --output-type err-long"
+    "lint": "eslint . && ambitious-standalone",
+    "depcruise": "depcruise src packages scripts --output-type err-long",
+    "tlc": "node scripts/tlc.mjs"
   },
   "devDependencies": {
     "@types/node": "24.19.2",

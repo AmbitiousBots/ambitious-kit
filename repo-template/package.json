@@ -1,0 +1,14 @@
+{
+  "name": "ambitious-module",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "lint": "node scripts/check-standalone.mjs",
+    "tlc": "node scripts/tlc.mjs"
+  }
+}
