@@ -1,0 +1,6 @@
+{
+  "GreetingsOverwrite": {
+    "invariant": "NothingLost",
+    "because": "greet replaces the stored greetings with the new one instead of adding to them, so list no longer shows every greeting that was accepted"
+  }
+}

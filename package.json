@@ -1,6 +1,6 @@
 {
   "name": "ambitious-kit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -8,20 +8,25 @@
     "node": "24.x"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/hello"
   ],
   "scripts": {
+    "build": "node examples/hello/scripts/build.mjs",
     "check:contract": "node scripts/check-envelope-examples.mjs",
     "check:standalone": "node scripts/check-standalone.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"scripts/*.test.mjs\"",
+    "pretest": "npm run --silent build",
+    "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\" \"examples/*/test/**/*.test.ts\" \"scripts/*.test.mjs\"",
     "lint": "eslint . && ambitious-standalone",
-    "depcruise": "depcruise src packages scripts --output-type err-long",
-    "tlc": "node scripts/tlc.mjs"
+    "depcruise": "depcruise src packages scripts examples --output-type err-long",
+    "contract": "ambitious-contract",
+    "tlc": "node scripts/tlc.mjs && node scripts/tlc.mjs packages/kit/spec && node scripts/tlc.mjs examples/hello/spec"
   },
   "devDependencies": {
     "@types/node": "24.19.2",
     "dependency-cruiser": "18.7.2",
+    "esbuild": "0.28.2",
     "eslint": "10.15.0",
     "typescript": "6.0.3"
   }
