@@ -5,18 +5,33 @@ import { build } from "esbuild";
 const root = join(import.meta.dirname, "..");
 const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
-await build({
-  entryPoints: [join(root, "src", "cli", "install-main.ts")],
-  outfile: join(root, "dist", "ambitious-install.mjs"),
+const lock = readFileSync(join(root, "..", "..", "template", "modules.lock.json"), "utf8");
+
+const shared = {
   bundle: true,
   platform: "node",
   format: "esm",
   target: "node24",
   legalComments: "none",
   banner: { js: "#!/usr/bin/env node" },
-  define: {
-    AMBITIOUS_MODULE: JSON.stringify("install"),
-    AMBITIOUS_VERSION: JSON.stringify(version),
-    AMBITIOUS_MIGRATIONS: "[]",
-  },
+};
+
+const defineFor = (module) => ({
+  AMBITIOUS_MODULE: JSON.stringify(module),
+  AMBITIOUS_VERSION: JSON.stringify(version),
+  AMBITIOUS_MIGRATIONS: "[]",
+});
+
+await build({
+  ...shared,
+  entryPoints: [join(root, "src", "cli", "install-main.ts")],
+  outfile: join(root, "dist", "ambitious-install.mjs"),
+  define: defineFor("install"),
+});
+
+await build({
+  ...shared,
+  entryPoints: [join(root, "src", "cli", "modules-main.ts")],
+  outfile: join(root, "dist", "ambitious-modules.mjs"),
+  define: { ...defineFor("modules"), AMBITIOUS_LOCK: JSON.stringify(JSON.parse(lock)) },
 });

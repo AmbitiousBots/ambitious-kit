@@ -18,3 +18,12 @@ export const embedded = (): Embedded => {
   }
   return { module: AMBITIOUS_MODULE, version: AMBITIOUS_VERSION, migrations: AMBITIOUS_MIGRATIONS };
 };
+
+declare const AMBITIOUS_LOCK: unknown;
+
+export const embeddedLock = (): unknown => {
+  if (typeof AMBITIOUS_LOCK === "undefined") {
+    throw new Error("The module pins are embedded when the installer is bundled. Run the file in dist/, or name a lock file with --lock.");
+  }
+  return AMBITIOUS_LOCK;
+};

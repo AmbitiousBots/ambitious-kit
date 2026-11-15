@@ -1,1 +1,38 @@
-[]
+[
+  {
+    "module": "tasks",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-tasks/releases/download/tasks-v0.1.0/ambitious-tasks-0.1.0.mjs",
+    "sha256": "a528db533748f44ee18f9485c20d6e2bc0aa9625c7f2dc0756dd6df209a2754a"
+  },
+  {
+    "module": "records",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-records/releases/download/records-v0.1.0/ambitious-records-0.1.0.mjs",
+    "sha256": "4d6e599d1f2ff6419e39083d85499b5a3269f39afbea27810f0fee13ba1909d1"
+  },
+  {
+    "module": "contracts",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-contracts/releases/download/contracts-v0.1.0/ambitious-contracts-0.1.0.mjs",
+    "sha256": "956d5cd67d7090be838bd5af262465fdcf9313e4437474bdf365ec3b6bbaebc8"
+  },
+  {
+    "module": "compliance",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-compliance/releases/download/compliance-v0.1.0/ambitious-compliance-0.1.0.mjs",
+    "sha256": "47ca5824630b3cc7cdc3c40f0bfc96d2a871ab07d74f54d7a784b4b28173e3b0"
+  },
+  {
+    "module": "audit",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-audit/releases/download/audit-v0.1.0/ambitious-audit-0.1.0.mjs",
+    "sha256": "38b5d2aaaa8553763b7bc4609091cf6a8f274d5235a7573aa5d4858f35fdd8b9"
+  },
+  {
+    "module": "video",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-video/releases/download/video-v0.1.0/ambitious-video-0.1.0.pyz",
+    "sha256": "77d12ec834d492ab75c855ea445803ccbeafa00de55b2610c89bb5563eb32d62"
+  }
+]
