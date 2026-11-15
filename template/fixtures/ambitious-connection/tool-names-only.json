@@ -1,0 +1,43 @@
+{
+  "about": "The connector list shows tool names and no server address, and the bot's instructions do not allow calling server_info. The connector with the three tools is the monitoring connection, and its identity is not confirmed.",
+  "connectors": [
+    {
+      "name": "Monitoring",
+      "tools": [
+        "factory_environment",
+        "factory_match",
+        "factory_plan",
+        "factory_version",
+        "send_compliance_status",
+        "send_feedback",
+        "send_report",
+        "server_info"
+      ],
+      "serverInfo": null
+    },
+    {
+      "name": "Documents",
+      "tools": [
+        "search_documents",
+        "read_document"
+      ],
+      "serverInfo": null
+    }
+  ],
+  "expected": {
+    "monitoring": "Monitoring",
+    "identity": "not confirmed",
+    "connectors": [
+      {
+        "name": "Monitoring",
+        "kind": "monitoring",
+        "identity": "not confirmed"
+      },
+      {
+        "name": "Documents",
+        "kind": "different",
+        "identity": null
+      }
+    ]
+  }
+}

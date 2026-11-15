@@ -3,7 +3,7 @@ name: ambitious-audit-collector
 description: For the Ambitious Bot only. Gather a collector document for ambitious-audit from the account the bot can see, write every unseen value as null, and say honestly what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
-Template version: 0.2.5
+Template version: 0.2.6
 
 # Audit collector
 
@@ -43,7 +43,7 @@ Include `schemaVersion` 1, `collectedAt` as UTC, the account, then the bots, rou
 A value no tool returned is `null`. Never write 0 for it, and never estimate.
 
 - `account.kind` is `owner`, `guest` or `team` only when a tool reported the role or the account holder stated it. Otherwise write `unknown`. Do not work the role out from what the bot can or cannot do. The audit still runs with `unknown`.
-- `tasks.open`, `tasks.stale7d` and `tasks.blocked` come from `ambitious-tasks counts`. Run it with `{ "list": "..." }`, naming the task list the audit covers, and copy `data.open`, `data.stale7d` and `data.blocked` as returned. Do not count tasks from `list` or `board` output, and do not add the counts of several lists together: when the work is in more than one list, take the list the owner named for the audit and say in the `tasks` signal's `why` which list was counted. If the module is not installed, the command was not run or it failed, all three are `null`.
+- `tasks.open`, `tasks.stale7d` and `tasks.blocked` come from `ambitious-tasks counts`. Run it with `{}` to count the list named `default`, where a task added without a list goes, or with `{ "list": "..." }` to name the task list the audit covers. Read `data.exists` first. When it is `true`, copy `data.open`, `data.stale7d` and `data.blocked` as returned. When it is `false`, no task has ever been in that list, so the list was not seen: all three are `null`, the `tasks` signal is `seen: false`, and its `why` says which list was missing, from `data.list`, with the lists that do exist, from `data.note`. A list that does not exist is never a list with 0 tasks. Do not count tasks from `list` or `board` output, and do not add the counts of several lists together: when the work is in more than one list, take the list the owner named for the audit and say in the `tasks` signal's `why` which list was counted. If the module is not installed, the command was not run or it failed, all three are `null`.
 - `pages.count` and `pages.updated7d` are `null` when the page tool did not return them.
 - `lastActiveAt` on a bot and `lastRunAt` on a routine are a UTC time, the word `never` when the account shows it has not happened yet, or `null` when the account does not show it.
 - `routineCount` on a bot is `null` when it was not shown.

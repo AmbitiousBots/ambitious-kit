@@ -1,0 +1,28 @@
+{
+  "about": "A connector offers the three tool names, but its server_info tool answers with another identity. It is a different connector: nothing is sent to it.",
+  "connectors": [
+    {
+      "name": "Ambitious",
+      "tools": [
+        "server_info",
+        "send_report",
+        "send_feedback"
+      ],
+      "serverInfo": {
+        "identity": "reports.example.com/mcp/v1",
+        "service": "another-service"
+      }
+    }
+  ],
+  "expected": {
+    "monitoring": null,
+    "identity": null,
+    "connectors": [
+      {
+        "name": "Ambitious",
+        "kind": "different",
+        "identity": "mismatch"
+      }
+    ]
+  }
+}

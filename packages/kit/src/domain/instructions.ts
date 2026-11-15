@@ -1,64 +1,108 @@
 import { isRecord } from "./json.ts";
+import { matchOf, type Fingerprint, type TextMatch } from "./whitespace.ts";
 
-export type KnownInstructions = { readonly version: number; readonly sha256: string };
+export type KnownInstructions = Fingerprint & { readonly version: number };
+
+export type PublishedGrants = { readonly version: number; readonly grants: readonly string[]; readonly reasons: Readonly<Record<string, string>> };
 
 export type InstructionsCatalogue = {
   readonly version: number;
+  readonly oldestSupported: number;
   readonly text: string;
   readonly known: readonly KnownInstructions[];
+  readonly grants: Readonly<Record<string, string>>;
+  readonly versions: readonly PublishedGrants[];
 };
 
 export type InstructionsProblem = "instructions-out-of-date" | "instructions-custom";
 
 export type InstructionsFinding =
-  | { readonly state: "current"; readonly problem: null; readonly current: number; readonly template: number }
-  | { readonly state: "out-of-date"; readonly problem: "instructions-out-of-date"; readonly current: number | null; readonly template: number }
-  | { readonly state: "custom"; readonly problem: "instructions-custom"; readonly current: number | null; readonly template: number }
-  | { readonly state: "newer"; readonly problem: null; readonly current: number; readonly template: number };
+  | { readonly state: "current"; readonly problem: null; readonly current: number; readonly template: number; readonly match: TextMatch }
+  | { readonly state: "out-of-date"; readonly problem: "instructions-out-of-date"; readonly current: number; readonly template: number; readonly match: TextMatch }
+  | { readonly state: "out-of-date"; readonly problem: "instructions-out-of-date"; readonly current: null; readonly template: number; readonly match: null }
+  | { readonly state: "custom"; readonly problem: "instructions-custom"; readonly current: number | null; readonly template: number; readonly match: null }
+  | { readonly state: "newer"; readonly problem: null; readonly current: number; readonly template: number; readonly match: null };
+
+export type Permission = { readonly grant: string; readonly permission: string; readonly reason: string | null };
+
+export type PermissionChange = {
+  readonly comparedWith: "the bot's present text" | "the oldest supported text";
+  readonly comparison: "more" | "fewer" | "same" | "more and fewer";
+  readonly added: readonly Permission[];
+  readonly removed: readonly Permission[];
+  readonly statement: string;
+};
+
+export const ADDITIONAL_PERMISSIONS = "Pasting this text gives the bot these additional permissions:";
 
 const VERSION_LINE = /^Instructions version: ([1-9][0-9]*)(?:\n|$)/;
 const SHA256 = /^[0-9a-f]{64}$/;
 
-export const normalizeInstructions = (text: string): string => {
-  const lines = text.replace(/\r\n?/g, "\n").split("\n").map((line) => line.trimEnd());
-  const body = lines.join("\n").replace(/^\n+/, "").replace(/\n+$/, "");
-  return body === "" ? "" : `${body}\n`;
-};
-
-export const instructionsVersionOf = (normalized: string): number | null => {
-  const declared = VERSION_LINE.exec(normalized)?.[1];
+export const instructionsVersionOf = (folded: string): number | null => {
+  const declared = VERSION_LINE.exec(folded)?.[1];
   return declared === undefined ? null : Number(declared);
 };
 
-export const classifyInstructions = (normalized: string, sha256: string, { version: template, known }: InstructionsCatalogue): InstructionsFinding => {
-  if (normalized === "") return { state: "out-of-date", problem: "instructions-out-of-date", current: null, template };
-  const published = known.find((entry) => entry.sha256 === sha256);
+export const classifyInstructions = (folded: string, given: Fingerprint, { version: template, known }: InstructionsCatalogue): InstructionsFinding => {
+  if (folded === "") return { state: "out-of-date", problem: "instructions-out-of-date", current: null, template, match: null };
+  const exact = known.find((entry) => entry.sha256 === given.sha256);
+  const published = exact ?? known.find((entry) => matchOf(given, entry) !== null);
   if (published !== undefined) {
+    const match: TextMatch = exact === undefined ? "whitespace" : "exact";
     return published.version === template
-      ? { state: "current", problem: null, current: template, template }
-      : { state: "out-of-date", problem: "instructions-out-of-date", current: published.version, template };
+      ? { state: "current", problem: null, current: template, template, match }
+      : { state: "out-of-date", problem: "instructions-out-of-date", current: published.version, template, match };
   }
-  const declared = instructionsVersionOf(normalized);
-  if (declared !== null && declared > template) return { state: "newer", problem: null, current: declared, template };
-  return { state: "custom", problem: "instructions-custom", current: declared, template };
+  const declared = instructionsVersionOf(folded);
+  if (declared !== null && declared > template) return { state: "newer", problem: null, current: declared, template, match: null };
+  return { state: "custom", problem: "instructions-custom", current: declared, template, match: null };
 };
 
 export const needsOwner = (finding: InstructionsFinding): boolean =>
   finding.state === "out-of-date" || (finding.state === "custom" && finding.current !== finding.template);
 
-export const instructionsMessage = (finding: InstructionsFinding, proposed: string): string | null => {
+const numbered = (permissions: readonly Permission[]): string => permissions.map(({ permission }, index) => `(${index + 1}) ${permission}`).join(" ");
+
+const statementOf = (comparedWith: PermissionChange["comparedWith"], added: readonly Permission[], removed: readonly Permission[]): string => {
+  const basis =
+    comparedWith === "the bot's present text"
+      ? ""
+      : "This bot's present instructions are not a text this template published, so what they allow cannot be compared; the comparison is with the oldest instructions text still supported. ";
+  const takesAway = removed.length === 0 ? "" : ` It takes away these permissions: ${numbered(removed)}`;
+  if (added.length > 0) return `${basis}${ADDITIONAL_PERMISSIONS} ${numbered(added)}${takesAway}`;
+  if (removed.length > 0) return `${basis}Pasting this text gives the bot no additional permissions.${takesAway}`;
+  return `${basis}Pasting this text gives the bot no additional permissions and takes none away: it allows the same things as ${comparedWith}.`;
+};
+
+export const permissionChange = (finding: InstructionsFinding, { version, oldestSupported, grants, versions }: InstructionsCatalogue): PermissionChange | null => {
+  if (finding.state === "newer") return null;
+  const published = finding.match === null ? undefined : versions.find((entry) => entry.version === finding.current);
+  const basis = published ?? versions.find((entry) => entry.version === oldestSupported);
+  const proposed = versions.find((entry) => entry.version === version);
+  if (basis === undefined || proposed === undefined) return null;
+  const described = (names: readonly string[], reasons: Readonly<Record<string, string>>): readonly Permission[] =>
+    names.map((grant) => ({ grant, permission: grants[grant] ?? grant, reason: reasons[grant] ?? null }));
+  const added = described(proposed.grants.filter((grant) => !basis.grants.includes(grant)), proposed.reasons);
+  const removed = described(basis.grants.filter((grant) => !proposed.grants.includes(grant)), {});
+  const comparedWith = published === undefined ? "the oldest supported text" : "the bot's present text";
+  const comparison = added.length > 0 ? (removed.length > 0 ? "more and fewer" : "more") : removed.length > 0 ? "fewer" : "same";
+  return { comparedWith, comparison, added, removed, statement: statementOf(comparedWith, added, removed) };
+};
+
+export const instructionsMessage = (finding: InstructionsFinding, proposed: string, change: PermissionChange | null): string | null => {
   const { current, template } = finding;
   const unchanged = "Nothing was changed: only the owner can replace a bot's instructions, and doing so is the owner's choice.";
+  const permissions = change === null ? "" : ` ${change.statement}`;
   if (finding.state === "out-of-date") {
     const have = current === null ? "have no text" : `are version ${current}`;
-    return `instructions-out-of-date: This bot's instructions ${have} and this template's are version ${template}. The template's text is in ${proposed}. ${unchanged}`;
+    return `instructions-out-of-date: This bot's instructions ${have} and this template's are version ${template}. The template's text is in ${proposed}. ${unchanged}${permissions}`;
   }
   if (finding.state === "custom") {
     if (current === template) {
       return `instructions-custom: This bot's instructions say version ${template}, the template's version, but their text is not the template's. They were left as they are.`;
     }
     const have = current === null ? "carry no version line" : `say version ${current}`;
-    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}. They were left as they are, so that nothing the owner wrote is lost. ${unchanged}`;
+    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}. They were left as they are, so that nothing the owner wrote is lost. ${unchanged}${permissions}`;
   }
   if (finding.state === "newer") {
     return `This bot's instructions say version ${current}, which is newer than version ${template} that this installer knows. They were left as they are. Update the bot's skills to the template those instructions came from.`;
@@ -97,19 +141,33 @@ export const parseInstructionsCatalogue = (value: unknown): InstructionsCatalogu
   const wrong = (what: string): never => {
     throw new Error(`The embedded instructions catalogue ${what}.`);
   };
+  const isVersion = (candidate: unknown, highest: number): candidate is number => typeof candidate === "number" && Number.isInteger(candidate) && candidate >= 1 && candidate <= highest;
+  const isHash = (candidate: unknown): candidate is string => typeof candidate === "string" && SHA256.test(candidate);
+  const isNames = (candidate: unknown): candidate is readonly string[] => Array.isArray(candidate) && candidate.every((name: unknown) => typeof name === "string");
+  const texts = (candidate: unknown, what: string): Readonly<Record<string, string>> => {
+    if (!isRecord(candidate)) return wrong(`needs ${what} as an object of name to text`);
+    return Object.fromEntries(Object.entries(candidate).map(([name, text]) => [name, typeof text === "string" && text !== "" ? text : wrong(`needs text for "${name}" in ${what}`)]));
+  };
   if (!isRecord(value)) return wrong("must be an object");
-  const { version, text, known } = value;
-  if (typeof version !== "number" || !Number.isInteger(version) || version < 1) return wrong("needs a whole-number version of 1 or more");
-  if (typeof text !== "string" || normalizeInstructions(text) !== text || instructionsVersionOf(text) !== version) {
+  const { version, oldestSupported, text, known, grants, versions } = value;
+  if (!isVersion(version, Number.MAX_SAFE_INTEGER)) return wrong("needs a whole-number version of 1 or more");
+  if (!isVersion(oldestSupported, version)) return wrong("needs an oldest supported version between 1 and the current one");
+  if (typeof text !== "string" || text !== `${text.split("\n").map((line) => line.trimEnd()).join("\n").trim()}\n` || instructionsVersionOf(text) !== version) {
     return wrong(`needs its text to start with "Instructions version: ${version}" and to be free of trailing spaces and blank lines at either end`);
   }
   if (!Array.isArray(known)) return wrong("needs a list of known texts");
   const entries = known.map((entry: unknown): KnownInstructions => {
-    if (!isRecord(entry) || typeof entry.version !== "number" || !Number.isInteger(entry.version) || entry.version < 1 || entry.version > version) {
-      return wrong("lists a known text without a version between 1 and the current one");
-    }
-    if (typeof entry.sha256 !== "string" || !SHA256.test(entry.sha256)) return wrong("lists a known text without a SHA-256");
-    return { version: entry.version, sha256: entry.sha256 };
+    if (!isRecord(entry) || !isVersion(entry.version, version)) return wrong("lists a known text without a version between 1 and the current one");
+    if (!isHash(entry.sha256) || !isHash(entry.whitespaceSha256)) return wrong("lists a known text without its two SHA-256 values");
+    return { version: entry.version, sha256: entry.sha256, whitespaceSha256: entry.whitespaceSha256 };
   });
-  return { version, text, known: entries };
+  const described = texts(grants, "the grants");
+  if (!Array.isArray(versions)) return wrong("needs a list of versions with their grants");
+  const published = versions.map((entry: unknown): PublishedGrants => {
+    if (!isRecord(entry) || !isVersion(entry.version, version)) return wrong("lists grants for a version that is not between 1 and the current one");
+    if (!isNames(entry.grants) || entry.grants.some((grant) => described[grant] === undefined)) return wrong(`lists a grant for version ${entry.version} that it does not describe`);
+    return { version: entry.version, grants: entry.grants, reasons: texts(entry.reasons, `the reasons of version ${entry.version}`) };
+  });
+  for (const needed of [version, oldestSupported]) if (!published.some((entry) => entry.version === needed)) return wrong(`needs the grants of version ${needed}`);
+  return { version, oldestSupported, text, known: entries, grants: described, versions: published };
 };

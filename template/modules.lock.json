@@ -1,9 +1,9 @@
 [
   {
     "module": "tasks",
-    "version": "0.1.1",
-    "url": "https://github.com/AmbitiousBots/ambitious-tasks/releases/download/tasks-v0.1.1/ambitious-tasks-0.1.1.mjs",
-    "sha256": "3f5e5ddb4b66df5b212a449eac055df244eb6617b2e59a3bce818494d02f833b"
+    "version": "0.1.2",
+    "url": "https://github.com/AmbitiousBots/ambitious-tasks/releases/download/tasks-v0.1.2/ambitious-tasks-0.1.2.mjs",
+    "sha256": "9a944b20d310eed4295ba55860679c1a0cd1f64f0f2e3fb034cc4d96c9bb82c9"
   },
   {
     "module": "records",

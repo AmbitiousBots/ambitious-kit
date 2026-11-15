@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { routinesOf } from "../packages/kit/scripts/template-routines.mjs";
 
 const USAGE = `Usage: node scripts/template-generate.mjs [--check]
 
@@ -64,25 +65,7 @@ const skills = (version, installerText) =>
     return skill;
   });
 
-const routines = () =>
-  read(join(template, "routines.md"))
-    .split(/^## /m)
-    .slice(1)
-    .filter((section) => section.startsWith("ambitious-"))
-    .map((section) => {
-      const [name, ...lines] = section.split("\n");
-      const setting = (label) => {
-        const index = lines.findIndex((line) => line.startsWith(`${label}: `));
-        if (index === -1) throw new Error(`The routine ${name} in routines.md needs a "${label}: " line.`);
-        return lines.splice(index, 1)[0].slice(label.length + 2).trim();
-      };
-      const schedule = setting("Schedule");
-      const timeZone = setting("Time zone");
-      const destination = setting("Destination");
-      const starts = setting("Starts");
-      if (starts !== "active" && starts !== "paused") throw new Error(`The routine ${name} in routines.md must have "Starts: active" or "Starts: paused".`);
-      return { name, schedule, timeZone, destination, prompt: lines.join("\n").trim(), paused: starts === "paused" };
-    });
+const routines = () => routinesOf(read(join(template, "routines.md")));
 
 const VERSION_LINE = /^Template version: [0-9]+\.[0-9]+\.[0-9]+$/m;
 

@@ -45,3 +45,12 @@ export const embeddedInstructions = (): unknown => {
   }
   return AMBITIOUS_INSTRUCTIONS;
 };
+
+declare const AMBITIOUS_ROUTINES: unknown;
+
+export const embeddedRoutines = (): unknown => {
+  if (typeof AMBITIOUS_ROUTINES === "undefined") {
+    throw new Error("The template's routines and their earlier prompts are embedded when the installer is bundled. Run the file in dist/.");
+  }
+  return AMBITIOUS_ROUTINES;
+};

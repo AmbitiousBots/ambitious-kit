@@ -1,5 +1,5 @@
 {
-  "current": 3,
+  "current": 4,
   "oldestSupported": 1,
   "grants": {
     "owner-chat": "Speak to the owner in this bot's own chat, in a conversation or as the reply of a routine run.",
@@ -10,10 +10,12 @@
     "report-tool": "Call the Ambitious connection's send_report tool after the owner's tool approval.",
     "feedback-tool": "Call the Ambitious connection's send_feedback tool after the owner's tool approval.",
     "routines": "Keep the template's routines: the daily selfcheck, and others created paused for the owner to turn on.",
+    "owner-requested-skills": "Write or replace an ambitious- skill in the shared skill library when the owner asks for it in this bot's own chat.",
+    "server-info-tool": "Call the Ambitious connection's server_info tool, which takes no arguments and so carries no account or business data, to confirm which server the connection reaches.",
     "message-owner": "Send the owner a message outside this bot's own chat.",
-    "factory-tools": "Call the Ambitious connection's Factory tools after the owner's tool approval.",
+    "other-connection-tools": "Call any other tool of the Ambitious connection, such as its Factory tools, after the owner's tool approval.",
     "private-reference-files": "Read the platform's own reference files that the platform documents inside the bot's private data directory.",
-    "shared-skills": "Write an ambitious- skill to the shared skill library when the installer's skills command answers create or update.",
+    "shared-skills": "Write or replace an ambitious- skill in the shared skill library without the owner asking for it.",
     "provider-call": "Let a module call an outside provider with a key the owner supplied."
   },
   "versions": [
@@ -22,10 +24,12 @@
       "firstTemplate": "0.2.1",
       "file": "instructions/1.md",
       "sha256": "0e054d7288f676daa2b9208812050ad54cb95a62d5b36a7f2c21cfd5b520c523",
+      "whitespaceSha256": "50a0df09f818ad45e2c588b4aa1619a7bac59d2489bdb557584a527fca168982",
       "variants": [
         {
           "template": "0.2.0",
           "sha256": "30e76838f2814be38c092a880f59d20b7ef5c8a61981493cbc82bc2a534b10fd",
+          "whitespaceSha256": "a9bfc9feaecea858190d147ab049cccffd5c82aaf467fb0290fe86b1483b18cd",
           "difference": "Names four skills without the ambitious- prefix."
         }
       ],
@@ -37,23 +41,28 @@
         "account-read-tools",
         "report-tool",
         "feedback-tool",
-        "routines"
-      ]
+        "routines",
+        "owner-requested-skills"
+      ],
+      "reasons": {}
     },
     {
       "version": 2,
       "firstTemplate": "0.2.4",
       "file": "instructions/2.md",
       "sha256": "afe584ea1f6c438d16f142305b428fc178adf2a2a9c83614d1a9ae62eadd4591",
+      "whitespaceSha256": "ad124b921ecaf1fdbcb3626f7ab6bc236a925f543a3b8609e7296aec1f1fc881",
       "variants": [
         {
           "template": "0.2.3",
           "sha256": "6d3efeb1381a2dfe323a9556be00fad6bc995827b6965ab1c3af385535b31d21",
+          "whitespaceSha256": "aada0ed25706ecdacd15523dbdec79f412803fdbfdb9fc108e9d1100da8112f4",
           "difference": "Its first line names template version 0.2.3."
         },
         {
           "template": "0.2.2",
           "sha256": "e512cc7dd67841f101cb0625712bbd8a88b68708764701fe7ac8bbdbaf74e459",
+          "whitespaceSha256": "78ba6cf8298a6f866bc51d33dcf999c89eb198749edbac7eb7237f2216c776d7",
           "difference": "Its first line names template version 0.2.2, and one sentence about an unknown account role is worded differently."
         }
       ],
@@ -66,17 +75,27 @@
         "report-tool",
         "feedback-tool",
         "routines",
+        "owner-requested-skills",
+        "server-info-tool",
         "message-owner",
-        "factory-tools",
+        "other-connection-tools",
         "private-reference-files",
         "shared-skills"
-      ]
+      ],
+      "reasons": {
+        "server-info-tool": "Covered by this text's permission to call any tool of the Ambitious connection.",
+        "message-owner": "Template 0.2.2 had the daily selfcheck send its problems to the owner as a message. A routine now reports as its run's reply in the bot's own chat, which the oldest text already allows.",
+        "other-connection-tools": "Let the owner ask the bot for pack and specialist suggestions through the service's Factory tools. No skill needs them.",
+        "private-reference-files": "The platform keeps its own skill and Page reference files in that directory. No skill needs to read them.",
+        "shared-skills": "Let a template update write its skills without a separate request. The skills now write one only when the owner asks."
+      }
     },
     {
       "version": 3,
       "firstTemplate": "0.2.5",
-      "file": "INSTRUCTIONS.md",
+      "file": "instructions/3.md",
       "sha256": "2480777c66a14e827f4ef7ec6c92e99324e90b564c79982420612a0f6177dcd3",
+      "whitespaceSha256": "9c6005624257f45d8250ff667c04588d9bfba819ca08fe3d92af54a7e21544f0",
       "variants": [],
       "grants": [
         "owner-chat",
@@ -87,10 +106,41 @@
         "report-tool",
         "feedback-tool",
         "routines",
-        "factory-tools",
+        "owner-requested-skills",
+        "server-info-tool",
+        "other-connection-tools",
         "private-reference-files",
         "shared-skills"
-      ]
+      ],
+      "reasons": {
+        "server-info-tool": "Covered by this text's permission to call any tool of the Ambitious connection.",
+        "other-connection-tools": "Let the owner ask the bot for pack and specialist suggestions through the service's Factory tools. No skill needs them.",
+        "private-reference-files": "The platform keeps its own skill and Page reference files in that directory. No skill needs to read them.",
+        "shared-skills": "Let a template update write its skills without a separate request. The skills now write one only when the owner asks."
+      }
+    },
+    {
+      "version": 4,
+      "firstTemplate": "0.2.6",
+      "file": "INSTRUCTIONS.md",
+      "sha256": "3662c45448c9e67fb6d4b630b33abc8f2699ee8e3c636c2db0743eeb0995e79f",
+      "whitespaceSha256": "e5ebd7b212b2839d37d904bb1d83a97fa5fbef8b296a5b0244c55ec384bec6a7",
+      "variants": [],
+      "grants": [
+        "owner-chat",
+        "pages",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "report-tool",
+        "feedback-tool",
+        "routines",
+        "owner-requested-skills",
+        "server-info-tool"
+      ],
+      "reasons": {
+        "server-info-tool": "Lets the bot confirm that the connector it found answers as the Ambitious monitoring service before a report is prepared for it. The call takes no arguments."
+      }
     }
   ]
 }

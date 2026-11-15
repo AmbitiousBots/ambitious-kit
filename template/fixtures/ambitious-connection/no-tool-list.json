@@ -1,0 +1,21 @@
+{
+  "about": "The connector list shows names only, with no tools. Nothing can be said about the connector, and its name is not evidence.",
+  "connectors": [
+    {
+      "name": "Ambitious",
+      "tools": null,
+      "serverInfo": null
+    }
+  ],
+  "expected": {
+    "monitoring": null,
+    "identity": null,
+    "connectors": [
+      {
+        "name": "Ambitious",
+        "kind": "unidentified",
+        "identity": null
+      }
+    ]
+  }
+}

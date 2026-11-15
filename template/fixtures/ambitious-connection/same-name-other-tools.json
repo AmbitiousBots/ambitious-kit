@@ -1,0 +1,24 @@
+{
+  "about": "A connector is named Ambitious but offers none of the three tools. It is a different connector and is left alone, and the bot has no monitoring connection.",
+  "connectors": [
+    {
+      "name": "Ambitious",
+      "tools": [
+        "search_notes",
+        "create_note"
+      ],
+      "serverInfo": null
+    }
+  ],
+  "expected": {
+    "monitoring": null,
+    "identity": null,
+    "connectors": [
+      {
+        "name": "Ambitious",
+        "kind": "different",
+        "identity": null
+      }
+    ]
+  }
+}

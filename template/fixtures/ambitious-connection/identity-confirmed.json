@@ -1,0 +1,45 @@
+{
+  "about": "The connector has the three tools and server_info was called. It returned the identity of the Ambitious monitoring service, so the identity is confirmed. The name of the connector plays no part.",
+  "connectors": [
+    {
+      "name": "Reports for the team",
+      "tools": [
+        "factory_environment",
+        "factory_match",
+        "factory_plan",
+        "factory_version",
+        "send_compliance_status",
+        "send_feedback",
+        "send_report",
+        "server_info"
+      ],
+      "serverInfo": {
+        "endpoint": "https://ambitiousbots.com/api/mcp",
+        "identity": "ambitiousbots.com/mcp/v1",
+        "service": "ambitious-monitoring",
+        "tools": [
+          "factory_environment",
+          "factory_match",
+          "factory_plan",
+          "factory_version",
+          "send_compliance_status",
+          "send_feedback",
+          "send_report",
+          "server_info"
+        ],
+        "version": "1.0.0"
+      }
+    }
+  ],
+  "expected": {
+    "monitoring": "Reports for the team",
+    "identity": "confirmed",
+    "connectors": [
+      {
+        "name": "Reports for the team",
+        "kind": "monitoring",
+        "identity": "confirmed"
+      }
+    ]
+  }
+}
