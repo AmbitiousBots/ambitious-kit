@@ -1,0 +1,29 @@
+name: Lean
+
+on:
+  workflow_call:
+    inputs:
+      directory:
+        description: Directory that holds the Lake package and its lean-toolchain file.
+        type: string
+        default: proofs
+
+permissions:
+  contents: read
+
+jobs:
+  lean:
+    name: Build every Lean proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out the repository (actions/checkout v7.0.1)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Install the toolchain named in lean-toolchain and run lake build (leanprover/lean-action v1.7.1)
+        uses: leanprover/lean-action@ba3fdfe5c4476c925da13bf11a005ddb47e47aee
+        with:
+          lake-package-directory: ${{ inputs.directory }}
+          auto-config: "false"
+          build: "true"
