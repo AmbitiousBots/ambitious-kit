@@ -2,13 +2,16 @@ import { failure } from "./failure.ts";
 import { isRecord } from "./json.ts";
 import { matchOf, type Fingerprint, type TextMatch } from "./whitespace.ts";
 
-export type EarlierPrompt = { readonly template: string; readonly whitespaceSha256: string };
+export type EarlierPrompt = { readonly template: string; readonly whitespaceSha256: string; readonly variant: boolean };
+
+export type RoutineMatch = TextMatch | "variant";
 
 export type TemplateRoutine = Fingerprint & {
   readonly name: string;
   readonly schedule: string;
   readonly paused: boolean;
   readonly prompt: string;
+  readonly variants: readonly string[];
   readonly earlier: readonly EarlierPrompt[];
 };
 
@@ -22,8 +25,8 @@ type Proposal = { readonly name: string; readonly starts: "active" | "paused"; r
 
 export type RoutineFinding = Proposal &
   (
-    | { readonly state: "current"; readonly problem: null; readonly match: TextMatch; readonly publishedIn: null }
-    | { readonly state: "out-of-date"; readonly problem: "routine-prompt-out-of-date"; readonly match: "whitespace"; readonly publishedIn: string }
+    | { readonly state: "current"; readonly problem: null; readonly match: RoutineMatch; readonly publishedIn: null }
+    | { readonly state: "out-of-date"; readonly problem: "routine-prompt-out-of-date"; readonly match: "whitespace" | "variant"; readonly publishedIn: string }
     | { readonly state: "missing"; readonly problem: "routine-missing"; readonly match: null; readonly publishedIn: null }
     | { readonly state: "custom"; readonly problem: "routine-custom"; readonly match: null; readonly publishedIn: null }
   );
@@ -37,8 +40,11 @@ const RANK: Readonly<Record<RoutineFinding["state"], number>> = { current: 0, "o
 const compare = (template: TemplateRoutine, proposal: Proposal, mine: BotRoutine): RoutineFinding => {
   const match = matchOf(mine, template);
   if (match !== null) return { ...proposal, state: "current", problem: null, match, publishedIn: null };
+  if (template.variants.includes(mine.whitespaceSha256)) return { ...proposal, state: "current", problem: null, match: "variant", publishedIn: null };
   const earlier = template.earlier.find((entry) => entry.whitespaceSha256 === mine.whitespaceSha256);
-  if (earlier !== undefined) return { ...proposal, state: "out-of-date", problem: "routine-prompt-out-of-date", match: "whitespace", publishedIn: earlier.template };
+  if (earlier !== undefined) {
+    return { ...proposal, state: "out-of-date", problem: "routine-prompt-out-of-date", match: earlier.variant ? "variant" : "whitespace", publishedIn: earlier.template };
+  }
   return { ...proposal, state: "custom", problem: "routine-custom", match: null, publishedIn: null };
 };
 
@@ -91,15 +97,18 @@ export const parseTemplateRoutines = (value: unknown): readonly TemplateRoutine[
   if (!Array.isArray(value)) return wrong("must be a list");
   return value.map((entry: unknown): TemplateRoutine => {
     if (!isRecord(entry)) return wrong("must each be an object");
-    const { name, schedule, paused, prompt, sha256, whitespaceSha256, earlier } = entry;
+    const { name, schedule, paused, prompt, sha256, whitespaceSha256, variants, earlier } = entry;
     if (typeof name !== "string" || !/^ambitious-[a-z][a-z0-9-]*$/.test(name)) return wrong("need a name starting with ambitious-");
     if (typeof schedule !== "string" || typeof prompt !== "string" || prompt === "" || typeof paused !== "boolean") return wrong(`need a schedule, a prompt and whether ${name} starts paused`);
     if (!isHash(sha256) || !isHash(whitespaceSha256)) return wrong(`need the two SHA-256 values of the prompt of ${name}`);
+    if (!Array.isArray(variants) || !variants.every(isHash)) return wrong(`need the SHA-256 of each variant of the prompt of ${name}`);
     if (!Array.isArray(earlier)) return wrong(`need the list of earlier prompts of ${name}`);
     const published = earlier.map((item: unknown): EarlierPrompt => {
-      if (!isRecord(item) || typeof item.template !== "string" || !isHash(item.whitespaceSha256)) return wrong(`list an earlier prompt of ${name} without its template version and SHA-256`);
-      return { template: item.template, whitespaceSha256: item.whitespaceSha256 };
+      if (!isRecord(item) || typeof item.template !== "string" || !isHash(item.whitespaceSha256) || typeof item.variant !== "boolean") {
+        return wrong(`list an earlier prompt of ${name} without its template version, its SHA-256 and whether it is a variant`);
+      }
+      return { template: item.template, whitespaceSha256: item.whitespaceSha256, variant: item.variant };
     });
-    return { name, schedule, paused, prompt, sha256, whitespaceSha256, earlier: published };
+    return { name, schedule, paused, prompt, sha256, whitespaceSha256, variants, earlier: published };
   });
 };

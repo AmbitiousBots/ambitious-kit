@@ -14,11 +14,13 @@ export type SkillDecision = {
 
 export type SkillOffer = { readonly name: string; readonly stored: string | null; readonly candidate: string };
 
+export type SkillRequest = { readonly name: string; readonly stored: string | null; readonly candidate: string | null };
+
 const VERSION_LINE = /^Template version: ((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))(?:\r?\n|$)/;
 const SKILL_NAME = /^ambitious-[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 const HINT =
-  'Give a list of { "name", "stored", "candidate" }: the skill name starting with ambitious-, the body now stored in the skill library (null when there is none), and the body this template would write, whose first line is "Template version: x.y.z".';
+  'Give a list of { "name", "stored" }: the skill name starting with ambitious-, and the body now stored in the skill library (null when there is none). The body to compare it with is the one inside this installer. For a skill this installer does not carry, add "candidate": the body that would be written, whose first line is "Template version: x.y.z".';
 
 export const templateVersionOf = (body: string): string | null => VERSION_LINE.exec(body)?.[1] ?? null;
 
@@ -42,7 +44,30 @@ export const decideSkillWrite = ({ name, stored, candidate }: SkillOffer): Skill
   );
 };
 
-export const parseSkillOffers = (value: unknown): readonly SkillOffer[] => {
+export const skillChange = ({ name, action, storedVersion, candidateVersion }: SkillDecision): string | null => {
+  if (action === "create") return `${name}: new, template ${candidateVersion}`;
+  if (action === "update") return `${name}: template ${storedVersion ?? "without a version line"} -> ${candidateVersion}`;
+  return null;
+};
+
+export const withTemplateBodies = (requests: readonly SkillRequest[], bodies: ReadonlyMap<string, string>): readonly SkillOffer[] =>
+  requests.map(({ name, stored, candidate }, index) => {
+    const own = bodies.get(name);
+    if (own !== undefined && candidate !== null && candidate !== own) {
+      throw failure(
+        "E_INPUT_SCHEMA",
+        `skills[${index}].candidate is not the body this installer carries for ${name}, so it was not compared.`,
+        "Leave candidate out. The installer compares the stored body with its own, which the pin on the installer covers; a body from anywhere else is never written.",
+      );
+    }
+    const body = own ?? candidate;
+    if (body === null) {
+      throw failure("E_INPUT_SCHEMA", `skills[${index}].candidate was left out, and ${name} is not a skill this installer carries.`, HINT);
+    }
+    return { name, stored, candidate: body };
+  });
+
+export const parseSkillOffers = (value: unknown): readonly SkillRequest[] => {
   if (!Array.isArray(value)) throw failure("E_INPUT_SCHEMA", "The input must be a list of skills.", HINT);
   return value.map((entry: unknown, index) => {
     const wrong = (field: string, rule: string): never => {
@@ -52,7 +77,7 @@ export const parseSkillOffers = (value: unknown): readonly SkillOffer[] => {
     const { name, stored, candidate } = entry;
     if (typeof name !== "string" || !SKILL_NAME.test(name)) return wrong("name", "must be a skill name starting with ambitious-");
     if (stored !== null && typeof stored !== "string") return wrong("stored", "must be the stored body as text, or null when no such skill is stored");
-    if (typeof candidate !== "string") return wrong("candidate", "must be the body this template would write, as text");
-    return { name, stored, candidate };
+    if (candidate !== undefined && candidate !== null && typeof candidate !== "string") return wrong("candidate", "must be the body that would be written, as text, or be left out to use the body inside this installer");
+    return { name, stored, candidate: candidate ?? null };
   });
 };

@@ -6,7 +6,7 @@ import { refuseAgentData } from "../paths/refuse-agent-data.ts";
 
 const MAX_BYTES = 256 * 1024;
 
-const sha256Of = (text: string): string => createHash("sha256").update(text).digest("hex");
+export const sha256Of = (text: string | Uint8Array): string => createHash("sha256").update(text).digest("hex");
 
 export const fingerprintOf = (text: string): Fingerprint => ({ sha256: sha256Of(text), whitespaceSha256: sha256Of(foldWhitespace(text)) });
 

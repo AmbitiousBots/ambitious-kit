@@ -25,9 +25,9 @@
   },
   {
     "module": "audit",
-    "version": "0.2.1",
-    "url": "https://github.com/AmbitiousBots/ambitious-audit/releases/download/audit-v0.2.1/ambitious-audit-0.2.1.mjs",
-    "sha256": "7f12b9921b5e5c96e62bbf85105c0ff7473a3ebe9096f9523757dec1b54af660"
+    "version": "0.2.2",
+    "url": "https://github.com/AmbitiousBots/ambitious-audit/releases/download/audit-v0.2.2/ambitious-audit-0.2.2.mjs",
+    "sha256": "18ddb2131e1665805add497d7d6b890fad7e8bd91bbfe21cb4e2f6fa30a69f83"
   },
   {
     "module": "video",

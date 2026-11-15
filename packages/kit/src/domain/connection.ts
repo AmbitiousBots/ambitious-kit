@@ -19,22 +19,26 @@ export type ConnectorFinding =
 export type ConnectionAnswer = {
   readonly monitoring: string | null;
   readonly identity: "confirmed" | "not confirmed" | null;
+  readonly toolsRead: number;
+  readonly toolsNotRead: readonly string[];
   readonly connectors: readonly ConnectorFinding[];
   readonly tellOwner: readonly string[];
 };
 
 const HINT =
-  'Give a list of { "name", "tools", "serverInfo" }, one entry for each connector: its name, the names of its tools as the connector list shows them (null when the list shows no tools), and what its server_info tool returned (null when that tool was not called).';
+  'Give a list of { "name", "tools", "serverInfo" }, one entry for each connector: its name, the names of its tools as the tool catalog of the platform lists them for that connector (null when its tools were not read), and what its server_info tool returned (null when that tool was not called).';
 
 const SEPARATORS = ["__", ".", ":", "/"] as const;
 
 const isTool = (shown: string, tool: string): boolean => shown === tool || SEPARATORS.some((separator) => shown.endsWith(`${separator}${tool}`));
 
+const counted = (count: number): string => `${count} ${count === 1 ? "connector" : "connectors"}`;
+
 const quoted = (names: readonly string[]): string => names.map((name) => `\`${name}\``).join(", ");
 
 export const identifyConnector = ({ name, tools, serverInfo }: ConnectorOffer): ConnectorFinding => {
   if (tools === null) {
-    return { name, kind: "unidentified", identity: null, why: `The connector list shows no tools for "${name}", so it cannot be told whether it is the monitoring connection. Its name is not evidence.` };
+    return { name, kind: "unidentified", identity: null, why: `The tools of "${name}" were not read, so it cannot be told whether it is the monitoring connection. Its name is not evidence.` };
   }
   const absent = MONITORING_TOOLS.filter((tool) => !tools.some((shown) => isTool(shown, tool)));
   if (absent.length > 0) {
@@ -69,22 +73,26 @@ export const identifyConnection = (offers: readonly ConnectorOffer[]): Connectio
   const connectors = offers.map(identifyConnector);
   const found = connectors.filter((connector) => connector.kind === "monitoring");
   const only = found.length === 1 ? found[0] : undefined;
-  const unidentified = connectors.filter((connector) => connector.kind === "unidentified");
+  const toolsNotRead = connectors.filter((connector) => connector.kind === "unidentified").map(({ name }) => name);
+  const toolsRead = connectors.length - toolsNotRead.length;
+  const read = `the ${counted(toolsRead)} whose tools were read`;
+  const notRead =
+    toolsNotRead.length === 0
+      ? "No connector was left unread."
+      : `The tools of ${counted(toolsNotRead.length)} were not read: ${toolsNotRead.map((name) => `"${name}"`).join(", ")}. Read their tool names from the platform's tool catalog and run this again.`;
   const summary =
     found.length > 1
-      ? [`More than one connector looks like the monitoring connection: ${found.map(({ name }) => `"${name}"`).join(", ")}. None was chosen; the owner decides which one to keep.`]
-      : found.length === 0
-        ? [
-            unidentified.length > 0
-              ? "The monitoring connection could not be identified, because the connector list shows no tools for at least one connector."
-              : "This bot has no monitoring connection. The owner adds it through the platform's connection flow.",
-          ]
-        : [];
+      ? `More than one connector looks like the monitoring connection among ${read}: ${found.map(({ name }) => `"${name}"`).join(", ")}. None was chosen; the owner decides which one to keep. ${notRead}`
+      : only === undefined
+        ? `There is no monitoring connection among ${read}. ${notRead}${toolsNotRead.length === 0 ? " The owner adds the monitoring connection through the platform's connection flow." : ""}`
+        : `"${only.name}" is the monitoring connection, found among ${read}. ${notRead}`;
   return {
     monitoring: only?.name ?? null,
     identity: only?.kind === "monitoring" ? only.identity : null,
+    toolsRead,
+    toolsNotRead,
     connectors,
-    tellOwner: [...summary, ...connectors.filter((connector) => connector.kind !== "different" || connector.identity === "mismatch").map(({ why }) => why)],
+    tellOwner: [summary, ...connectors.filter((connector) => connector.kind !== "different" || connector.identity === "mismatch").map(({ why }) => why)],
   };
 };
 
@@ -97,7 +105,7 @@ export const parseConnectorOffers = (value: unknown): readonly ConnectorOffer[] 
     if (!isRecord(entry)) return wrong("", "must be an object");
     const { name, tools, serverInfo } = entry;
     if (typeof name !== "string" || name === "") return wrong("name", "must be the connector's name");
-    if (tools !== null && !(Array.isArray(tools) && tools.every((tool: unknown) => typeof tool === "string"))) return wrong("tools", "must be a list of tool names, or null when the connector list shows none");
+    if (tools !== null && !(Array.isArray(tools) && tools.every((tool: unknown) => typeof tool === "string"))) return wrong("tools", "must be a list of tool names, or null when the connector's tools were not read");
     if (serverInfo !== null && !isRecord(serverInfo)) return wrong("serverInfo", "must be the object the server_info tool returned, or null when it was not called");
     const names: readonly string[] | null = tools;
     return { name, tools: names, serverInfo: serverInfo === null ? null : { identity: typeof serverInfo.identity === "string" ? serverInfo.identity : null } };

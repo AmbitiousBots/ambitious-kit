@@ -1,5 +1,5 @@
 {
-  "about": "The connector list shows names only, with no tools. Nothing can be said about the connector, and its name is not evidence.",
+  "about": "The connector's tools were not read: the platform showed only how many tools it has, and no tool discovery was available to list their names. Nothing can be said about the connector, and its name is not evidence.",
   "connectors": [
     {
       "name": "Ambitious",
@@ -10,6 +10,10 @@
   "expected": {
     "monitoring": null,
     "identity": null,
+    "toolsRead": 0,
+    "toolsNotRead": [
+      "Ambitious"
+    ],
     "connectors": [
       {
         "name": "Ambitious",

@@ -3,7 +3,7 @@ name: ambitious-getting-started
 description: For the Ambitious Bot only. Ask three setup questions, set the routines to the owner's time zone, check observable capabilities, write the first audit as a Grok Bot Page, and find the monitoring connection by its tools. Use on the Ambitious Bot's first chat, after the module sync, and when the owner asks the Ambitious Bot about setup or monitoring.
 ---
 
-Template version: 0.2.6
+Template version: 0.2.7
 
 # Getting started
 
@@ -57,13 +57,14 @@ For yes, look for the monitoring connection through the available connector tool
 
 Identify the monitoring connection by the tools the connector offers, never by its display name. The platform's connector list may show no server address, so do not wait for one and do not guess one.
 
-1. Tool names. The monitoring connection is a connector whose tool list includes all three of `server_info`, `send_report` and `send_feedback`. Write every connector's name and tool names, as the connector list shows them, to `connectors.json` under `AMBITIOUS_HOME`, never under `/home/box/agent-data`, and ask the installer:
+1. Tool names. The monitoring connection is a connector whose tool list includes all three of `server_info`, `send_report` and `send_feedback`. The platform's connector status tool may show only how many tools each connector has, not their names. A count is not a tool list. Read the names from the platform's tool catalog, one connector namespace at a time, with the platform's dynamic tool discovery: on Grok Bot, `GetDynamicTools` with the connector's namespace returns that connector's tool names and descriptions. Do it for every connector, not only for one whose name looks right, and copy each tool name as it was returned. Write every connector's name and the tool names read for it to `connectors.json` under `AMBITIOUS_HOME`, never under `/home/box/agent-data`, and ask the installer:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" connection --json --in "${AMBITIOUS_HOME:-/workspace/ambitious}/connectors.json"
 ```
 
-`connectors.json` is a list of `{ "name", "tools", "serverInfo" }`. `tools` is the list of tool names, or `null` when the connector list shows no tools for that connector. `serverInfo` is `null` until step 2.
+`connectors.json` is a list of `{ "name", "tools", "serverInfo" }`. `tools` is the list of tool names the catalog returned for that connector, or `null` when its tools were not read: the discovery tool is missing, was refused, or returned nothing for that namespace. Never fill `tools` in from a count, a display name or a guess. `serverInfo` is `null` until step 2.
+When the platform has no such discovery, every `tools` is `null`. Then no monitoring connection is identified and no identity is confirmed: say so to the owner, and do not go by a name.
 
 2. Identity. `server_info` takes no arguments and returns the service's fixed identity. Call it only when this bot's instructions allow calling `server_info`, on a connector that passed step 1, with whatever tool approval the platform asks of the owner. Put the object it returned in that connector's `serverInfo` and run the command again: the `identity` it returned must be exactly `ambitiousbots.com/mcp/v1`.
 
@@ -75,9 +76,10 @@ Instructions that let nothing leave this computer except through `send_report` a
 | `monitoring` | `not confirmed` | It has the three tools and `server_info` was not called. Say so. |
 | `different` | `mismatch` | It has the three tools but answered with another identity. Send it nothing. |
 | `different` | `null` | It lacks one of the three tools. |
-| `unidentified` | `null` | The connector list shows no tools for it, so nothing can be said. |
+| `unidentified` | `null` | Its tools were not read, so nothing can be said about it. |
 
-`data.monitoring` is the name of the one monitoring connection, or `null` when there is none or more than one. Relay every line of `data.tellOwner`.
+`data.monitoring` is the name of the one monitoring connection, or `null` when there is none or more than one. `data.toolsRead` is how many connectors had their tools read, and `data.toolsNotRead` names the connectors whose tools were not read.
+Relay every line of `data.tellOwner`. Its first line says whether there is a monitoring connection among the connectors whose tools were read, how many were read, and how many were not, with their names. Never shorten it to "could not be identified".
 A connector that fails both checks is "a different connector", whatever it is called, even when it is named Ambitious or anything like it. Report it as "a different connector" with its name, and leave it alone: do not use it for monitoring, sign in to it, change it or remove it.
 A confirmed identity means the server answered with the service's identity string. It does not prove who runs that server, since any server can return the same string. The address in the connector's own settings, which the owner can open, shows where reports go: for the Ambitious service it is `https://ambitiousbots.com/api/mcp`.
 If there is no monitoring connection, or it needs a sign-in, explain that the owner adds or signs in to it through the platform's connection flow. Do not connect a production endpoint or collect credentials yourself.

@@ -28,6 +28,8 @@
   "expected": {
     "monitoring": null,
     "identity": null,
+    "toolsRead": 2,
+    "toolsNotRead": [],
     "connectors": [
       {
         "name": "Monitoring",

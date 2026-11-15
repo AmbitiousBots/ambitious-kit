@@ -3,7 +3,7 @@ name: ambitious-audit-collector
 description: For the Ambitious Bot only. Gather a collector document for ambitious-audit from the account the bot can see, write every unseen value as null, and say honestly what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
-Template version: 0.2.6
+Template version: 0.2.7
 
 # Audit collector
 
@@ -15,11 +15,14 @@ When unsure about a field, run `ambitious-audit schema`. It prints the full sche
 
 Each object takes exactly the fields listed for it. `[]` after a name means each entry of that list. Every field is required unless it is listed as optional.
 
-- The document: `schemaVersion`, `collectedAt`, `account`, `bots`, `routines`, `connectors`, `tasks`, `pages`, `visibility`, `evidence`
+- The document: `schemaVersion`, `collectedAt`, `account`, `bots`, `routines`, `connectors`, `tasks`, `pages`, `visibility`, `evidence`; optional `usageOther`, `weeklyLimitUsed`
 - `account`: `kind`, `label`
 - `bots[]`: `id`, `name`, `lastActiveAt`, `routineCount`, `usage`
-- `routines[]`: `id`, `botId`, `schedule`, `state`, `lastRunAt`, `usage`; optional `lastError`
-- `bots[].usage`, `routines[].usage`: `unit`, `amount7d`
+- `routines[]`: `id`, `botId`, `schedule`, `state`, `lastRunAt`, `usage`; optional `pausedAt`, `createdAt`, `lastError`
+- `bots[].usage`: `unit`; optional `amount7d`, `period`, `periodStart`, `periodEnd`, `share`
+- `routines[].usage`: `unit`, `amount7d`
+- `usageOther`: `share`; optional `botCount`
+- `weeklyLimitUsed`: `percent`, `asOf`
 - `connectors[]`: `name`, `status`
 - `tasks`: `open`, `stale7d`, `blocked`
 - `pages`: `count`, `updated7d`
@@ -31,7 +34,9 @@ These fields take only the values listed:
 - `schemaVersion`: `1`
 - `account.kind`: `owner`, `guest`, `team`, `unknown`
 - `routines[].state`: `active`, `paused`, `failing`
-- `bots[].usage.unit`, `routines[].usage.unit`: `credits`, `percent`
+- `bots[].usage.unit`: `credits`, `percent`, `share`
+- `bots[].usage.period`: `this_week`, `last_7_days`, `last_30_days`
+- `routines[].usage.unit`: `credits`, `percent`
 - `connectors[].status`: `ok`, `needsAuth`, `needsGrant`, `initializing`, `error`
 - `visibility[].signal`: `transcripts`, `usage`, `otherBots`, `auditLog`, `accountRole`, `tasks`, `pages`, `botActivity`, `routines`
 - `evidence[].kind`: `excerpt`, `count`
@@ -47,8 +52,37 @@ A value no tool returned is `null`. Never write 0 for it, and never estimate.
 - `pages.count` and `pages.updated7d` are `null` when the page tool did not return them.
 - `lastActiveAt` on a bot and `lastRunAt` on a routine are a UTC time, the word `never` when the account shows it has not happened yet, or `null` when the account does not show it.
 - `routineCount` on a bot is `null` when it was not shown.
-- `usage` on each bot and each routine is `{ "unit": "credits", "amount7d": 412.5 }` when the account reports credits, `{ "unit": "percent", "amount7d": 82.5 }` when it reports a share of the total, or `null` when it reports neither for that bot or routine.
+- `pausedAt` on a paused routine is the UTC time the account shows for when it was paused, and `createdAt` the UTC time it shows for when the routine was created. Leave each one out when the account does not show it: do not write `null` for it, and do not work a pause time out from the last run or from anything else.
+- `usage` on each routine is `{ "unit": "credits", "amount7d": 412.5 }` when the account reports the routine's credits for the last 7 days, `{ "unit": "percent", "amount7d": 82.5 }` when it reports a percentage of the account's usage for the last 7 days, or `null` when it reports neither for that routine.
+- `usage` on each bot takes the same two forms, or the share form under "Usage reported as shares" below, or `null`.
 - `connectors` holds this bot's own connectors, as its connector list shows them. A connector's `status` is `ok`, `needsAuth`, `needsGrant`, `initializing` or `error`, as the list shows it.
+
+## Usage reported as shares
+
+The platform's usage tool may report no credits at all, only shares: each bot's share of all bot usage in a period, for the bots that used the most, with every other bot summed in one line such as "Other bots". On Grok Bot the list holds 5 bots unless more are asked for, and at most 20, and the percentage of the weekly limit used is given only when the period is the current week.
+
+Ask the usage tool once: the period `last_7_days`, grouped by bot, with the largest list it allows, which is 20 where that is the limit, so that as few bots as possible end up inside the summed line. If the tool does not offer `last_7_days`, ask for `this_week` or `last_30_days` and write that period instead. Then write down what it returned:
+
+- For each bot the report lists by name: `"usage": { "unit": "share", "period": "last_7_days", "share": 0.62 }`. A share shown as 62% is written `0.62`. Add `periodStart` and `periodEnd` when the report gives them. Every bot carries the same `period`, the one that was asked for.
+- For the summed line: `"usageOther": { "share": 0.08, "botCount": 3 }` at the top of the document. Leave `botCount` out when the report does not say how many bots the line sums, and leave `usageOther` out when the report has no such line.
+- For every bot the report did not list by name, including each bot inside the summed line: `"usage": null`. Its own share was not seen. Never write 0 for it, and never split the summed share between bots.
+- When the report gives the percentage of the weekly limit used: `"weeklyLimitUsed": { "percent": 37, "asOf": "2026-01-08T00:00:00Z" }` at the top of the document, with `asOf` the UTC time it was read. A `last_7_days` report does not give it, so leave `weeklyLimitUsed` out then. Never work it out from shares.
+- A report by bot says nothing per routine, so each routine's `usage` is `null`.
+
+When any bot or routine has `usage: null`, the `usage` signal is `seen: false`. Say in its `why` what the report did give and for which period, how many bots are only inside the summed line, and that it gives nothing per routine.
+
+These fields show a report that listed two bots and summed a third into its other line. They replace `bots` in the document under "When nothing was observed" below, whose `usage` signal stays `seen: false`:
+
+```json
+{
+  "bots": [
+    { "id": "bot-1", "name": "First bot", "lastActiveAt": null, "routineCount": null, "usage": { "unit": "share", "period": "last_7_days", "share": 0.62 } },
+    { "id": "bot-2", "name": "Second bot", "lastActiveAt": null, "routineCount": null, "usage": { "unit": "share", "period": "last_7_days", "share": 0.3 } },
+    { "id": "bot-3", "name": "Third bot", "lastActiveAt": null, "routineCount": null, "usage": null }
+  ],
+  "usageOther": { "share": 0.08, "botCount": 1 }
+}
+```
 
 ## Visibility
 
