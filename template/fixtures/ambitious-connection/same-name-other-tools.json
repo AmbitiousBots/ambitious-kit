@@ -13,6 +13,8 @@
   "expected": {
     "monitoring": null,
     "identity": null,
+    "toolsRead": 1,
+    "toolsNotRead": [],
     "connectors": [
       {
         "name": "Ambitious",

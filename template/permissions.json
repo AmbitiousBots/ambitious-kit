@@ -71,7 +71,9 @@
         "pages",
         "owner-requested-skills"
       ],
-      "optional": [],
+      "optional": [
+        "upgrade-on-any-request"
+      ],
       "rulesOut": []
     },
     "ambitious-records-for-bots": {

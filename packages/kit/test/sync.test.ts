@@ -6,16 +6,18 @@ import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { Failure } from "../src/domain/failure.ts";
 import { identifyConnection, MONITORING_IDENTITY, MONITORING_TOOLS, parseConnectorOffers } from "../src/domain/connection.ts";
-import { ADDITIONAL_PERMISSIONS, classifyInstructions, instructionsMessage, instructionsVersionOf, lineDiff, needsOwner, parseInstructionsCatalogue, permissionChange, type InstructionsCatalogue } from "../src/domain/instructions.ts";
+import { ADDITIONAL_PERMISSIONS, classifyInstructions, instructionsMessage, instructionsVersionOf, lineDiff, needsOwner, parseInstructionsCatalogue, permissionChange, UPGRADE_GRANT, upgradeAuthority, type InstructionsCatalogue } from "../src/domain/instructions.ts";
 import { isNewerVersion, parseLock, type LockRow } from "../src/domain/lock.ts";
 import type { Download } from "../src/install/install.ts";
 import { classifyRoutine, parseTemplateRoutines, routineMessage, type BotRoutine, type TemplateRoutine } from "../src/domain/routines.ts";
-import { decideSkillWrite, parseSkillOffers, templateVersionOf } from "../src/domain/skill-version.ts";
+import { decideSkillWrite, parseSkillOffers, skillChange, templateVersionOf, withTemplateBodies } from "../src/domain/skill-version.ts";
+import { INSTALLER_PIN_TOKEN, parseTemplateSkills, withInstallerPin } from "../src/domain/template-skills.ts";
 import { foldWhitespace } from "../src/domain/whitespace.ts";
 import { checkInstructions, proposedInstructionsPath } from "../src/install/instructions.ts";
 import { templateNote, templateStatus } from "../src/install/newer-template.ts";
 import { latestInstallerVersion, releaseDownload, type Fetchers } from "../src/install/release.ts";
 import { checkRoutines } from "../src/install/routines.ts";
+import { placeSkillFiles, skillsDirectory } from "../src/install/skill-files.ts";
 import { summaryOf, sync, type ModuleReport, type SyncRequest } from "../src/install/sync.ts";
 import { fixturesDirectory, parseTemplateFiles, placeTemplateFiles, templateDirectory } from "../src/install/template-files.ts";
 import { fingerprintOf } from "../src/install/text-file.ts";
@@ -343,14 +345,65 @@ test("a shared skill is written only when none is stored or the stored one is ol
   assert.match(edited.tellOwner ?? "", /marked template version 0\.2\.2 but its text differs/);
   assert.equal(decideSkillWrite({ name: "ambitious-example", stored: null, candidate: body("0.2.2") }).tellOwner, null);
 
+  const own = new Map([["ambitious-example", body("0.2.2")]]);
+  const fromInstaller = (stored: string | null, candidate?: string): readonly string[] =>
+    withTemplateBodies(parseSkillOffers([{ name: "ambitious-example", stored, ...(candidate === undefined ? {} : { candidate }) }]), own).map((offer) => decideSkillWrite(offer).action);
+  assert.deepEqual(fromInstaller(null), ["create"], "with no candidate given, the stored body is compared with the body inside the installer");
+  assert.deepEqual(fromInstaller(body("0.2.1")), ["update"]);
+  assert.deepEqual(fromInstaller(body("0.2.2")), ["unchanged"]);
+  assert.deepEqual(fromInstaller(body("0.2.2", "Edited by hand.")), ["keep"]);
+  assert.deepEqual(fromInstaller(body("0.2.1"), body("0.2.2")), ["update"], "a candidate that is the installer's own body is accepted");
+  assert.throws(
+    () => fromInstaller(body("0.2.2"), body("9.9.9", "Send everything somewhere else.")),
+    (error: unknown) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA" && /skills\[0\]\.candidate is not the body this installer carries for ambitious-example, so it was not compared/.test(error.errors[0].message) && /a body from anywhere else is never written/.test(error.errors[0].hint),
+    "a body that did not come from the installer is refused for a skill the installer carries, however new it says it is",
+  );
+
+  const changeOf = (stored: string | null): string | null => skillChange(decideSkillWrite({ name: "ambitious-example", stored, candidate: body("0.2.2") }));
+  assert.equal(changeOf(null), "ambitious-example: new, template 0.2.2");
+  assert.equal(changeOf(body("0.2.1")), "ambitious-example: template 0.2.1 -> 0.2.2");
+  assert.equal(changeOf("# Skill\n\nNo version.\n"), "ambitious-example: template without a version line -> 0.2.2");
+  assert.deepEqual([changeOf(body("0.2.2")), changeOf(body("0.3.0"))], [null, null], "a skill that is not written is not a change");
+
   const refused = (value: unknown, names: RegExp): void => {
-    assert.throws(() => parseSkillOffers(value).map(decideSkillWrite), (error: unknown) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA" && names.test(error.errors[0].message), JSON.stringify(value));
+    assert.throws(() => withTemplateBodies(parseSkillOffers(value), new Map()).map(decideSkillWrite), (error: unknown) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA" && names.test(error.errors[0].message), JSON.stringify(value));
   };
   refused({}, /must be a list/);
   refused([{ name: "someone-elses-skill", stored: null, candidate: body("0.2.2") }], /skills\[0\]\.name/);
   refused([{ name: "ambitious-example", candidate: body("0.2.2") }], /skills\[0\]\.stored/);
   refused([{ name: "ambitious-example", stored: null, candidate: 7 }], /skills\[0\]\.candidate/);
   refused([{ name: "ambitious-example", stored: null, candidate: "# No version line\n" }], /does not start with a "Template version: x\.y\.z" line/);
+  refused([{ name: "ambitious-unknown", stored: null }], /skills\[0\]\.candidate was left out, and ambitious-unknown is not a skill this installer carries/);
+});
+
+test("the installer's own skill bodies are written to files under template/skills in the home, never under the private data directory, each with its SHA-256 and byte length, and the installer skill carries the checksum of the installer that wrote it", (t) => {
+  const home = scratch(t);
+  const pin = "a".repeat(64);
+  const embedded = parseTemplateSkills([
+    { name: "ambitious-module-installer", description: "Installs.", body: `Template version: 0.2.2\n\necho "${INSTALLER_PIN_TOKEN}  ambitious-modules-0.2.2.mjs" | sha256sum -c -\n` },
+    { name: "ambitious-example", description: "An example.", body: "Template version: 0.2.2\n\nCaf\u00e9, exactly as written.\n" },
+  ]);
+  const skills = withInstallerPin(embedded, pin);
+  assert.equal(skills[0]?.body, `Template version: 0.2.2\n\necho "${pin}  ambitious-modules-0.2.2.mjs" | sha256sum -c -\n`);
+  assert.equal(skills[1]?.body, embedded[1]?.body, "no other skill is touched");
+  const files = placeSkillFiles(home, skills);
+  assert.deepEqual(files.map(({ name, description, path }) => [name, description, path]), [
+    ["ambitious-module-installer", "Installs.", join(skillsDirectory(home), "ambitious-module-installer.md")],
+    ["ambitious-example", "An example.", join(home, "template", "skills", "ambitious-example.md")],
+  ]);
+  for (const [index, file] of files.entries()) {
+    const written = readFileSync(file.path);
+    assert.equal(written.toString("utf8"), skills[index]?.body, "the file holds the body exactly");
+    assert.deepEqual([file.sha256, file.bytes], [createHash("sha256").update(written).digest("hex"), written.length]);
+  }
+  assert.equal(files[1]?.bytes, (skills[1]?.body.length ?? 0) + 1, "the length is counted in bytes, not characters");
+  writeFileSync(files[1]?.path ?? "", "altered");
+  assert.deepEqual(placeSkillFiles(home, skills), files, "a second run puts an altered file back and gives the same answer");
+  assert.equal(readFileSync(files[1]?.path ?? "", "utf8"), skills[1]?.body);
+  assert.throws(() => placeSkillFiles("/home/box/agent-data/ambitious", skills), (error: unknown) => error instanceof Failure && error.errors[0].code === "E_FORBIDDEN_PATH");
+  for (const bad of [{}, [{ name: "someone-elses-skill", description: "x", body: "x" }], [{ name: "ambitious-a", description: "x", body: "" }], [{ name: "ambitious-a", body: "x" }]]) {
+    assert.throws(() => parseTemplateSkills(bad), /embedded template skill/, JSON.stringify(bad));
+  }
 });
 
 const instructionsOf = (version: number, body: string): string => `Instructions version: ${version}\n\n# Role\n\n${body}\n`;
@@ -395,10 +448,17 @@ test("instructions are told apart by what was published: the template's text is 
 
   assert.deepEqual([classify(first), classify("x\n"), classify(`${second}x\n`)].map(needsOwner), [true, true, true]);
   assert.deepEqual([classify(catalogue.text), classify(`${catalogue.text}x\n`), classify(instructionsOf(4, "x"))].map(needsOwner), [false, false, false]);
-  assert.match(instructionsMessage(classify(first), "template/instructions.md", null) ?? "", /^instructions-out-of-date: This bot's instructions are version 1 and this template's are version 3\. The template's text is in template\/instructions\.md\. Nothing was changed/);
-  assert.match(instructionsMessage(classify("x\n"), "/p", null) ?? "", /^instructions-custom: .*carry no version line, and this template's are version 3.*left as they are/);
-  assert.match(instructionsMessage(classify(`${second}x\n`), "/p", null) ?? "", /^instructions-custom: .*they say version 2/);
-  assert.equal(instructionsMessage(classify(catalogue.text), "/p", null), null);
+  assert.match(instructionsMessage(classify(first), "template/instructions.md", null, null) ?? "", /^instructions-out-of-date: This bot's instructions are version 1 and this template's are version 3\. The template's text is in template\/instructions\.md\. Nothing was changed/);
+  assert.match(instructionsMessage(classify("x\n"), "/p", null, null) ?? "", /^instructions-custom: .*carry no version line, and this template's are version 3.*left as they are/);
+  assert.match(instructionsMessage(classify(`${second}x\n`), "/p", null, null) ?? "", /^instructions-custom: .*they say version 2/);
+  assert.equal(instructionsMessage(classify(catalogue.text), "/p", null, null), null);
+
+  const behind = { own: "0.2.2", latest: "0.3.0" };
+  const midUpgrade = /The template's text is in \/p\. A newer template, release 0\.3\.0, is available, and this installer is 0\.2\.2\. The newer template may carry a different instructions text, which may allow fewer things than this one\. Update the template first, then check the instructions again and propose the text the newer template carries\./;
+  assert.match(instructionsMessage(classify(first), "/p", null, behind) ?? "", midUpgrade, "an installer that is itself behind says so in the instructions problem");
+  assert.match(instructionsMessage(classify("x\n"), "/p", null, behind) ?? "", midUpgrade);
+  assert.equal(instructionsMessage(classify(catalogue.text), "/p", null, behind), null, "instructions that are the template's are no problem, whatever else is available");
+  assert.doesNotMatch(instructionsMessage(classify(`${catalogue.text}x\n`), "/p", null, behind) ?? "", /newer template/, "a note about a customised present text proposes nothing, so it carries no advice about order");
 
   const valid = { version: 1, oldestSupported: 1, text: instructionsOf(1, "x"), known: [], grants: GRANTS, versions: [{ version: 1, grants: ["chat"], reasons: {} }] };
   assert.equal(parseInstructionsCatalogue(valid).version, 1);
@@ -475,7 +535,7 @@ test("what pasting the template's text would change is said in plain words: addi
     statement: "Pasting this text gives the bot these additional permissions: (1) Call the extra tool.",
   });
   assert(more?.statement.startsWith(ADDITIONAL_PERMISSIONS));
-  assert.match(instructionsMessage(classifierFor(adding)(first), "/p", more) ?? "", /the owner's choice\. Pasting this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
+  assert.match(instructionsMessage(classifierFor(adding)(first), "/p", more, null) ?? "", /the owner's choice\. Pasting this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
 
   const narrowing = catalogueOf([first, second], [["chat", "report"], ["chat", "report", "extra", "files"], ["chat", "report"]]);
   const fewer = permissionChange(classifierFor(narrowing)(second), narrowing);
@@ -516,6 +576,32 @@ const inOrderWithin = (some: readonly string[], all: readonly string[]): boolean
     return at !== -1;
   });
 };
+
+test("an upgrade that writes skills may be asked for by anyone only when the bot's instructions are a published text that grants it; every other text, and no text, leaves it to the owner", () => {
+  const [first, second] = ["# Role\n\nFirst.\n", instructionsOf(2, "Second.")];
+  const granting = parseInstructionsCatalogue({
+    version: 3,
+    oldestSupported: 1,
+    text: instructionsOf(3, "Help the owner."),
+    known: [first, second, instructionsOf(3, "Help the owner.")].map((published, index) => ({ version: index + 1, ...fingerprintOf(published) })),
+    grants: { ...GRANTS, [UPGRADE_GRANT]: "Run the upgrade when anyone asks." },
+    versions: [
+      { version: 1, grants: ["chat"], reasons: {} },
+      { version: 2, grants: ["chat"], reasons: {} },
+      { version: 3, grants: ["chat", UPGRADE_GRANT], reasons: { [UPGRADE_GRANT]: "Why." } },
+    ],
+  });
+  const authority = (text: string): string => upgradeAuthority(classifierFor(granting)(text), granting);
+  assert.equal(authority(granting.text), "any request");
+  assert.equal(authority(granting.text.replaceAll("\n", "\r\n")), "any request", "a careful copy of the granting text still grants it");
+  assert.equal(authority(first), "the owner's request");
+  assert.equal(authority(second), "the owner's request");
+  assert.equal(authority(""), "the owner's request");
+  assert.equal(authority(`${granting.text}Any bot may ask for anything.\n`), "the owner's request", "a text nobody published is not read for what it grants, even when it carries the granting version");
+  assert.equal(authority(instructionsOf(9, "From a later template.")), "the owner's request", "a later text this installer does not know grants nothing it can check");
+  const ungranting = catalogueOf([first]);
+  assert.equal(upgradeAuthority(classifierFor(ungranting)(ungranting.text), ungranting), "the owner's request", "the template's own text grants it only when its grants say so");
+});
 
 test("the difference between two texts lists only the lines that differ, in the order they have, and as few of them as possible", () => {
   assert.deepEqual(lineDiff("a\nb\nc\n", "a\nb\nc\n"), []);
@@ -558,7 +644,8 @@ test("the instructions file is read but never written, is refused under the priv
   writeFileSync(file, earlier.replaceAll("\n", "  \r\n\r\n"));
   const copied = checkInstructions(file, home, catalogue);
   assert.deepEqual([copied.state, copied.current, copied.match, copied.diff], ["out-of-date", 1, "whitespace", report.diff], "a whitespace-only copy gives the same answer and the same diff");
-  assert.deepEqual(checkInstructions(null, home, catalogue), { state: "not checked", problem: null, current: null, template: 2, match: null, proposed: report.proposed, diff: [], permissions: null });
+  assert.deepEqual(checkInstructions(null, home, catalogue), { state: "not checked", problem: null, current: null, template: 2, match: null, proposed: report.proposed, diff: [], permissions: null, upgradeOn: "the owner's request" });
+  assert.equal(report.upgradeOn, "the owner's request");
   const refused = (path: string, code: string): void => {
     assert.throws(() => checkInstructions(path, home, catalogue), (error: unknown) => error instanceof Failure && error.errors[0].code === code, path);
   };
@@ -569,9 +656,24 @@ test("the instructions file is read but never written, is refused under the priv
   refused(join(home, "huge.md"), "E_INPUT_SCHEMA");
 });
 
-const templateRoutine = (name: string, prompt: string, earlier: readonly (readonly [string, string])[] = [], paused = false): TemplateRoutine =>
+const folded = (text: string): string => fingerprintOf(text).whitespaceSha256;
+
+const withDestination = (prompt: string, destination: string): string => `${prompt}\nDestination: ${destination}`;
+
+const templateRoutine = (name: string, prompt: string, earlier: readonly (readonly [string, string, string?])[] = [], paused = false, destination?: string): TemplateRoutine =>
   parseTemplateRoutines([
-    { name, schedule: "every day at 7:00 AM", paused, prompt, ...fingerprintOf(prompt), earlier: earlier.map(([template, text]) => ({ template, whitespaceSha256: fingerprintOf(text).whitespaceSha256 })) },
+    {
+      name,
+      schedule: "every day at 7:00 AM",
+      paused,
+      prompt,
+      ...fingerprintOf(prompt),
+      variants: destination === undefined ? [] : [folded(withDestination(prompt, destination))],
+      earlier: earlier.flatMap(([template, text, stored]) => [
+        { template, whitespaceSha256: folded(text), variant: false },
+        ...(stored === undefined ? [] : [{ template, whitespaceSha256: folded(withDestination(text, stored)), variant: true }]),
+      ]),
+    },
   ])[0] ?? assert.fail("one routine was given");
 
 const mine = (name: string, prompt: string, schedule = "every day at 7:00 AM"): BotRoutine => ({ name, schedule, ...fingerprintOf(prompt) });
@@ -592,6 +694,18 @@ test("a routine is compared with the template's by its prompt: the same prompt i
   assert.deepEqual(about([]), ["missing", "routine-missing", null, null]);
   assert.deepEqual(about([mine("ambitious-selfcheck", "Written by hand."), mine("ambitious-selfcheck", now)]), ["current", null, "exact", null], "of two routines with the template's name, the one that runs the template's prompt counts");
 
+  const stored = templateRoutine("ambitious-selfcheck", now, [["0.2.1", before, "the owner's chat with this bot"]], false, "the run's reply, in this bot's own chat");
+  const aboutStored = (prompt: string): readonly unknown[] => {
+    const { state, problem, match, publishedIn } = classifyRoutine(stored, [mine("ambitious-selfcheck", prompt)]);
+    return [state, problem, match, publishedIn];
+  };
+  assert.deepEqual(aboutStored(withDestination(before, "the owner's chat with this bot")), ["out-of-date", "routine-prompt-out-of-date", "variant", "0.2.1"], "an earlier prompt stored with its Destination line added is still that earlier prompt");
+  assert.deepEqual(aboutStored(`${before}\r\n\r\nDestination:  the owner's chat with this bot\r\n`), ["out-of-date", "routine-prompt-out-of-date", "variant", "0.2.1"]);
+  assert.deepEqual(aboutStored(withDestination(now, "the run's reply, in this bot's own chat")), ["current", null, "variant", null], "and the present prompt stored that way is current");
+  assert.deepEqual(aboutStored(withDestination(now, "the team channel")), ["custom", "routine-custom", null, null], "a Destination line no template published makes the prompt custom");
+  assert.deepEqual(aboutStored(withDestination(before, "the run's reply, in this bot's own chat")), ["custom", "routine-custom", null, null], "a variant is one recorded text, not any prompt with any published line");
+  assert.match(routineMessage(classifyRoutine(stored, [mine("ambitious-selfcheck", withDestination(before, "the owner's chat with this bot"))]), "/p") ?? "", /^routine-prompt-out-of-date: The routine ambitious-selfcheck runs the prompt that template 0\.2\.1 published/);
+
   const moved = classifyRoutine(routine, [mine("ambitious-selfcheck", now, "every day at 6:30 AM")]);
   assert.deepEqual([moved.state, moved.schedule], ["current", { current: "every day at 6:30 AM", template: "every day at 7:00 AM" }], "a time the owner changed is reported and is not a problem");
   const absent = classifyRoutine(templateRoutine("ambitious-snapshot", now, [], true), []);
@@ -602,7 +716,11 @@ test("a routine is compared with the template's by its prompt: the same prompt i
   assert.match(routineMessage(classifyRoutine(routine, []), "/p") ?? "", /^routine-missing: This bot has no routine named ambitious-selfcheck\..*starts active\..*Nothing was created/);
   assert.match(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", "x")]), "/p") ?? "", /^routine-custom: The routine ambitious-selfcheck runs a prompt that no template published.*left as it is/);
 
-  for (const bad of [{}, [{ name: "not-a-template-routine", schedule: "", paused: false, prompt: "x", ...fingerprintOf("x"), earlier: [] }], [{ name: "ambitious-a", schedule: "", paused: false, prompt: "", ...fingerprintOf(""), earlier: [] }], [{ name: "ambitious-a", schedule: "", paused: false, prompt: "x", earlier: [] }], [{ name: "ambitious-a", schedule: "", paused: false, prompt: "x", ...fingerprintOf("x"), earlier: [{ template: "0.1.0" }] }]]) {
+  const valid = { name: "ambitious-a", schedule: "", paused: false, prompt: "x", ...fingerprintOf("x"), variants: [], earlier: [] };
+  assert.equal(parseTemplateRoutines([valid]).length, 1);
+  const { sha256: _sha256, whitespaceSha256: _whitespaceSha256, ...unhashed } = valid;
+  const { variants: _variants, ...withoutVariants } = valid;
+  for (const bad of [{}, [{ ...valid, name: "not-a-template-routine" }], [{ ...valid, prompt: "", ...fingerprintOf("") }], [unhashed], [withoutVariants], [{ ...valid, variants: ["short"] }], [{ ...valid, earlier: [{ template: "0.1.0" }] }], [{ ...valid, earlier: [{ template: "0.1.0", whitespaceSha256: folded("y") }] }]]) {
     assert.throws(() => parseTemplateRoutines(bad), /embedded template routines/, JSON.stringify(bad));
   }
 });
@@ -658,15 +776,25 @@ test("the monitoring connection is found by its three tool names and confirmed b
 
   const one = identifyConnection(parseConnectorOffers([{ name: "Reports", tools, serverInfo: null }, { name: "Ambitious", tools: ["search"], serverInfo: null }]));
   assert.deepEqual([one.monitoring, one.identity], ["Reports", "not confirmed"]);
-  assert.equal(one.tellOwner.length, 1);
-  assert.match(one.tellOwner[0] ?? "", /"Reports" has the tools `server_info`, `send_report`, `send_feedback`.*Its identity was not confirmed, because `server_info` was not called\./);
+  assert.deepEqual([one.toolsRead, one.toolsNotRead], [2, []]);
+  assert.equal(one.tellOwner.length, 2);
+  assert.equal(one.tellOwner[0], '"Reports" is the monitoring connection, found among the 2 connectors whose tools were read. No connector was left unread.');
+  assert.match(one.tellOwner[1] ?? "", /"Reports" has the tools `server_info`, `send_report`, `send_feedback`.*Its identity was not confirmed, because `server_info` was not called\./);
   const two = identifyConnection(parseConnectorOffers([{ name: "A", tools, serverInfo: null }, { name: "B", tools, serverInfo: null }]));
   assert.deepEqual([two.monitoring, two.identity], [null, null]);
-  assert.match(two.tellOwner[0] ?? "", /More than one connector looks like the monitoring connection: "A", "B"\. None was chosen/);
+  assert.match(two.tellOwner[0] ?? "", /^More than one connector looks like the monitoring connection among the 2 connectors whose tools were read: "A", "B"\. None was chosen/);
   const none = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools: ["search"], serverInfo: null }]));
-  assert.deepEqual([none.monitoring, none.tellOwner], [null, ["This bot has no monitoring connection. The owner adds it through the platform's connection flow."]]);
-  const hidden = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools: null, serverInfo: null }]));
-  assert.match(hidden.tellOwner.join(" "), /could not be identified.*Its name is not evidence\./);
+  assert.deepEqual([none.monitoring, none.tellOwner], [null, ["There is no monitoring connection among the 1 connector whose tools were read. No connector was left unread. The owner adds the monitoring connection through the platform's connection flow."]]);
+  const hidden = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools: null, serverInfo: null }, { name: "Calendar", tools: ["list_events"], serverInfo: null }, { name: "Mail", tools: null, serverInfo: null }]));
+  assert.deepEqual([hidden.monitoring, hidden.toolsRead, hidden.toolsNotRead], [null, 1, ["Ambitious", "Mail"]]);
+  assert.equal(hidden.tellOwner[0], 'There is no monitoring connection among the 1 connector whose tools were read. The tools of 2 connectors were not read: "Ambitious", "Mail". Read their tool names from the platform\'s tool catalog and run this again.');
+  assert.doesNotMatch(hidden.tellOwner.join(" "), /could not be identified/, "the answer says what was read and what was not, not that nothing could be said");
+  assert.match(hidden.tellOwner.join(" "), /The tools of "Ambitious" were not read, so it cannot be told whether it is the monitoring connection\. Its name is not evidence\./);
+  const partly = identifyConnection(parseConnectorOffers([{ name: "Reports", tools, serverInfo: null }, { name: "Mail", tools: null, serverInfo: null }]));
+  assert.deepEqual([partly.monitoring, partly.toolsRead, partly.toolsNotRead], ["Reports", 1, ["Mail"]]);
+  assert.equal(partly.tellOwner[0], '"Reports" is the monitoring connection, found among the 1 connector whose tools were read. The tools of 1 connector were not read: "Mail". Read their tool names from the platform\'s tool catalog and run this again.');
+  const nothing = identifyConnection(parseConnectorOffers([]));
+  assert.deepEqual([nothing.monitoring, nothing.toolsRead, nothing.toolsNotRead], [null, 0, []]);
   const impostor = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools, serverInfo: { identity: "other" } }]));
   assert.match(impostor.tellOwner.join(" "), /is a different connector: it has the tool names of the monitoring connection, but its `server_info` tool answered with the identity "other".*send it nothing/);
 

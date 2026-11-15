@@ -54,3 +54,12 @@ export const embeddedRoutines = (): unknown => {
   }
   return AMBITIOUS_ROUTINES;
 };
+
+declare const AMBITIOUS_SKILLS: unknown;
+
+export const embeddedSkills = (): unknown => {
+  if (typeof AMBITIOUS_SKILLS === "undefined") {
+    throw new Error("The template's skills are embedded when the installer is bundled. Run the file in dist/.");
+  }
+  return AMBITIOUS_SKILLS;
+};

@@ -34,6 +34,8 @@
   "expected": {
     "monitoring": "Reports for the team",
     "identity": "confirmed",
+    "toolsRead": 1,
+    "toolsNotRead": [],
     "connectors": [
       {
         "name": "Reports for the team",

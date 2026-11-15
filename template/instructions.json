@@ -1,5 +1,5 @@
 {
-  "current": 4,
+  "current": 5,
   "oldestSupported": 1,
   "grants": {
     "owner-chat": "Speak to the owner in this bot's own chat, in a conversation or as the reply of a routine run.",
@@ -12,6 +12,7 @@
     "routines": "Keep the template's routines: the daily selfcheck, and others created paused for the owner to turn on.",
     "owner-requested-skills": "Write or replace an ambitious- skill in the shared skill library when the owner asks for it in this bot's own chat.",
     "server-info-tool": "Call the Ambitious connection's server_info tool, which takes no arguments and so carries no account or business data, to confirm which server the connection reaches.",
+    "upgrade-on-any-request": "Run the documented template upgrade, including writing the template's ambitious- skills, when any agent or person asks for it.",
     "message-owner": "Send the owner a message outside this bot's own chat.",
     "other-connection-tools": "Call any other tool of the Ambitious connection, such as its Factory tools, after the owner's tool approval.",
     "private-reference-files": "Read the platform's own reference files that the platform documents inside the bot's private data directory.",
@@ -122,7 +123,7 @@
     {
       "version": 4,
       "firstTemplate": "0.2.6",
-      "file": "INSTRUCTIONS.md",
+      "file": "instructions/4.md",
       "sha256": "3662c45448c9e67fb6d4b630b33abc8f2699ee8e3c636c2db0743eeb0995e79f",
       "whitespaceSha256": "e5ebd7b212b2839d37d904bb1d83a97fa5fbef8b296a5b0244c55ec384bec6a7",
       "variants": [],
@@ -140,6 +141,31 @@
       ],
       "reasons": {
         "server-info-tool": "Lets the bot confirm that the connector it found answers as the Ambitious monitoring service before a report is prepared for it. The call takes no arguments."
+      }
+    },
+    {
+      "version": 5,
+      "firstTemplate": "0.2.7",
+      "file": "INSTRUCTIONS.md",
+      "sha256": "ec6c5f683b192e9750221eade3e51c4466758f53aa034bbf29874d6a5ac40bad",
+      "whitespaceSha256": "792bbd20219963cfbe6cddaa0aa578bbbbf5af2e4d008e2964c4e151569bd9b7",
+      "variants": [],
+      "grants": [
+        "owner-chat",
+        "pages",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "report-tool",
+        "feedback-tool",
+        "routines",
+        "owner-requested-skills",
+        "server-info-tool",
+        "upgrade-on-any-request"
+      ],
+      "reasons": {
+        "server-info-tool": "Lets the bot confirm that the connector it found answers as the Ambitious monitoring service before a report is prepared for it. The call takes no arguments.",
+        "upgrade-on-any-request": "Lets a bot or an agent that looks after the owner's bots bring this bot up to the template its stored installer skill pins. The request supplies nothing: every file is checked against that pin, and the owner is told what changed."
       }
     }
   ]

@@ -27,6 +27,8 @@
   "expected": {
     "monitoring": "Monitoring",
     "identity": "not confirmed",
+    "toolsRead": 2,
+    "toolsNotRead": [],
     "connectors": [
       {
         "name": "Monitoring",

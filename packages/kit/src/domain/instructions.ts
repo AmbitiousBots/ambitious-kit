@@ -33,6 +33,12 @@ export type PermissionChange = {
   readonly statement: string;
 };
 
+export type UpgradeAuthority = "any request" | "the owner's request";
+
+export type NewerTemplate = { readonly own: string; readonly latest: string };
+
+export const UPGRADE_GRANT = "upgrade-on-any-request";
+
 export const ADDITIONAL_PERMISSIONS = "Pasting this text gives the bot these additional permissions:";
 
 const VERSION_LINE = /^Instructions version: ([1-9][0-9]*)(?:\n|$)/;
@@ -60,6 +66,11 @@ export const classifyInstructions = (folded: string, given: Fingerprint, { versi
 
 export const needsOwner = (finding: InstructionsFinding): boolean =>
   finding.state === "out-of-date" || (finding.state === "custom" && finding.current !== finding.template);
+
+export const upgradeAuthority = (finding: InstructionsFinding, { versions }: InstructionsCatalogue): UpgradeAuthority => {
+  const published = finding.match === null ? undefined : versions.find((entry) => entry.version === finding.current);
+  return published?.grants.includes(UPGRADE_GRANT) === true ? "any request" : "the owner's request";
+};
 
 const numbered = (permissions: readonly Permission[]): string => permissions.map(({ permission }, index) => `(${index + 1}) ${permission}`).join(" ");
 
@@ -89,20 +100,24 @@ export const permissionChange = (finding: InstructionsFinding, { version, oldest
   return { comparedWith, comparison, added, removed, statement: statementOf(comparedWith, added, removed) };
 };
 
-export const instructionsMessage = (finding: InstructionsFinding, proposed: string, change: PermissionChange | null): string | null => {
+export const instructionsMessage = (finding: InstructionsFinding, proposed: string, change: PermissionChange | null, newer: NewerTemplate | null): string | null => {
   const { current, template } = finding;
   const unchanged = "Nothing was changed: only the owner can replace a bot's instructions, and doing so is the owner's choice.";
   const permissions = change === null ? "" : ` ${change.statement}`;
+  const behind =
+    newer === null
+      ? ""
+      : ` A newer template, release ${newer.latest}, is available, and this installer is ${newer.own}. The newer template may carry a different instructions text, which may allow fewer things than this one. Update the template first, then check the instructions again and propose the text the newer template carries.`;
   if (finding.state === "out-of-date") {
     const have = current === null ? "have no text" : `are version ${current}`;
-    return `instructions-out-of-date: This bot's instructions ${have} and this template's are version ${template}. The template's text is in ${proposed}. ${unchanged}${permissions}`;
+    return `instructions-out-of-date: This bot's instructions ${have} and this template's are version ${template}. The template's text is in ${proposed}.${behind} ${unchanged}${permissions}`;
   }
   if (finding.state === "custom") {
     if (current === template) {
       return `instructions-custom: This bot's instructions say version ${template}, the template's version, but their text is not the template's. They were left as they are.`;
     }
     const have = current === null ? "carry no version line" : `say version ${current}`;
-    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}. They were left as they are, so that nothing the owner wrote is lost. ${unchanged}${permissions}`;
+    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}.${behind} They were left as they are, so that nothing the owner wrote is lost. ${unchanged}${permissions}`;
   }
   if (finding.state === "newer") {
     return `This bot's instructions say version ${current}, which is newer than version ${template} that this installer knows. They were left as they are. Update the bot's skills to the template those instructions came from.`;

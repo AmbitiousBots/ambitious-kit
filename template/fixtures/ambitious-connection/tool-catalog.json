@@ -1,0 +1,57 @@
+{
+  "about": "The connector status tool shows only a count of tools for each connector, so the names were read from the platform's tool catalog, one connector namespace at a time (on Grok Bot, GetDynamicTools with the namespace), which returns each tool's name and description. Only the names are passed on. One namespace could not be read. The monitoring connection is found among the two connectors whose tools were read, and the third is named as not read.",
+  "connectors": [
+    {
+      "name": "Reports",
+      "tools": [
+        "factory_environment",
+        "factory_match",
+        "factory_plan",
+        "factory_version",
+        "send_compliance_status",
+        "send_feedback",
+        "send_report",
+        "server_info"
+      ],
+      "serverInfo": null
+    },
+    {
+      "name": "Calendar",
+      "tools": [
+        "list_events",
+        "create_event"
+      ],
+      "serverInfo": null
+    },
+    {
+      "name": "Ambitious Helper",
+      "tools": null,
+      "serverInfo": null
+    }
+  ],
+  "expected": {
+    "monitoring": "Reports",
+    "identity": "not confirmed",
+    "toolsRead": 2,
+    "toolsNotRead": [
+      "Ambitious Helper"
+    ],
+    "connectors": [
+      {
+        "name": "Reports",
+        "kind": "monitoring",
+        "identity": "not confirmed"
+      },
+      {
+        "name": "Calendar",
+        "kind": "different",
+        "identity": null
+      },
+      {
+        "name": "Ambitious Helper",
+        "kind": "unidentified",
+        "identity": null
+      }
+    ]
+  }
+}

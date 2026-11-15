@@ -4,6 +4,7 @@ import { join, relative, sep } from "node:path";
 import { build } from "esbuild";
 import { foldWhitespace } from "../src/domain/whitespace.ts";
 import { routinesOf } from "./template-routines.mjs";
+import { INSTALLER_PIN_TOKEN, skillsOf } from "./template-skills.mjs";
 
 const root = join(import.meta.dirname, "..");
 const { version } = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
@@ -48,8 +49,22 @@ const routines = routinesOf(readFileSync(join(template, "routines.md"), "utf8"))
         'A changed prompt is a new entry: move the recorded "current" entry into "earlier", and record the new prompt as "current" with this template version and the SHA-256 the installer compares.',
     );
   }
-  return { name, schedule, paused, prompt, sha256: sha256Of(prompt), whitespaceSha256, earlier: history.earlier.map(({ firstTemplate, whitespaceSha256: hash }) => ({ template: firstTemplate, whitespaceSha256: hash })) };
+  return {
+    name,
+    schedule,
+    paused,
+    prompt,
+    sha256: sha256Of(prompt),
+    whitespaceSha256,
+    variants: history.current.variants.map((variant) => variant.whitespaceSha256),
+    earlier: history.earlier.flatMap(({ firstTemplate, whitespaceSha256: hash, variants }) => [
+      { template: firstTemplate, whitespaceSha256: hash, variant: false },
+      ...variants.map((variant) => ({ template: firstTemplate, whitespaceSha256: variant.whitespaceSha256, variant: true })),
+    ]),
+  };
 });
+
+const skills = skillsOf(template, version, INSTALLER_PIN_TOKEN);
 
 const shared = {
   bundle: true,
@@ -77,5 +92,5 @@ await build({
   ...shared,
   entryPoints: [join(root, "src", "cli", "modules-main.ts")],
   outfile: join(root, "dist", "ambitious-modules.mjs"),
-  define: { ...defineFor("modules"), AMBITIOUS_LOCK: JSON.stringify(JSON.parse(lock)), AMBITIOUS_TEMPLATE_FILES: JSON.stringify(templateFiles), AMBITIOUS_INSTRUCTIONS: JSON.stringify(instructions), AMBITIOUS_ROUTINES: JSON.stringify(routines) },
+  define: { ...defineFor("modules"), AMBITIOUS_LOCK: JSON.stringify(JSON.parse(lock)), AMBITIOUS_TEMPLATE_FILES: JSON.stringify(templateFiles), AMBITIOUS_INSTRUCTIONS: JSON.stringify(instructions), AMBITIOUS_ROUTINES: JSON.stringify(routines), AMBITIOUS_SKILLS: JSON.stringify(skills) },
 });
