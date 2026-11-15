@@ -3,9 +3,24 @@ import { failure } from "./failure.ts";
 export type Migration = { readonly name: string; readonly sql: string };
 
 const MIGRATION_NAME = /^(\d{4})_[a-z0-9_]+$/;
-const OWNED_BY_THE_RUNNER = /(^|;)\s*(BEGIN|COMMIT|END|ROLLBACK|PRAGMA\s+user_version)\b/i;
+const OWNED_BY_THE_RUNNER = /^\s*(BEGIN|COMMIT|END|ROLLBACK|PRAGMA\s+user_version)\b/i;
+const COMMENT_OR_QUOTED = /--[^\n]*|\/\*[\s\S]*?\*\/|'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]/g;
+const OPENS_TRIGGER = /^\s*CREATE\s+(?:(?:TEMP|TEMPORARY)\s+)?TRIGGER\b/i;
+const CLOSES_TRIGGER = /^\s*END\s*$/i;
 
-const withoutComments = (sql: string): string => sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+const topLevelStatements = (sql: string): readonly string[] => {
+  const statements: string[] = [];
+  let insideTrigger = false;
+  for (const piece of sql.replace(COMMENT_OR_QUOTED, " ").split(";")) {
+    if (insideTrigger) {
+      insideTrigger = !CLOSES_TRIGGER.test(piece);
+    } else {
+      statements.push(piece);
+      insideTrigger = OPENS_TRIGGER.test(piece);
+    }
+  }
+  return statements;
+};
 
 const broken = (message: string, hint: string): never => {
   throw failure("E_MIGRATION", message, hint);
@@ -21,10 +36,10 @@ export const checkedMigrations = (migrations: readonly Migration[]): readonly Mi
     if (number !== expected) {
       broken(`The migration "${name}" should be number ${expected}.`, "Number migrations from 0001 with no gaps.");
     }
-    if (OWNED_BY_THE_RUNNER.test(withoutComments(sql))) {
+    if (topLevelStatements(sql).some((statement) => OWNED_BY_THE_RUNNER.test(statement))) {
       broken(
-        `The migration "${name}" contains BEGIN, COMMIT, ROLLBACK or PRAGMA user_version.`,
-        "Delete those statements. The migration runner wraps each file in one transaction and sets user_version itself.",
+        `The migration "${name}" contains a BEGIN, COMMIT, END, ROLLBACK or PRAGMA user_version statement.`,
+        "Delete those statements. The migration runner wraps each file in one transaction and sets user_version itself. The BEGIN and END of a trigger body are fine.",
       );
     }
   });

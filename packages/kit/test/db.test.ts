@@ -105,10 +105,32 @@ test("migration files must be numbered from 0001 without gaps and must leave tra
     [{ name: "0001_Create", sql: "SELECT 1;" }],
     [{ name: "0001_own_transaction", sql: "BEGIN; CREATE TABLE a (id INTEGER); COMMIT;" }],
     [{ name: "0001_sets_version", sql: "CREATE TABLE a (id INTEGER);\npragma user_version = 9;" }],
+    [{ name: "0001_ends_transaction", sql: "CREATE TABLE a (id INTEGER); END; CREATE TABLE b (id INTEGER);" }],
+    [{ name: "0001_commits_after_trigger", sql: "CREATE TABLE a (id INTEGER); CREATE TRIGGER t BEFORE DELETE ON a BEGIN SELECT 1; END; COMMIT;" }],
+    [{ name: "0001_rolls_back_in_caps", sql: "CREATE TABLE a (id INTEGER);\n  RollBack;" }],
   ];
   for (const migrations of refused) assert.equal(codeOf(() => migrate(db, migrations)), "E_MIGRATION", migrations.at(-1)?.name);
   assert.equal(readUserVersion(db), 0);
   assert.deepEqual(migrate(db, [{ name: "0001_mentions_begin", sql: "-- BEGIN the table\nCREATE TABLE beginnings (commit_note TEXT);" }]), ["0001_mentions_begin"]);
+});
+
+test("a migration may create triggers, and may mention transaction words inside quotes", (t) => {
+  const db = openDb(join(scratch(t), "notes.sqlite"), { readonly: false });
+  t.after(() => db.close());
+  const appendOnly: Migration = {
+    name: "0002_notes_are_append_only",
+    sql: [
+      "CREATE TRIGGER notes_no_update BEFORE UPDATE ON notes BEGIN SELECT RAISE(ABORT, 'notes are append-only; COMMIT a new one'); END;",
+      "create temp trigger notes_seen AFTER INSERT ON notes\nBEGIN\n  SELECT CASE WHEN NEW.body = '' THEN RAISE(ABORT, 'empty') END;\n  SELECT 1;\nEND;",
+      "CREATE TRIGGER notes_no_delete BEFORE DELETE ON notes BEGIN SELECT RAISE(ABORT, 'notes are append-only'); END;",
+      "INSERT INTO notes (body) VALUES ('kept; END; of story');",
+    ].join("\n"),
+  };
+  assert.deepEqual(migrate(db, [CREATE, appendOnly]), [CREATE.name, appendOnly.name]);
+  assert.equal(readUserVersion(db), 2);
+  assert.throws(() => db.exec("UPDATE notes SET body = 'changed'"), /append-only/);
+  assert.throws(() => db.exec("DELETE FROM notes"), /append-only/);
+  assert.deepEqual(db.prepare("SELECT body FROM notes").all().map((row) => row["body"]), ["kept; END; of story"]);
 });
 
 test("migrations are loaded from NNNN_name.sql files in order", (t) => {

@@ -7,15 +7,31 @@ from dataclasses import dataclass
 from ambitious_kit.domain.envelope import failure
 
 MIGRATION_NAME = re.compile(r"^(\d{4})_[a-z0-9_]+$", re.ASCII)
-OWNED_BY_THE_RUNNER = re.compile(r"(^|;)\s*(BEGIN|COMMIT|END|ROLLBACK|PRAGMA\s+user_version)\b", re.IGNORECASE)
-LINE_COMMENT = re.compile(r"--[^\n]*")
-BLOCK_COMMENT = re.compile(r"/\*.*?\*/", re.DOTALL)
+OWNED_BY_THE_RUNNER = re.compile(r"\s*(BEGIN|COMMIT|END|ROLLBACK|PRAGMA\s+user_version)\b", re.IGNORECASE)
+COMMENT_OR_QUOTED = re.compile(
+    r"""--[^\n]*|/\*.*?\*/|'(?:[^']|'')*'|"(?:[^"]|"")*"|`[^`]*`|\[[^\]]*\]""",
+    re.DOTALL,
+)
+OPENS_TRIGGER = re.compile(r"\s*CREATE\s+(?:(?:TEMP|TEMPORARY)\s+)?TRIGGER\b", re.IGNORECASE)
+CLOSES_TRIGGER = re.compile(r"\s*END\s*", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
 class Migration:
     name: str
     sql: str
+
+
+def top_level_statements(sql: str) -> tuple[str, ...]:
+    statements: list[str] = []
+    inside_trigger = False
+    for piece in COMMENT_OR_QUOTED.sub(" ", sql).split(";"):
+        if inside_trigger:
+            inside_trigger = CLOSES_TRIGGER.fullmatch(piece) is None
+        else:
+            statements.append(piece)
+            inside_trigger = OPENS_TRIGGER.match(piece) is not None
+    return tuple(statements)
 
 
 def checked_migrations(migrations: Sequence[Migration]) -> tuple[Migration, ...]:
@@ -34,12 +50,13 @@ def checked_migrations(migrations: Sequence[Migration]) -> tuple[Migration, ...]
                 f'The migration "{migration.name}" should be number {expected}.',
                 "Number migrations from 0001 with no gaps.",
             )
-        if OWNED_BY_THE_RUNNER.search(BLOCK_COMMENT.sub("", LINE_COMMENT.sub("", migration.sql))):
+        if any(OWNED_BY_THE_RUNNER.match(statement) for statement in top_level_statements(migration.sql)):
             raise failure(
                 "E_MIGRATION",
-                f'The migration "{migration.name}" contains BEGIN, COMMIT, ROLLBACK or PRAGMA user_version.',
+                f'The migration "{migration.name}" contains a BEGIN, COMMIT, END, ROLLBACK '
+                "or PRAGMA user_version statement.",
                 "Delete those statements. The migration runner wraps each file in one transaction "
-                "and sets user_version itself.",
+                "and sets user_version itself. The BEGIN and END of a trigger body are fine.",
             )
     return tuple(migrations)
 

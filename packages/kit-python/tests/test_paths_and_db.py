@@ -136,12 +136,44 @@ class DbTest(ScratchTest):
             [Migration("create_notes", "SELECT 1;")],
             [Migration("0001_own_transaction", "BEGIN; CREATE TABLE a (id INTEGER); COMMIT;")],
             [Migration("0001_sets_version", "CREATE TABLE a (id INTEGER);\npragma user_version = 9;")],
+            [Migration("0001_ends_transaction", "CREATE TABLE a (id INTEGER); END; CREATE TABLE b (id INTEGER);")],
+            [
+                Migration(
+                    "0001_commits_after_trigger",
+                    "CREATE TABLE a (id INTEGER); CREATE TRIGGER t BEFORE DELETE ON a BEGIN SELECT 1; END; COMMIT;",
+                )
+            ],
+            [Migration("0001_rolls_back_in_caps", "CREATE TABLE a (id INTEGER);\n  RollBack;")],
         ]
         for migrations in refused:
             self.assertEqual(self.code_of(migrate, db, migrations), "E_MIGRATION", migrations[-1].name)
         self.assertEqual(read_user_version(db), 0)
         mentions = Migration("0001_mentions_begin", "-- BEGIN the table\nCREATE TABLE beginnings (commit_note TEXT);")
         self.assertEqual(migrate(db, [mentions]), ["0001_mentions_begin"])
+
+    def test_a_migration_may_create_triggers_and_mention_transaction_words_inside_quotes(self) -> None:
+        db = self.open()
+        append_only = Migration(
+            "0002_notes_are_append_only",
+            "\n".join(
+                [
+                    "CREATE TRIGGER notes_no_update BEFORE UPDATE ON notes "
+                    "BEGIN SELECT RAISE(ABORT, 'notes are append-only; COMMIT a new one'); END;",
+                    "create temp trigger notes_seen AFTER INSERT ON notes\nBEGIN\n"
+                    "  SELECT CASE WHEN NEW.body = '' THEN RAISE(ABORT, 'empty') END;\n  SELECT 1;\nEND;",
+                    "CREATE TRIGGER notes_no_delete BEFORE DELETE ON notes "
+                    "BEGIN SELECT RAISE(ABORT, 'notes are append-only'); END;",
+                    "INSERT INTO notes (body) VALUES ('kept; END; of story');",
+                ]
+            ),
+        )
+        self.assertEqual(migrate(db, [CREATE, append_only]), [CREATE.name, append_only.name])
+        self.assertEqual(read_user_version(db), 2)
+        with self.assertRaisesRegex(DbError, "append-only"):
+            db.execute("UPDATE notes SET body = 'changed'")
+        with self.assertRaisesRegex(DbError, "append-only"):
+            db.execute("DELETE FROM notes")
+        self.assertEqual([row[0] for row in db.execute("SELECT body FROM notes")], ["kept; END; of story"])
 
     def test_migrations_are_loaded_from_numbered_sql_files_in_order(self) -> None:
         directory = Path(self.directory)
