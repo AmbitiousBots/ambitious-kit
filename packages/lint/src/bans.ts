@@ -104,6 +104,9 @@ const importSelectors = (names: readonly string[]): string[] => {
   return [`ImportExpression[source.value=${literal}]`, `CallExpression[callee.name='require'][arguments.0.value=${literal}]`];
 };
 
+const globalThisSelector = ([object, property]: readonly [string, string]): string =>
+  `MemberExpression[object.object.name='globalThis'][object.property.name='${object}'][property.name='${property}']`;
+
 const errorUnlessEmpty = <Entry>(entries: readonly Entry[], options: (entries: readonly Entry[]) => unknown[]): Linter.RuleEntry =>
   entries.length === 0 ? "off" : ["error", ...options(entries)];
 
@@ -123,8 +126,12 @@ export const restrictions = (active: readonly Ban[]): Linter.RulesRecord => ({
     (patterns) => [{ patterns }],
   ),
   "no-restricted-syntax": errorUnlessEmpty(
-    active.flatMap(({ selectors = [], imports, message }) =>
-      [...selectors, ...(imports === undefined ? [] : importSelectors(imports))].map((selector) => ({
+    active.flatMap(({ selectors = [], properties = [], imports, message }) =>
+      [
+        ...selectors,
+        ...properties.map(globalThisSelector),
+        ...(imports === undefined ? [] : importSelectors(imports)),
+      ].map((selector) => ({
         selector,
         message,
       })),

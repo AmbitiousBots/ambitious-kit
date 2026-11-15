@@ -8,10 +8,10 @@ const npmPackage = (names: readonly string[]): string => `(^|/)node_modules/(${n
 
 export const forbidden: IForbiddenRuleType[] = [
   {
-    name: "src/domain may import only src/domain",
+    name: "src/domain may not import src/db, src/cli, src/ai or src/install",
     severity: "error",
     comment:
-      "src/domain is pure logic and may import only other files in src/domain. " +
+      "src/domain is pure logic and may not import src/db, src/cli, src/ai or src/install. " +
       "Move the IO into src/db, src/ai or src/cli and pass its result into src/domain as data.",
     from: { path: "(^|/)src/domain/" },
     to: { path: "(^|/)src/(db|cli|ai|install)/" },

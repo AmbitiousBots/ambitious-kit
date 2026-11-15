@@ -18,7 +18,7 @@ Then `npx depcruise src`. Add `--output-type err-long` to print how to fix each 
 
 | Rule | Fix |
 |---|---|
-| `src/domain` may import only `src/domain` | Move the IO into `src/db`, `src/ai` or `src/cli` and pass its result in as data. |
+| `src/domain` may not import `src/db`, `src/cli`, `src/ai` or `src/install` | Move the IO into `src/db`, `src/ai` or `src/cli` and pass its result in as data. |
 | `src/domain` may not import `node:*` modules | Same. |
 | Only `src/db` may import `node:sqlite` | Move the query into `src/db` and return plain data. |
 | Only `src/ai` and `src/install` may use the network | Move the call into `src/ai` and pass its result in as data. |

@@ -40,7 +40,7 @@ const violations: readonly Violation[] = [
   },
   {
     fixture: "domain-imports-db",
-    headline: "error src/domain may import only src/domain: src/domain/rank.ts → src/db/store.ts",
+    headline: "error src/domain may not import src/db, src/cli, src/ai or src/install: src/domain/rank.ts → src/db/store.ts",
     fix: "Move the IO into src/db, src/ai or src/cli and pass its result into src/domain as data.",
   },
   {
