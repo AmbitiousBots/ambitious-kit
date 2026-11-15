@@ -27,7 +27,7 @@ const hello = (home: string, args: readonly string[], input = ""): Answer => {
   return { exit: result.status, stdout: result.stdout };
 };
 
-const META = '"meta":{"now":"2026-01-01T00:00:00.000Z","seed":7,"version":"0.2.1"}}\n';
+const META = '"meta":{"now":"2026-01-01T00:00:00.000Z","seed":7,"version":"0.2.2"}}\n';
 
 test("greet stores a greeting and list shows every greeting in the order they were made", (t) => {
   const home = freshHome(t);
