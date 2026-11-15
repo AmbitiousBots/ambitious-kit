@@ -35,12 +35,17 @@ const read = (dir: string, file: string): string => readFileSync(join(dir, file)
 test("the template holds every file a module repo starts with", () => {
   assert.deepEqual(templateFiles, [
     ".cursor/rules/agent-models.mdc",
+    ".github/ISSUE_TEMPLATE/bug_report.md",
+    ".github/ISSUE_TEMPLATE/feature_request.md",
     ".github/pull_request_template.md",
     ".mise.toml",
     "AGENTS.md",
     "CLAUDE.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
     "LICENSE",
     "NOTICE",
+    "SECURITY.md",
     "package.json",
     "scripts/check-standalone.mjs",
     "scripts/tla2tools.mjs",
@@ -64,6 +69,7 @@ test("the template holds every file a module repo starts with", () => {
   assert.ok(read(templateDir, "AGENTS.md").split("\n").length <= 60);
   assert.equal(read(templateDir, "CLAUDE.md"), "See AGENTS.md\n");
   assert.equal(read(templateDir, "LICENSE"), read(kitRoot, "LICENSE"));
+  assert.doesNotMatch(read(templateDir, "CODE_OF_CONDUCT.md"), /\[INSERT/);
   assert.match(read(templateDir, ".cursor/rules/agent-models.mdc"), /^# budget: large \(xhigh\)$/m);
   for (const heading of ["## Why", "## What changed", "## Evidence"]) {
     assert.ok(read(templateDir, ".github/pull_request_template.md").includes(heading));
@@ -80,7 +86,7 @@ test("applying to an empty repo creates every template file and says so", (t) =>
     assert.equal(read(target, file), read(templateDir, file));
     assert.ok(run.stdout.includes(`created  ${file}\n`), run.stdout);
   }
-  assert.match(run.stdout, /26 created, 0 kept/);
+  assert.match(run.stdout, /31 created, 0 kept/);
 });
 
 test("applying twice changes nothing the second time", (t) => {
@@ -92,7 +98,7 @@ test("applying twice changes nothing the second time", (t) => {
   assert.equal(run.exitCode, 0, run.stderr);
   assert.deepEqual(templateFiles.map((file) => read(target, file)), before);
   assert.deepEqual(filesUnder(target), templateFiles);
-  assert.match(run.stdout, /0 created, 26 kept/);
+  assert.match(run.stdout, /0 created, 31 kept/);
 });
 
 test("a file the repo already has is kept as it is", (t) => {
@@ -107,7 +113,7 @@ test("a file the repo already has is kept as it is", (t) => {
   assert.equal(read(target, "src/domain/README.md"), "Already here.\n");
   assert.ok(run.stdout.includes("kept  AGENTS.md\n"), run.stdout);
   assert.ok(run.stdout.includes("kept  src/domain/README.md\n"), run.stdout);
-  assert.match(run.stdout, /24 created, 2 kept/);
+  assert.match(run.stdout, /29 created, 2 kept/);
 });
 
 test("a dry run lists what it would create and writes nothing", (t) => {
@@ -117,7 +123,7 @@ test("a dry run lists what it would create and writes nothing", (t) => {
   assert.equal(run.exitCode, 0, run.stderr);
   assert.deepEqual(filesUnder(target), []);
   assert.ok(run.stdout.includes("would create  AGENTS.md\n"), run.stdout);
-  assert.match(run.stdout, /26 to create, 0 kept/);
+  assert.match(run.stdout, /31 to create, 0 kept/);
 });
 
 test("a target that is not a directory is refused", (t) => {
@@ -147,11 +153,16 @@ test("the kit repo itself has every template file", () => {
   const run = apply(kitRoot, "--dry-run");
 
   assert.equal(run.exitCode, 0, run.stderr);
-  assert.match(run.stdout, /0 to create, 26 kept/);
+  assert.match(run.stdout, /0 to create, 31 kept/);
 });
 
 const SHARED_WITH_THE_KIT = [
+  ".github/ISSUE_TEMPLATE/bug_report.md",
+  ".github/ISSUE_TEMPLATE/feature_request.md",
+  ".github/pull_request_template.md",
   ".mise.toml",
+  "CODE_OF_CONDUCT.md",
+  "SECURITY.md",
   "scripts/check-standalone.mjs",
   "scripts/tla2tools.mjs",
   "scripts/tlc.mjs",
@@ -163,7 +174,7 @@ const SHARED_WITH_THE_KIT = [
   "verify/run",
 ];
 
-test("the checks and sample models a module starts with are the kit's own, byte for byte", () => {
+test("the checks, sample models and community files a module starts with are the kit's own, byte for byte", () => {
   for (const file of SHARED_WITH_THE_KIT) {
     assert.equal(read(templateDir, file), read(kitRoot, file), `repo-template/${file} differs from ${file}`);
   }
