@@ -18,5 +18,30 @@
     "signal": "auditLog",
     "seen": false,
     "why": "No tool exposed account audit history for the shared scope."
+  },
+  {
+    "signal": "accountRole",
+    "seen": true,
+    "why": "The account tool reported the guest role."
+  },
+  {
+    "signal": "tasks",
+    "seen": false,
+    "why": "The ambitious-tasks module is not installed, so no task count was read."
+  },
+  {
+    "signal": "pages",
+    "seen": false,
+    "why": "Only the one shared Page was readable; the Page list of the account was denied."
+  },
+  {
+    "signal": "botActivity",
+    "seen": false,
+    "why": "No last-active time was shown for the shared bot."
+  },
+  {
+    "signal": "routines",
+    "seen": false,
+    "why": "Access to the routine list was denied."
   }
 ]

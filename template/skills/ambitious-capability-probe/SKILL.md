@@ -3,7 +3,7 @@ name: ambitious-capability-probe
 description: For the Ambitious Bot only. Inspect observed account access and produce an honest visibility array for an audit. Use before the Ambitious Bot collects an audit or a snapshot, and after an account, role, connector or computer change.
 ---
 
-Template version: 0.2.2
+Template version: 0.2.3
 
 # Capability probe
 
@@ -15,8 +15,8 @@ Do not request broader permissions, edit another bot, or send data while probing
 ## Establish the scope
 
 Record the account role, the current bot, the requested audit scope, and the observation time.
-Use `owner`, `guest`, or `team` for `account.kind` only when an account tool reports that role.
-If no tool reports the role, record `unknown` and describe that gap. Do not invent a role and do not put the audit off: the audit module runs in a partial mode for an unknown role, and withholds or marks what depends on it.
+Use `owner`, `guest`, or `team` for `account.kind` only when an account tool reports that role or the account holder has stated it.
+Otherwise record `unknown` and describe that gap. Never infer a role from what the bot can or cannot see, and do not put the audit off: for an unknown role the audit module answers with `mode` `partial`, holds back the recommendations that depend on the role and marks their findings `withheld`.
 Ownership, a team membership, an installed connector, and a tool's presence do not prove readable data.
 
 | Account kind | What to verify |
@@ -52,31 +52,36 @@ Keep tool identifiers and short evidence references so the collector can trace c
 
 Return a JSON array. The collector places it unchanged in its `visibility` field.
 Each entry has exactly `signal`, `seen`, and `why`. `seen` is a JSON boolean; `why` is a nonempty plain sentence naming the observed scope or the missing access.
-The installed audit module names the signals it expects: run `ambitious-audit schema` and include each signal of its collector schema exactly once. Every version expects these four, in this order.
+The installed audit module names the signals it expects: run `ambitious-audit schema` and include each signal of its collector schema exactly once. The pinned audit module expects these nine, and refuses an array that leaves one out or adds another.
 
 | Signal | Set `seen` to true only when |
 | --- | --- |
 | `transcripts` | Transcript content was actually observed across the requested scope and period. |
-| `usage` | Both usage by bot and usage by routine were observed across the requested scope and period. |
+| `usage` | Usage was observed for the requested period for every listed bot and every listed routine, in credits or in percentage shares. |
 | `otherBots` | A completed bot inventory beyond the current bot was returned for the requested scope. An authoritative empty inventory can establish visibility; a missing response cannot. |
 | `auditLog` | Audit event history was actually observed across the requested scope and period. |
+| `accountRole` | An account tool reported the role, or the account holder stated it. |
+| `tasks` | The open, stale and blocked task counts were read from the output of the `ambitious-tasks` module. |
+| `pages` | The Page count and the count of Pages updated in the last 7 days were both returned. |
+| `botActivity` | A last-active time, or that the bot has never been active, was shown for every listed bot. |
+| `routines` | A routine count was shown for every listed bot, and a last run, or that it has never run, for every listed routine. |
 
 Use `false` for partial coverage, denied access, unavailable tools, errors, and untested access.
 When some information is visible but coverage is incomplete, describe both the visible part and the gap in `why`.
 Do not encode unknown as zero, omit a signal, or infer visibility from the role.
-For any further signal the schema lists, such as one for the account role, apply the same test: `seen` is true only when a tool returned that information for the requested scope.
+The last five signals each cover a group of collector values. When any value of the group is `null`, or the role is `unknown`, that signal's `seen` must be false; the module refuses a document where it is not.
 A capability with no signal in the schema stays a gap in the Page inventory; do not invent wire signals or relabel it as `auditLog`.
 Carry every gap into the audit Page and report review. Do not claim the report covers information the collector cannot represent.
 
 ## Fixture scenarios
 
-The fixtures are expected entries for the four signals above, for synthetic tool observations. They do not establish real account permissions or replace live probing.
+The fixtures are expected entries for the nine signals above, for synthetic tool observations. They do not establish real account permissions or replace live probing.
 The `ambitious-module-installer` sync command writes them to `template/fixtures/ambitious-capability-probe` under `AMBITIOUS_HOME`, by default `/workspace/ambitious/template/fixtures/ambitious-capability-probe`. Read them there.
 
-In the owner scenario (`owner.expected.json`), the account tool identifies an owner. A complete bot inventory, requested transcripts, and bot usage are returned. Routine usage and audit history are unavailable. Pages, memory, and connector status are readable within the requested scope and belong in the separate Page inventory.
+In the owner scenario (`owner.expected.json`), the account tool identifies an owner. A complete bot inventory, requested transcripts, and bot usage are returned. Routine usage and audit history are unavailable. Task counts, Page counts, bot activity and routines are all read. Memory and connector status are readable within the requested scope and belong in the separate Page inventory.
 
-In the guest scenario (`guest.expected.json`), the account tool identifies a guest. Only the current shared bot and its shared Page are readable. The tools deny transcripts, usage, and other bot inventory; no audit log tool is available. Memory and connector status are unavailable and belong in the separate Page inventory.
+In the guest scenario (`guest.expected.json`), the account tool identifies a guest. Only the current shared bot and its shared Page are readable. The tools deny transcripts, usage, other bot inventory, the Page list and the routine list; no audit log tool is available, the `ambitious-tasks` module is not installed, and the shared bot's last-active time is not shown. Memory and connector status are unavailable and belong in the separate Page inventory.
 
-In the unknown-role scenario (`role-unknown.expected.json`), no tool reports the role. A complete bot inventory is returned, usage by bot is shown as percentage shares, and usage by routine, transcripts and audit history are unavailable. The role is recorded as `unknown` and the audit still runs.
+In the unknown-role scenario (`role-unknown.expected.json`), no tool reports the role and the account holder has not stated it. A complete bot inventory is returned, though without a last-active time for one bot. Usage by bot is shown as percentage shares, and usage by routine, transcripts, audit history and the Page list are unavailable. Task counts and routines are read. The role is recorded as `unknown` and the audit still runs.
 
 For a team account, repeat the same evidence tests against its actual shared scope. Do not substitute any fixture as an account default.

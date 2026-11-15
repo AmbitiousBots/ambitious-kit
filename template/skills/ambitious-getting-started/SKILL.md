@@ -3,7 +3,7 @@ name: ambitious-getting-started
 description: For the Ambitious Bot only. Ask three setup questions, check observable capabilities, and write the first audit as a Grok Bot Page. Use on the Ambitious Bot's first chat, after the module sync.
 ---
 
-Template version: 0.2.2
+Template version: 0.2.3
 
 # Getting started
 
@@ -21,11 +21,10 @@ A yes records interest in monitoring. It does not authorize a subscription, a co
 ## First audit Page
 
 Run the `ambitious-capability-probe` skill. Record the observed role and scope, capability inventory and audit `visibility` array.
-When no tool reports the account role, record it as `unknown` and carry on: the first audit runs in the audit module's partial mode, and the Page states that the role is unknown. Do not put the audit off for that reason, and do not ask the owner to guess.
+When no tool reports the account role and the owner has not stated it, record it as `unknown` and carry on: the audit module then answers with `mode` `partial`, and the Page states that the role is unknown. Do not put the audit off for that reason, and do not ask the owner to guess.
 If the sync reported the audit module installed with its selfcheck ok, follow the `ambitious-audit-collector` skill to pass observed JSON into `/workspace/ambitious/bin/ambitious-audit` (under `AMBITIOUS_HOME` when that variable is set).
 Use the `ambitious-audit-page` skill to write the first audit Page, taking findings, recommendations and every reported number from successful module output.
 Write every value you could not observe as `null`, never as zero or a guess. When unsure what the collector accepts, run `ambitious-audit schema` and follow the schema it prints.
-If the installed audit module has no `schema` command, it cannot hold an unseen value: when a required value was not observed, skip the module run and explain in the Page that module findings need a newer audit module.
 When the audit module is unavailable or an audit cannot run, still create the first audit Page with the setup answers, observed capabilities, visibility gaps and an explanation that module-backed findings and metrics are unavailable.
 Do not fabricate snapshot identifiers, recommendations, counts, scores or a passing audit.
 
