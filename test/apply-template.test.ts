@@ -32,9 +32,9 @@ const apply = (...args: readonly string[]): Run => {
 
 const read = (dir: string, file: string): string => readFileSync(join(dir, file), "utf8");
 
-test("the template holds every file the foundations spec lists", () => {
+test("the template holds every file a module repo starts with", () => {
   assert.deepEqual(templateFiles, [
-    ".cursor/rules/pstack-models.mdc",
+    ".cursor/rules/agent-models.mdc",
     ".github/pull_request_template.md",
     "AGENTS.md",
     "CLAUDE.md",
@@ -51,7 +51,7 @@ test("the template holds every file the foundations spec lists", () => {
   assert.ok(read(templateDir, "AGENTS.md").split("\n").length <= 60);
   assert.equal(read(templateDir, "CLAUDE.md"), "See AGENTS.md\n");
   assert.equal(read(templateDir, "LICENSE"), read(kitRoot, "LICENSE"));
-  assert.match(read(templateDir, ".cursor/rules/pstack-models.mdc"), /^# budget: large \(xhigh\)$/m);
+  assert.match(read(templateDir, ".cursor/rules/agent-models.mdc"), /^# budget: large \(xhigh\)$/m);
   for (const heading of ["## Why", "## What changed", "## Evidence"]) {
     assert.ok(read(templateDir, ".github/pull_request_template.md").includes(heading));
   }

@@ -6,7 +6,7 @@ Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious B
 
 ## How to work
 
-- Work under pstack poteto-mode. Model choices per role are in `.cursor/rules/pstack-models.mdc`. Claude Code analysis runs use `--model claude-fable-5-2`.
+- Work in small steps and prove each one: say what the change must do, make the smallest change that does it, then run the checks and show their output. Model choices per agent role are in `.cursor/rules/agent-models.mdc`. Claude Code analysis runs use `--model claude-fable-5-2`.
 - Trust in this order: types and API design, then lint and the dependency graph, then tests and verification, then prose.
 - When you are corrected, turn the correction into a lint rule with a fix-the-root-cause message or into an API change. Do not add it to this file.
 - When a check fails, fix the cause. Never weaken or skip a check to make it pass.

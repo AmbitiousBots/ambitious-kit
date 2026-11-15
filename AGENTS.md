@@ -6,7 +6,7 @@ Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious B
 
 ## How to work
 
-- Work under pstack poteto-mode. Model choices per role are in `.cursor/rules/pstack-models.mdc`. Claude Code analysis runs use `--model claude-fable-5-2`.
+- Work in small steps and prove each one: say what the change must do, make the smallest change that does it, then run the checks and show their output. Model choices per agent role are in `.cursor/rules/agent-models.mdc`. Claude Code analysis runs use `--model claude-fable-5-2`.
 - Trust in this order: types and API design, then lint and the dependency graph, then tests and verification, then prose.
 - When you are corrected, turn the correction into a lint rule with a fix-the-root-cause message or into an API change. Do not add it to this file.
 - When a check fails, fix the cause. Never weaken or skip a check to make it pass.
@@ -31,6 +31,6 @@ Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious B
 - Whether a rule belongs in the kit: only when every module needs it. A rule for one module lives in that module.
 - What a rule's message says: where the code should move, not only what is wrong. Someone reading it should be able to fix the cause without opening this repo.
 - How to prove a rule: a fixture that fails with the message and clean code that passes. A rule with no failing fixture is not done.
-- How strict to be when the spec and the contract differ: follow the stricter one and say so in the PR under `## Decisions`.
+- How strict to be when a module's own documentation and `MODULE_CONTRACT.md` differ: follow the stricter one and say so in the PR under `## Decisions`.
 - How much to build: the smallest change that meets the goal. Delete before you add. Every line here is copied many times.
 - Wording: keep code and docs generic for every kind of organization. No person, bot or customer names, no industry terms, and no compliance or security claim beyond what the code enforces.
