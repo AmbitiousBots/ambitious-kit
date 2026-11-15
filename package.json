@@ -8,6 +8,8 @@
     "node": "24.x"
   },
   "scripts": {
-    "check:contract": "node scripts/check-envelope-examples.mjs"
+    "check:contract": "node scripts/check-envelope-examples.mjs",
+    "check:standalone": "node scripts/check-standalone.mjs",
+    "test": "node --test scripts/"
   }
 }

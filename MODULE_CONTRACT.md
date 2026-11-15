@@ -1,8 +1,31 @@
 # Module contract
 
-Every `ambitious-<module>` repository follows this contract. A module is a single-purpose command-line tool with no user interface. A bot runs it, passes JSON in, and reads JSON out.
+Every `ambitious-<module>` repository follows this contract. A module is a single-purpose command-line tool with no user interface. A bot runs it, passes JSON in, and reads JSON out. Because every module behaves the same way, a bot can drive any of them without special cases.
 
 The words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119. Part 1 states the ten rules. Part 2 lists the shared error codes. Part 3 gives a worked example for each rule and fixes the details the rules leave open. Part 4 lists the gates a module passes before a release.
+
+## Who this is for
+
+- **Module authors and contributors.** If you write or change an `ambitious-<module>`, this file is the list of things your module has to do. You need nothing beyond this repository to follow it.
+- **People who build bots that run modules.** The contract tells you what you can rely on: one JSON envelope on stdout, fixed exit codes, repeatable output, and a fixed place for data.
+
+## How to propose a change
+
+Open an issue on this repository to discuss a change, or a pull request that makes it. A pull request that changes a rule SHOULD also change the schema, the examples and the checks that go with it, so the document and the checks never disagree.
+
+Changes to the contract follow rule 9 (versioning). A change that would break existing modules or existing readers of module output, such as a change to the envelope's seven fields, is a breaking change: it needs a new envelope schema file and a new major version of every module, so it needs a strong reason. Clarifications and new optional parts are not breaking.
+
+## Terms used in this contract
+
+Modules are built to run on a Grok Bot computer, and run the same way on any machine with the right runtime.
+
+- **Bot.** The program that runs a module: it starts the binary, writes JSON to it and reads the envelope it prints. The contract assumes nothing else about the bot.
+- **Grok Bot computer.** The persistent Linux computer a Grok Bot uses to run commands and keep files. Its working directory is `/workspace`, and files there are kept between sessions.
+- **`AMBITIOUS_HOME`.** The one directory where modules keep everything: each module's database at `$AMBITIOUS_HOME/<module>/<module>.sqlite` and the installed binaries in `$AMBITIOUS_HOME/bin`. It is an environment variable. When it is not set, it defaults to `/workspace/ambitious`, which is the right place on a Grok Bot computer. On any other machine, and in tests, set `AMBITIOUS_HOME` to a directory of your choice. This contract writes `$AMBITIOUS_HOME` for that directory; where an example shows real output, it shows the default.
+- **The bot's private data directory.** On a Grok Bot computer, `/home/box/agent-data/` holds the bot's own private state. It belongs to the bot, not to modules. Modules refuse every path under it, so a bot's private data can never end up in a module's database or output, and a module can never damage the bot's state. A bot passes a module everything it needs as JSON input.
+- **Grok Bot Page.** A document that a bot writes and people read in the Grok Bot product. A Page has an identifier and numbered versions. Bots write documents as Pages; modules only keep references to them (rule 4).
+- **Routine and routine start.** A routine is a job a bot runs by itself, for example on a schedule, with no person starting it. A routine start is the beginning of one such run. A bot is expected to run the installer and each module's `selfcheck` at every routine start, so both have to be cheap and safe to repeat (rules 5 and 6).
+- **The kit.** This repository: the contract, the envelope schema and its examples, and the shared helpers, lint rules and tests that modules use to meet the contract.
 
 Machine-checked parts of this contract:
 
@@ -11,8 +34,9 @@ Machine-checked parts of this contract:
 | Envelope shape | `schemas/envelope.v1.json` | `npm run check:contract` |
 | Valid and invalid envelope examples | `examples/envelopes/` | `npm run check:contract` |
 | Every envelope printed in this file | this file | `npm run check:contract` |
+| No internal references or machine-specific paths | every tracked file | `npm run check:standalone` |
 
-Everything else in this file becomes machine-checked when the shared kit, lint rules and contract test suite ship as `kit-v0.1.0`. Until that tag exists, modules MUST NOT merge code.
+Everything else in this file becomes machine-checked when the kit's shared helpers, lint rules and contract test suite are first released, under the tag `kit-v0.1.0`. Until that release exists nothing checks most of this contract, so a module repository MUST NOT merge module code before it.
 
 ## Part 1: the ten rules
 
@@ -38,15 +62,15 @@ Module logic MUST NOT read the clock or a random number generator. `--now` and `
 
 ### 3. Data
 
-A module MUST keep its data in one SQLite file, by default `/workspace/ambitious/<module>/<module>.sqlite`, overridable with `--db` or `AMBITIOUS_HOME`. `PRAGMA user_version` MUST equal the database schema version. Migrations MUST be forward-only files named `migrations/NNNN_name.sql`, and each MUST have a test. The database MUST use WAL mode and `foreign_keys=ON`. Analysis commands MUST open the database with `mode=ro`. A module MUST refuse any path under `/home/box/agent-data/` with `E_FORBIDDEN_PATH`.
+A module MUST keep its data in one SQLite file, by default `$AMBITIOUS_HOME/<module>/<module>.sqlite`, overridable with `--db`. `AMBITIOUS_HOME` defaults to `/workspace/ambitious`. `PRAGMA user_version` MUST equal the database schema version. Migrations MUST be forward-only files named `migrations/NNNN_name.sql`, and each MUST have a test. The database MUST use WAL mode and `foreign_keys=ON`. Analysis commands MUST open the database with `mode=ro`. A module MUST refuse any path under the bot's private data directory, `/home/box/agent-data/`, with `E_FORBIDDEN_PATH`.
 
 ### 4. Documents
 
-A module MUST NOT render documents. The bot writes Grok Bot Pages; a module MAY store a Page reference `{ pageId, version, sha256 }`.
+A module MUST NOT render documents. The bot writes documents as Grok Bot Pages (see Terms); a module MAY store a Page reference `{ pageId, version, sha256 }`.
 
 ### 5. Install
 
-A module MUST be released as one asset, either `ambitious-<module>-<semver>.mjs` (TypeScript, Node 24, a single bundled file, no `npm install`) or `ambitious-<module>-<semver>.pyz` (Python 3.13 zipapp, standard library or vendored dependencies), plus a `SHA256SUMS` file. The installer MUST write to `/workspace/ambitious/bin`, MUST be idempotent, MUST verify the checksum, and MUST be safe to run on every routine start.
+A module MUST be released as one asset, either `ambitious-<module>-<semver>.mjs` (TypeScript, Node 24, a single bundled file, no `npm install`) or `ambitious-<module>-<semver>.pyz` (Python 3.13 zipapp, standard library or vendored dependencies), plus a `SHA256SUMS` file. The installer MUST write to `$AMBITIOUS_HOME/bin`, MUST be idempotent, MUST verify the checksum, and MUST be safe to run on every routine start.
 
 ### 6. `selfcheck`
 
@@ -66,7 +90,7 @@ A module MUST use semantic versioning. The envelope `schemaVersion` MUST be bump
 
 ### 10. Verification bar and license
 
-A module MUST pass the verification bar before a release (see Gates below). A module MUST be licensed Apache-2.0.
+A module MUST pass the verification bar before a release (see Part 4). A module MUST be licensed Apache-2.0.
 
 ## Part 2: shared error codes
 
@@ -76,7 +100,7 @@ Every module uses these codes with these meanings and exit codes.
 |---|---|---|---|
 | `E_USAGE` | 1 | Unknown command or flag, a flag value that does not parse (`--now`, `--seed`), or both stdin and `--in` given. | Name the valid commands or the expected flag format. |
 | `E_INPUT_SCHEMA` | 1 | Input is missing, is not JSON, or does not match the command's input schema. | Name the field and what it must be. |
-| `E_FORBIDDEN_PATH` | 1 | A path resolves under `/home/box/agent-data/`. | Use a path under `/workspace/ambitious`. |
+| `E_FORBIDDEN_PATH` | 1 | A path resolves under the bot's private data directory, `/home/box/agent-data/`. | Use a path under `$AMBITIOUS_HOME`. |
 | `E_NO_KEY` | 1 | The command needs an AI call and the key environment variable is not set. | Name the environment variable to set for this call. |
 | `E_DB` | 2 | The database cannot be opened, read or written, or fails `PRAGMA integrity_check`. | Run `selfcheck` and read `data.problems`. |
 | `E_MIGRATION` | 2 | A migration failed, the database is behind the binary on a read-only open, or the database is newer than the binary. | Run `selfcheck`, or install the newer binary. |
@@ -214,10 +238,10 @@ Path resolution, first match wins:
 | Given | Database file |
 |---|---|
 | `--db /tmp/x/tasks.sqlite` | `/tmp/x/tasks.sqlite` |
-| `AMBITIOUS_HOME=/tmp/home` | `/tmp/home/tasks/tasks.sqlite` |
+| `AMBITIOUS_HOME=/tmp/demo` | `/tmp/demo/tasks/tasks.sqlite` |
 | neither | `/workspace/ambitious/tasks/tasks.sqlite` |
 
-`AMBITIOUS_HOME` replaces `/workspace/ambitious` everywhere, including the `bin` directory in rule 5.
+`AMBITIOUS_HOME` replaces the default `/workspace/ambitious` everywhere, including the `bin` directory in rule 5.
 
 Migration files:
 
@@ -235,7 +259,7 @@ CREATE INDEX greetings_by_created_at ON greetings (created_at);
 ```
 
 ```text
-$ sqlite3 /workspace/ambitious/hello/hello.sqlite 'PRAGMA user_version; PRAGMA journal_mode;'
+$ sqlite3 "$AMBITIOUS_HOME/hello/hello.sqlite" 'PRAGMA user_version; PRAGMA journal_mode;'
 2
 wal
 ```
@@ -252,7 +276,7 @@ Details fixed by this contract:
 - A database whose `user_version` is higher than the binary knows MUST be refused with `E_MIGRATION`. A module never downgrades a database.
 - Each module's README MUST mark every command as `read` (analysis) or `write`.
 
-Read-only analysis open. Analysis commands open the file with SQLite's `mode=ro` and never create, migrate or write it:
+Read-only analysis open. Analysis commands open the file with SQLite's `mode=ro` and never create, migrate or write it. With the default `AMBITIOUS_HOME` the SQLite URI is:
 
 ```text
 file:/workspace/ambitious/tasks/tasks.sqlite?mode=ro
@@ -260,7 +284,7 @@ file:/workspace/ambitious/tasks/tasks.sqlite?mode=ro
 
 In TypeScript modules this is the kit's `openDb(path, { readonly: true })`; in Python modules it is `sqlite3.connect("file:...?mode=ro", uri=True)`. If the database is missing or behind the binary, an analysis command fails with `E_MIGRATION` and the hint to run `selfcheck`.
 
-Forbidden path. Exit code 1. Nothing is opened or created.
+Forbidden path. Exit code 1. Nothing is opened or created. The bot's private data directory is off limits to every module (see Terms).
 
 ```text
 $ ambitious-tasks next --db /home/box/agent-data/tasks.sqlite --now 2026-01-01T00:00:00Z --seed 7
@@ -277,7 +301,7 @@ $ ambitious-tasks next --db /home/box/agent-data/tasks.sqlite --now 2026-01-01T0
     {
       "code": "E_FORBIDDEN_PATH",
       "message": "The path /home/box/agent-data/tasks.sqlite is under /home/box/agent-data/, which modules never read or write.",
-      "hint": "Use a path under /workspace/ambitious, or omit --db to use the default."
+      "hint": "Use a path under AMBITIOUS_HOME, or omit --db to use the default."
     }
   ],
   "meta": { "now": "2026-01-01T00:00:00.000Z", "seed": 7, "version": "0.1.0" }
@@ -320,7 +344,7 @@ b0188e246a775713d6d02c2201e5417b2f2101a902409497e132c1cb9140f94c  ambitious-task
 After install:
 
 ```text
-/workspace/ambitious/bin/
+$AMBITIOUS_HOME/bin/
   ambitious-tasks-0.3.1.mjs      the verified asset, executable
   ambitious-tasks                link to the current asset
   SHA256SUMS                     the verified checksum line for each installed asset
@@ -342,6 +366,8 @@ Installer behavior, for a requested module and exact version:
 - The asset MUST run with only the runtime present: `node` 24 for `.mjs`, `python3` 3.13 for `.pyz`. It MUST NOT need `npm install`, `pip install` or any other file.
 
 ### Rule 6: `selfcheck`
+
+The paths in the output are the real paths the module used; this example ran with the default `AMBITIOUS_HOME`.
 
 ```text
 $ ambitious-hello selfcheck --now 2026-01-01T00:00:00Z --seed 7
@@ -493,13 +519,13 @@ A module is released only from a commit where every one of these passed in CI. A
 | Gate | What it shows |
 |---|---|
 | Typecheck | Types are consistent (TypeScript strict, or mypy strict for Python). |
-| Lint | The kit's lint rules hold, including the comment ban and the clock, randomness and network bans. |
+| Lint | The kit's lint rules hold, including the ban on code comments (a rule belongs in a type, a name or a test) and the clock, randomness and network bans. |
 | Dependency graph | `src/domain` imports no IO; only `src/db` opens SQLite; only `src/ai` and `src/install` use the network; no cycles. |
 | Unit and property tests | Logic behaves as specified, including on generated inputs. |
 | Migration tests | Every migration has a test and keeps existing data. |
-| Contract tests | The kit's suite run against the built binary: envelope shape, exit codes, `--now` determinism, agent-data refusal, read-only analysis, no stdout noise. |
-| TLA+ model check | Each `spec/*.cfg` passes, and each broken variant in `spec/broken/` fails. |
-| Lean proofs | Build, where the module has them. |
-| `verify/run` | Every user-visible feature in `verify/features.json` passes against a fresh `AMBITIOUS_HOME`. |
+| Contract tests | The kit's suite run against the built binary: envelope shape, exit codes, `--now` determinism, refusal of the bot's private data directory, read-only analysis, no stdout noise. |
+| TLA+ model check | Each model configuration `spec/*.cfg` passes the TLC model checker, and each deliberately broken variant in `spec/broken/` fails, which shows the model can catch the mistake. |
+| Lean proofs | Proofs written in the Lean theorem prover build without errors, where the module has them. |
+| `verify/run` | The module's own end-to-end script: every user-visible feature listed in `verify/features.json` passes against a fresh, empty `AMBITIOUS_HOME`. |
 
 A release tag is created only when all gates are green.
