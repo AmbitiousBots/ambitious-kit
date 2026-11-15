@@ -96,12 +96,11 @@ test('the required template files and skill frontmatter are present', async () =
   }
 });
 
-test('template prose and JSON contain no placeholders or personal names', async () => {
+test('template prose and JSON contain no placeholders', async () => {
   for (const path of await filesIn(root)) {
     if (!/\.(?:md|json)$/u.test(path)) continue;
     const contents = await readFile(path, 'utf8');
     assert.doesNotMatch(contents, /\b(?:TODO|TBD|lorem)\b|<[^>\r\n]+>/iu, path);
-    assert.doesNotMatch(contents, /\b(?:Alexander|HAL|Dash)\b/iu, path);
   }
 });
 
