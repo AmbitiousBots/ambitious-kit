@@ -57,3 +57,9 @@ test("comments in node_modules and dist do not count", async (t) => {
   });
   assert.deepEqual(await lintMessages(root, "src/domain/d.ts", note), [banned(9)]);
 });
+
+test("comments in a directory the repo ignores do not count", async (t) => {
+  const root = repoWith(t, { "src/domain/a.ts": whyComments(1), "vendor/library/index.js": whyComments(20) });
+  assert.deepEqual(await lintMessages(root, "src/domain/d.ts", note), [banned(0)]);
+  assert.deepEqual(await lintMessages(root, "src/domain/d.ts", note, { ignores: ["vendor/**"] }), [banned(9)]);
+});

@@ -190,3 +190,10 @@ for (const { name, file, code, fails } of cases) {
     assert.deepEqual(await lintMessages(cleanRepo, file, code), fails);
   });
 }
+
+test("a default export passes only in the files a repo lists as needing one", async () => {
+  const page = "export default function Page(): string {\n  return \"\";\n}\n";
+  assert.deepEqual(await lintMessages(cleanRepo, "app/page.tsx", page), [DEFAULT_EXPORT]);
+  assert.deepEqual(await lintMessages(cleanRepo, "app/page.tsx", page, { defaultExportFiles: ["app/**/page.tsx"] }), []);
+  assert.deepEqual(await lintMessages(cleanRepo, "src/domain/a.ts", page, { defaultExportFiles: ["app/**/page.tsx"] }), [DEFAULT_EXPORT]);
+});
