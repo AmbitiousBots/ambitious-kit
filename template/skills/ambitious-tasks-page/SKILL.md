@@ -1,6 +1,6 @@
 ---
-name: tasks-page
-description: Present Ambitious Tasks board and next-work output in a Grok Bot Page. Use when a user wants a readable work board, task summary or explanation of what should happen next.
+name: ambitious-tasks-page
+description: For the Ambitious Bot only. Present Ambitious Tasks board and next-work output in a Grok Bot Page. Use when the Ambitious Bot is asked for a readable work board, a task summary or an explanation of what should happen next.
 ---
 
 # Present task data as a Page

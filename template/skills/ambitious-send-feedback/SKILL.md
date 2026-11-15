@@ -1,6 +1,6 @@
 ---
-name: send-feedback
-description: "Build a send_feedback document with ambitious-audit and hand it to the service after the customer approves the send."
+name: ambitious-send-feedback
+description: For the Ambitious Bot only. Build a send_feedback document with ambitious-audit and hand it to the Ambitious service after the customer approves the send. Use when the customer or the Ambitious Bot has feedback for the Ambitious service.
 ---
 
 # Send feedback

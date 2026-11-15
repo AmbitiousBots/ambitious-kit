@@ -6,11 +6,11 @@ import { tmpdir } from 'node:os';
 import { delimiter, dirname, join, relative } from 'node:path';
 import test from 'node:test';
 import { LOCK_PATTERNS, parseLock } from '../../packages/kit/src/domain/lock.ts';
-import { buildInstaller, lock, readJson, repoRoot, sha256, sync, templateRoot as root } from './support.mjs';
+import { buildInstaller, lock, readJson, releasedText, repoRoot, sha256, SKILL_PREFIX, sync, templateRoot as root } from './support.mjs';
 
 const schema = readJson(join(root, 'modules.lock.schema.json'));
 const sources = readJson(join(root, 'skills', 'SOURCES.json'));
-const ownSkills = ['capability-probe', 'getting-started', 'module-installer'];
+const ownSkills = ['ambitious-capability-probe', 'ambitious-getting-started', 'ambitious-module-installer'];
 const expectedSkills = [...ownSkills, ...sources.copied.map(({ skill }) => skill), ...sources.written.map(({ skill }) => skill)].sort();
 const pinnedModules = ['audit', 'compliance', 'contracts', 'records', 'tasks', 'video'];
 const visibilitySignals = ['auditLog', 'otherBots', 'transcripts', 'usage'];
@@ -171,7 +171,7 @@ test('lock validation accepts exact releases and rejects invalid pins', () => {
 
 for (const role of ['owner', 'guest']) {
   test(`${role} visibility fixture uses only the collector fields and signals`, async () => {
-    const path = join(root, 'skills', 'capability-probe', 'fixtures', `${role}.expected.json`);
+    const path = join(root, 'skills', 'ambitious-capability-probe', 'fixtures', `${role}.expected.json`);
     const rows = JSON.parse(await readFile(path, 'utf8'));
     assert(Array.isArray(rows));
     assert.deepEqual(rows.map((row) => row.signal).sort(), visibilitySignals);
@@ -188,7 +188,7 @@ for (const role of ['owner', 'guest']) {
   });
 }
 
-test('every module skill names where it came from, and a copied skill is byte for byte the recorded file', () => {
+test('every module skill names where it came from, and a copied skill is the recorded file apart from its recorded name and description lines', () => {
   for (const entry of [...sources.copied, ...sources.written]) {
     assert.match(entry.repository, /^AmbitiousBots\/ambitious-[a-z]+$/u);
     assert.equal(entry.tag, `${entry.repository.split('-').at(-1)}-v0.1.0`);
@@ -196,14 +196,50 @@ test('every module skill names where it came from, and a copied skill is byte fo
     assert(lock().some((row) => `${row.module}-v${row.version}` === entry.tag), `${entry.skill}: ${entry.tag} is not a pinned release`);
   }
   for (const entry of sources.copied) {
-    assert.equal(entry.path, `skills/${entry.skill}/SKILL.md`);
-    assert.equal(sha256(readFileSync(join(root, entry.path))), entry.sha256, `${entry.skill} differs from the file copied from ${entry.tag}`);
+    assert.deepEqual(Object.keys(entry), ['skill', 'repository', 'tag', 'commit', 'path', 'sha256', 'releasedFrontmatter']);
+    assert.deepEqual(Object.keys(entry.releasedFrontmatter), ['name', 'description']);
+    const releasedName = entry.skill.slice(SKILL_PREFIX.length);
+    assert.equal(entry.path, `skills/${releasedName}/SKILL.md`);
+    assert.equal(entry.releasedFrontmatter.name, `name: ${releasedName}`);
+    assert.equal(sha256(releasedText(entry)), entry.sha256, `${entry.skill} differs from the file copied from ${entry.tag} in more than its name and description lines`);
   }
-  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['tasks-for-bots', 'tasks-page', 'audit-collector', 'audit-page', 'snapshot-routine', 'send-feedback', 'contracts-for-bots']);
-  assert.deepEqual(sources.written.map(({ skill }) => skill), ['compliance-for-bots', 'records-for-bots', 'video-for-bots']);
+  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-for-bots', 'ambitious-tasks-page', 'ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback', 'ambitious-contracts-for-bots']);
+  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
 });
 
-test('the installer pin in the module-installer skill and bot.json are what the generator makes from the other files', () => {
+test('every skill is named for the Ambitious Bot and says so first in its description', () => {
+  const bot = readJson(join(root, 'bot.json'));
+  assert.equal(bot.skills.length, expectedSkills.length);
+  for (const skill of bot.skills) {
+    assert.match(skill.name, /^ambitious-[a-z][a-z-]*[a-z]$/u);
+    assert(skill.description.startsWith('For the Ambitious Bot only. '), `${skill.name}: the description must start by saying the skill is for the Ambitious Bot`);
+    assert.match(skill.description, /\. Use (?:when|on|in|before|after) .*Ambitious Bot/u, `${skill.name}: the description must say when the Ambitious Bot uses it`);
+  }
+});
+
+test('no file refers to a skill by its name without the ambitious- prefix', async () => {
+  const bareNames = expectedSkills.map((name) => name.slice(SKILL_PREFIX.length));
+  const bare = new RegExp(`(?<![A-Za-z0-9-])(?:${bareNames.join('|')})(?![A-Za-z0-9-])`, 'u');
+  const record = join(root, 'skills', 'SOURCES.json');
+  const templateFiles = [...(await filesIn(root)), ...(await filesIn(join(root, 'test')))].filter((path) => path !== record);
+  const repoFiles = [
+    ...['README.md', 'AGENTS.md', 'MODULE_CONTRACT.md', 'CONTRIBUTING.md'].map((name) => join(repoRoot, name)),
+    ...(await filesIn(join(repoRoot, 'scripts'))),
+    ...(await filesIn(join(repoRoot, 'verify'))),
+    ...(await filesIn(join(repoRoot, 'packages', 'kit', 'src'))),
+    join(repoRoot, 'packages', 'kit', 'README.md'),
+  ];
+  for (const path of [...templateFiles, ...repoFiles]) {
+    const lines = (await readFile(path, 'utf8')).split('\n');
+    lines.forEach((line, index) => {
+      const found = bare.exec(line);
+      assert.equal(found, null, `${relative(repoRoot, path)}:${index + 1} names "${found?.[0]}"; the skill is "${SKILL_PREFIX}${found?.[0]}"`);
+    });
+  }
+  for (const entry of sources.copied) assert(bare.test(entry.path), `${entry.skill}: the record keeps the path the file has in its module release`);
+});
+
+test('the installer pin in the ambitious-module-installer skill and bot.json are what the generator makes from the other files', () => {
   const check = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'template-generate.mjs'), '--check'], { encoding: 'utf8' });
   assert.equal(check.status, 0, check.stdout + check.stderr);
 });
@@ -226,7 +262,7 @@ test('bot.json is a complete payload for creating the bot', () => {
     assert(routine.schedule.trim().length > 0 && routine.prompt.trim().length > 0, routine.name);
   }
   const [selfcheck] = bot.routines;
-  assert.match(selfcheck.prompt, /`module-installer` skill: run its sync command and nothing else/u);
+  assert.match(selfcheck.prompt, /`ambitious-module-installer` skill: run its sync command and nothing else/u);
   assert.match(selfcheck.prompt, /Do not collect an audit, write a report or send anything/u);
 });
 
@@ -239,7 +275,7 @@ test('the instructions state the boundaries a copy of the template must keep', (
     'https://ambitiousbots.com/api/mcp',
     'All reported numbers come from module output.',
     'Write documents in Grok Bot Pages.',
-    'On first chat, run the sync command, then follow the `getting-started` skill',
+    'On first chat, run the sync command, then follow the `ambitious-getting-started` skill',
   ]) assert(instructions.includes(required), `INSTRUCTIONS.md must say: ${required}`);
 });
 
@@ -249,11 +285,11 @@ const scratch = (t) => {
   return directory;
 };
 
-test('the first-run lines in the module-installer skill fetch the pinned installer, and it then runs', (t) => {
+test('the first-run lines in the ambitious-module-installer skill fetch the pinned installer, and it then runs', (t) => {
   const built = buildInstaller();
   const { version } = readJson(join(repoRoot, 'package.json'));
   const asset = `ambitious-modules-${version}.mjs`;
-  const skill = readFileSync(join(root, 'skills', 'module-installer', 'SKILL.md'), 'utf8');
+  const skill = readFileSync(join(root, 'skills', 'ambitious-module-installer', 'SKILL.md'), 'utf8');
   const blocks = [...skill.matchAll(/```sh\n([\s\S]*?)```/gu)].map(([, block]) => block);
   const firstRun = blocks.find((block) => block.includes('sha256sum'));
   assert(firstRun, 'the skill needs a first-run block that checks the pin');

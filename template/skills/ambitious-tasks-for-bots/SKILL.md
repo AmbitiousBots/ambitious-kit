@@ -1,6 +1,6 @@
 ---
-name: tasks-for-bots
-description: Track shared work, dependencies and status with the Ambitious Tasks CLI. Use when a user asks to remember work, change a task, finish work, find what to do next, inspect a process or plan assignments.
+name: ambitious-tasks-for-bots
+description: For the Ambitious Bot only. Track shared work, dependencies and status with the Ambitious Tasks CLI. Use when the Ambitious Bot is asked to remember work, change a task, finish work, find what to do next, inspect a process or plan assignments.
 ---
 
 # Track work with Ambitious Tasks

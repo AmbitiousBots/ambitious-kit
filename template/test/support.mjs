@@ -12,6 +12,20 @@ export const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex");
 export const lock = () => readJson(join(templateRoot, "modules.lock.json"));
 
+export const SKILL_PREFIX = "ambitious-";
+
+export const releasedText = (entry) => {
+  const lines = readFileSync(join(templateRoot, "skills", entry.skill, "SKILL.md"), "utf8").split("\n");
+  const end = lines.indexOf("---", 1);
+  if (lines[0] !== "---" || end === -1) throw new Error(`${entry.skill}: frontmatter must start the file`);
+  for (const [field, released] of Object.entries(entry.releasedFrontmatter)) {
+    const at = lines.findIndex((line, index) => index < end && line.startsWith(`${field}:`));
+    if (at === -1 || !released.startsWith(`${field}:`)) throw new Error(`${entry.skill}: no ${field} line to put the released one back into`);
+    lines[at] = released;
+  }
+  return lines.join("\n");
+};
+
 export const buildInstaller = () => {
   execFileSync(process.execPath, [join(repoRoot, "packages", "kit", "scripts", "build-install.mjs")], { stdio: ["ignore", "ignore", "inherit"] });
   return installer;

@@ -1,6 +1,6 @@
 ---
-name: audit-page
-description: "Turn an ambitious-audit result into a page the customer can read. The module does not render the page."
+name: ambitious-audit-page
+description: For the Ambitious Bot only. Turn an ambitious-audit result into a page the customer can read; the module does not render the page. Use after the Ambitious Bot has run an audit's findings and recommendations.
 ---
 
 # Audit page

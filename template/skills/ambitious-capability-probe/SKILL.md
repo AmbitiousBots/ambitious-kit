@@ -1,6 +1,6 @@
 ---
-name: capability-probe
-description: Inspect observed account access and produce an honest visibility array for an audit.
+name: ambitious-capability-probe
+description: For the Ambitious Bot only. Inspect observed account access and produce an honest visibility array for an audit. Use before the Ambitious Bot collects an audit or a snapshot, and after an account, role, connector or computer change.
 ---
 
 # Capability probe

@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { gh, ghSignedIn, lock, NO_GH, readJson, releaseOf, sha256, templateRoot } from './support.mjs';
+import { gh, ghSignedIn, lock, NO_GH, readJson, releaseOf, releasedText, sha256, templateRoot } from './support.mjs';
 
 const skip = ghSignedIn() ? false : `Skipped: ${NO_GH}. The pins were not compared with the published releases in this run.`;
 const sources = readJson(join(templateRoot, 'skills', 'SOURCES.json'));
@@ -23,6 +22,7 @@ for (const entry of [...sources.copied, ...sources.written]) {
     assert.equal(commit, entry.commit);
     if (entry.path === undefined) return;
     const published = gh(['api', '-H', 'Accept: application/vnd.github.raw', `repos/${entry.repository}/contents/${entry.path}?ref=${entry.commit}`]);
-    assert.equal(sha256(published), sha256(readFileSync(join(templateRoot, entry.path))), `${entry.skill} is not the file at ${entry.tag}`);
+    assert.equal(sha256(published), entry.sha256, `${entry.skill}: the recorded SHA-256 is not that of ${entry.path} at ${entry.tag}`);
+    assert.equal(sha256(releasedText(entry)), sha256(published), `${entry.skill} differs from the file at ${entry.tag} in more than its recorded frontmatter lines`);
   });
 }

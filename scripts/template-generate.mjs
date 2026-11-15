@@ -8,10 +8,11 @@ const USAGE = `Usage: node scripts/template-generate.mjs [--check]
 
 Regenerates the two generated parts of the Ambitious Bot template in template/:
 
-  skills/module-installer/SKILL.md   the release tag, file name and SHA-256 pin of the
-                                     bundled installer, ambitious-modules-<version>.mjs
-  bot.json                           the payload for creating a bot from the template:
-                                     its name, description, instructions, skills and routines
+  skills/ambitious-module-installer/SKILL.md
+             the release tag, file name and SHA-256 pin of the bundled installer,
+             ambitious-modules-<version>.mjs
+  bot.json   the payload for creating a bot from the template: its name, description,
+             instructions, skills and routines
 
 Both are derived from the other files: the installer is built from packages/kit with
 template/modules.lock.json embedded, and bot.json is INSTRUCTIONS.md, every
@@ -23,7 +24,7 @@ Needs "npm ci" first.
 
 const repoRoot = join(import.meta.dirname, "..");
 const template = join(repoRoot, "template");
-const installerSkill = join(template, "skills", "module-installer", "SKILL.md");
+const installerSkill = join(template, "skills", "ambitious-module-installer", "SKILL.md");
 const botFile = join(template, "bot.json");
 
 const BOT_NAME = "Ambitious Bot";
@@ -78,7 +79,7 @@ const pinnedInstallerSkill = () => {
     .replace(new RegExp(`ambitious-modules-${semver}\\.mjs`, "g"), `ambitious-modules-${version}.mjs`)
     .replace(/[0-9a-f]{64}(?= {2}ambitious-modules-)/g, sha256);
   if (!pinned.includes(`${sha256}  ambitious-modules-${version}.mjs`)) {
-    throw new Error("skills/module-installer/SKILL.md has no sha256sum line for the bundled installer to pin.");
+    throw new Error("skills/ambitious-module-installer/SKILL.md has no sha256sum line for the bundled installer to pin.");
   }
   return pinned;
 };
