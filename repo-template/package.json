@@ -9,6 +9,7 @@
   },
   "scripts": {
     "lint": "node scripts/check-standalone.mjs",
-    "tlc": "node scripts/tlc.mjs"
+    "tlc": "node scripts/tlc.mjs",
+    "verify": "node verify/run"
   }
 }

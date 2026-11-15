@@ -45,6 +45,15 @@ export const forbidden: IForbiddenRuleType[] = [
     to: { path: [builtin(NETWORK_BUILTINS), npmPackage(NETWORK_PACKAGES)] },
   },
   {
+    name: "every import must resolve",
+    severity: "error",
+    comment:
+      "This import cannot be found, so none of the other rules can check it. " +
+      "Install the package it names, or fix the path, so the import resolves to a file.",
+    from: {},
+    to: { couldNotResolve: true },
+  },
+  {
     name: "no import cycles",
     severity: "error",
     comment:
@@ -62,6 +71,8 @@ export const config: IConfiguration = {
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {
       extensions: [".ts", ".mts", ".cts", ".js", ".mjs", ".cjs", ".json"],
+      exportsFields: ["exports"],
+      conditionNames: ["import", "node", "default"],
     },
   },
 };

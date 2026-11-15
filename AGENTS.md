@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious Bot template, flat per-org monthly monitoring with human review, and open-source single-purpose CLI modules with no UI that the bot drives. This repo is the kit those modules are built from: the module contract, the lint and dependency rules, and the repo template. Everything here is copied into every module, so a change is good when it makes every module safer or simpler for the bot that drives it.
+Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious Bot template, flat per-org monthly monitoring with human review, and open-source single-purpose CLI modules with no UI that the bot drives. This repo is the kit those modules are built from: the module contract, the shared code and contract tests, the lint and dependency rules, and the repo template. Everything here is copied into every module, so a change is good when it makes every module safer or simpler for the bot that drives it.
 
 ## How to work
 
@@ -17,11 +17,15 @@ Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious B
 - The lint bans are one table, `packages/lint/src/bans.ts`: what is banned, the fix message, and the directories where it is allowed.
 - The dependency rules are one list, `forbidden` in `packages/depcruise/src/config.ts`.
 - The repo template is the files under `repo-template/`, copied by `scripts/apply-template.mjs`.
+- The shared code is `packages/kit/src/`, one name per file with no index file, and its Python mirror `packages/kit-python/ambitious_kit/`. A change to one is a change to both.
+- What a user can rely on is the list in `verify/features.json`; `verify/run` proves each entry.
 
 ## Directory boundaries
 
 - `packages/lint/`: `@ambitious/lint`, the ESLint config and rules, plus the Python comment checker in `python/`.
 - `packages/depcruise/`: `@ambitious/depcruise`, the dependency-cruiser config.
+- `packages/kit/`: `@ambitious/kit`, laid out like a module (`src/cli`, `src/domain`, `src/db`, `src/install`) so the same rules hold for it. `packages/kit-python/`: the Python mirror.
+- `examples/hello/`: a complete module on the kit. Keep it the smallest thing that exercises every rule.
 - `repo-template/`: the files every repo gets. `template/` is reserved for the bot template and is not this.
 - `src/`, `spec/`, `test/`, `verify/`: the same layout every module has.
 - `schemas/`, `examples/`: the machine-checked parts of the contract.
