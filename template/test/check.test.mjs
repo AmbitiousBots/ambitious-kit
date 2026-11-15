@@ -13,7 +13,7 @@ const sources = readJson(join(root, 'skills', 'SOURCES.json'));
 const ownSkills = ['ambitious-capability-probe', 'ambitious-getting-started', 'ambitious-module-installer'];
 const expectedSkills = [...ownSkills, ...sources.copied.map(({ skill }) => skill), ...sources.written.map(({ skill }) => skill)].sort();
 const pinnedModules = ['audit', 'compliance', 'contracts', 'records', 'tasks', 'video'];
-const visibilitySignals = ['auditLog', 'otherBots', 'transcripts', 'usage'];
+const visibilitySignals = ['transcripts', 'usage', 'otherBots', 'auditLog', 'accountRole', 'tasks', 'pages', 'botActivity', 'routines'];
 const { version: templateVersion } = readJson(join(repoRoot, 'package.json'));
 const fixtureNames = ['guest', 'owner', 'role-unknown'].map((role) => `ambitious-capability-probe/${role}.expected.json`);
 
@@ -176,7 +176,7 @@ for (const role of ['owner', 'guest', 'role-unknown']) {
     const path = join(root, 'fixtures', 'ambitious-capability-probe', `${role}.expected.json`);
     const rows = JSON.parse(await readFile(path, 'utf8'));
     assert(Array.isArray(rows));
-    assert.deepEqual(rows.map((row) => row.signal).sort(), visibilitySignals);
+    assert.deepEqual(rows.map((row) => row.signal), visibilitySignals);
     for (const row of rows) {
       assert.deepEqual(Object.keys(row).sort(), ['seen', 'signal', 'why']);
       assert.equal(typeof row.seen, 'boolean');
@@ -184,9 +184,9 @@ for (const role of ['owner', 'guest', 'role-unknown']) {
       assert(row.why.trim().length > 0, `${role}: explain each observation or gap`);
     }
     const expectedSeen = {
-      owner: { transcripts: true, usage: false, otherBots: true, auditLog: false },
-      guest: { transcripts: false, usage: false, otherBots: false, auditLog: false },
-      'role-unknown': { transcripts: false, usage: false, otherBots: true, auditLog: false },
+      owner: { transcripts: true, usage: false, otherBots: true, auditLog: false, accountRole: true, tasks: true, pages: true, botActivity: true, routines: true },
+      guest: { transcripts: false, usage: false, otherBots: false, auditLog: false, accountRole: true, tasks: false, pages: false, botActivity: false, routines: false },
+      'role-unknown': { transcripts: false, usage: false, otherBots: true, auditLog: false, accountRole: false, tasks: true, pages: false, botActivity: false, routines: true },
     };
     assert.deepEqual(Object.fromEntries(rows.map((row) => [row.signal, row.seen])), expectedSeen[role]);
   });
@@ -209,8 +209,8 @@ test('every module skill names the pinned release it describes, and a copied ski
     assert.equal(sha256(releasedText(entry)), entry.sha256, `${entry.skill} differs from the file copied from ${entry.tag} in more than its name and description lines and its template version line`);
   }
   for (const entry of sources.written) assert.deepEqual(Object.keys(entry), ['skill', 'repository', 'tag', 'commit']);
-  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback']);
-  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-tasks-for-bots', 'ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
+  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-page', 'ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback']);
+  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-tasks-for-bots', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
 });
 
 test('the instructions and every skill body start with the template version, so a shared skill library can tell which template wrote a skill', () => {
@@ -258,21 +258,29 @@ test('the private data directory rule is exact: modules and module input never r
   }
 });
 
-test('the audit skills write an unseen value as null, run with an unknown role, and send the bot to the schema command when unsure', () => {
+test('the audit skills write an unseen value as null and never as zero, run with an unknown role, and name the nine visibility signals the same way', () => {
   const skill = (name) => readFileSync(join(root, 'skills', name, 'SKILL.md'), 'utf8');
   for (const name of ['ambitious-audit-collector', 'ambitious-capability-probe', 'ambitious-getting-started', 'ambitious-audit-page']) {
     const text = skill(name);
-    assert.match(text, /`ambitious-audit schema`/u, `${name} must name the schema command`);
     assert.match(text, /`null`/u, `${name} must say an unseen value is null`);
     assert.match(text, /never (?:as |show it as |write )?(?:zero|0)/iu, `${name} must rule out zero for an unseen value`);
-    assert.match(text, /`unknown`/u, `${name} must cover an unknown account role`);
-    assert.doesNotMatch(text, /defer collector input/u, name);
+    assert.match(text, /`unknown`|does not know its role/u, `${name} must cover an unknown account role`);
+    assert.doesNotMatch(text, /defer collector input|older than 0\.2\.0|no `schema` command/u, name);
+  }
+  for (const name of ['ambitious-audit-collector', 'ambitious-capability-probe', 'ambitious-getting-started']) {
+    assert.match(skill(name), /`ambitious-audit schema`/u, `${name} must name the schema command`);
+  }
+  for (const name of ['ambitious-capability-probe', 'ambitious-getting-started', 'ambitious-audit-page']) {
+    assert.match(skill(name), /`partial`/u, `${name} must name the mode the module answers with for an unknown role`);
   }
   const collector = skill('ambitious-audit-collector');
-  for (const required of ['`needsGrant`', '`initializing`', '`credits`', '`percent`', '`source` is optional', 'partial mode', 'names the failing field']) {
-    assert(collector.includes(required), `ambitious-audit-collector must mention ${required}`);
-  }
-  assert.match(skill('ambitious-capability-probe'), /do not put the audit off/u);
+  assert.doesNotMatch(collector, /`source` is optional/u, 'the pinned audit module requires a source on every evidence entry');
+  const probe = skill('ambitious-capability-probe');
+  const table = [...probe.matchAll(/^\| `([A-Za-z]+)` \| /gmu)].map(([, signal]) => signal);
+  assert.deepEqual(table, visibilitySignals, 'the probe skill has one table row for each signal, in the order of the fixtures');
+  const listed = /exactly one entry for each of (.+?)\. /u.exec(collector)?.[1] ?? '';
+  assert.deepEqual([...listed.matchAll(/`([A-Za-z]+)`/gu)].map(([, signal]) => signal), visibilitySignals, 'the collector skill lists the same signals');
+  assert.match(probe, /do not put the audit off/u);
   assert.match(skill('ambitious-getting-started'), /Do not put the audit off/u);
 });
 

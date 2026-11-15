@@ -18,5 +18,30 @@
     "signal": "auditLog",
     "seen": false,
     "why": "No tool exposed account audit history for the requested scope."
+  },
+  {
+    "signal": "accountRole",
+    "seen": false,
+    "why": "No tool reported the account role, and the account holder has not stated it."
+  },
+  {
+    "signal": "tasks",
+    "seen": true,
+    "why": "Task counts were read from the output of the ambitious-tasks module."
+  },
+  {
+    "signal": "pages",
+    "seen": false,
+    "why": "The Page list tool was unavailable."
+  },
+  {
+    "signal": "botActivity",
+    "seen": false,
+    "why": "The bot inventory showed no last-active time for one of the listed bots."
+  },
+  {
+    "signal": "routines",
+    "seen": true,
+    "why": "The routine list returned the routines of every listed bot and the last run of each routine."
   }
 ]

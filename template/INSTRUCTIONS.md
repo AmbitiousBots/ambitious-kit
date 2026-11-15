@@ -1,4 +1,4 @@
-Template version: 0.2.2
+Template version: 0.2.3
 
 # Role
 
@@ -35,7 +35,7 @@ Never give a module a path under it, and never put anything read from it into mo
 You yourself may read there only the platform's own skill and Page-kit reference files that the platform documents at that location, and nothing else under it.
 Every audit Page and report states its scope and what could not be seen.
 Never claim a signal was observed because the account is an owner or team account.
-When no tool reports the account role, record the role as unknown and run the audit in its partial mode. Never infer a role, and do not put the audit off for that reason.
+When no tool reports the account role and the owner has not stated it, record the role as unknown and run the audit; the audit module then holds back what depends on the role. Never infer a role, and do not put the audit off for that reason.
 An unavailable tool, failed read, incomplete scope or missing permission is a visibility gap.
 Do not turn missing observations into zero activity or a clean bill of health. An unseen value is null, never zero.
 

@@ -268,4 +268,157 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
     const answer = spawnSync(process.execPath, [join(bin, 'ambitious-tasks'), 'commands'], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
     assert.equal(JSON.parse(answer.stdout).module, 'tasks');
   });
+
+  const audit = (command, input) => {
+    const file = join(work, 'audit-input.json');
+    if (input !== undefined) writeFileSync(file, JSON.stringify(input));
+    const answer = spawnSync(process.execPath, [join(bin, 'ambitious-audit'), ...command, ...(input === undefined ? [] : ['--in', file])], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
+    return JSON.parse(answer.stdout);
+  };
+  const inputSchema = (...command) => {
+    const answer = audit(['schema', ...command]);
+    assert.equal(answer.ok, true, JSON.stringify(answer.errors));
+    return answer.data.schema;
+  };
+  const skillText = (name) => readFileSync(join(templateRoot, 'skills', name, 'SKILL.md'), 'utf8');
+  const named = (text, values, where) => {
+    for (const value of values) assert(text.includes(`\`${value}\``), `${where} must name \`${value}\`, which the pinned audit module's schema lists`);
+  };
+  const probeFixture = (role) => readJson(join(home, 'template', 'fixtures', 'ambitious-capability-probe', `${role}.expected.json`));
+
+  await t.test('the audit skills name exactly the signals, values, limits and commands that the pinned audit module\'s schema command prints', () => {
+    assert.equal(audit(['commands']).meta.version, rows.find((row) => row.module === 'audit').version);
+    const collector = inputSchema();
+    assert.deepEqual(collector, inputSchema('snapshot'), 'schema alone prints the collector schema');
+    const defs = collector.$defs;
+    const signals = defs.visibilityEntry.properties.signal.enum;
+    assert.equal(defs.visibility.minItems, signals.length);
+    assert.equal(defs.visibility.maxItems, signals.length);
+
+    const collectorSkill = skillText('ambitious-audit-collector');
+    const probeSkill = skillText('ambitious-capability-probe');
+    const signalsIn = (text, pattern) => [...(pattern.exec(text)?.[1] ?? text).matchAll(/`([A-Za-z]+)`/gu)].map(([, signal]) => signal);
+    assert.deepEqual(signalsIn(collectorSkill, /exactly one entry for each of (.+?)\. /u), signals);
+    assert.deepEqual([...probeSkill.matchAll(/^\| `([A-Za-z]+)` \| /gmu)].map(([, signal]) => signal), signals);
+    for (const role of ['owner', 'guest', 'role-unknown']) assert.deepEqual(probeFixture(role).map(({ signal }) => signal), signals, `${role} fixture`);
+
+    named(collectorSkill, collector.required.filter((field) => !['account', 'bots', 'routines', 'connectors', 'tasks', 'pages'].includes(field)), 'ambitious-audit-collector');
+    for (const group of ['tasks', 'pages']) named(collectorSkill, collector.properties[group].required.map((field) => `${group}.${field}`), 'ambitious-audit-collector');
+    named(collectorSkill, [...defs.bot.required, ...defs.routine.required].filter((field) => !['id', 'name', 'botId', 'schedule', 'state'].includes(field)), 'ambitious-audit-collector');
+    named(collectorSkill, collector.properties.account.properties.kind.enum, 'ambitious-audit-collector');
+    named(probeSkill, collector.properties.account.properties.kind.enum, 'ambitious-capability-probe');
+    named(collectorSkill, defs.connector.properties.status.enum, 'ambitious-audit-collector');
+    for (const unit of defs.usage.properties.unit.enum) assert(collectorSkill.includes(`"unit": "${unit}"`), `ambitious-audit-collector must show usage in ${unit}`);
+    assert(defs.usage.type.includes('null') && defs.lastSeen.type.includes('null'));
+    assert.match(defs.lastSeen.pattern, /never/u);
+    named(collectorSkill, ['never', 'source'], 'ambitious-audit-collector');
+    assert(defs.evidence.required.includes('source'));
+    assert(collectorSkill.includes(`evidence text is at most ${defs.evidence.properties.text.maxLength} characters`));
+
+    const routine = skillText('ambitious-snapshot-routine');
+    const feedback = skillText('ambitious-send-feedback');
+    const commands = audit(['schema']).data.commands;
+    assert.deepEqual(commands, ['snapshot', 'baseline set', 'diff', 'findings', 'recommend', 'report build', 'report mark', 'feedback build']);
+    named(routine, commands.filter((command) => command !== 'feedback build'), 'ambitious-snapshot-routine');
+    assert(feedback.includes('ambitious-audit feedback build --in'));
+    const build = inputSchema('report', 'build');
+    assert.deepEqual(build.required, ['snapshotId', 'reviewRequired']);
+    named(routine, ['reviewRequired'], 'ambitious-snapshot-routine');
+    const mark = inputSchema('report', 'mark');
+    assert.deepEqual(mark.required, ['reportId', 'state', 'at']);
+    named(routine, [...mark.properties.state.enum, 'reportId', 'at'], 'ambitious-snapshot-routine');
+    const note = inputSchema('feedback', 'build');
+    assert.deepEqual(note.required, ['text', 'from']);
+    assert.deepEqual(Object.keys(note.properties), ['reportId', 'text', 'from']);
+    named(feedback, ['reportId', 'text'], 'ambitious-send-feedback');
+    for (const from of note.properties.from.enum) assert(feedback.includes(`"${from}"`), `ambitious-send-feedback must name the sender "${from}"`);
+    assert(feedback.includes(`at most ${note.properties.text.maxLength} characters`));
+  });
+
+  const collected = (role) => {
+    const visibility = probeFixture(role);
+    const seen = Object.fromEntries(visibility.map((entry) => [entry.signal, entry.seen]));
+    const usage = seen.usage ? { unit: 'credits', amount7d: 12 } : null;
+    return {
+      schemaVersion: 1,
+      collectedAt: '2026-01-08T00:00:00Z',
+      account: { kind: seen.accountRole ? role : 'unknown', label: 'Example account' },
+      bots: [{ id: 'bot-1', name: 'First bot', lastActiveAt: seen.botActivity ? 'never' : null, routineCount: seen.routines ? 1 : null, usage }],
+      routines: [{ id: 'routine-1', botId: 'bot-1', schedule: 'every day at 7:00 AM', state: 'failing', lastRunAt: seen.routines ? '2026-01-07T07:00:00Z' : null, usage, lastError: 'The connector needs to be signed in again.' }],
+      connectors: [{ name: 'documents', status: 'needsGrant' }],
+      tasks: seen.tasks ? { open: 4, stale7d: 2, blocked: 0 } : { open: null, stale7d: null, blocked: null },
+      pages: seen.pages ? { count: 3, updated7d: 0 } : { count: null, updated7d: null },
+      visibility,
+      evidence: [
+        { id: 'ev-1', kind: 'excerpt', text: 'The connector needs to be signed in again.', source: 'routine-1' },
+        { id: 'ev-2', kind: 'count', text: '2 open tasks have not changed in 7 days.', source: 'tasks' },
+      ],
+    };
+  };
+
+  for (const role of ['owner', 'guest', 'role-unknown']) {
+    await t.test(`a collector document written the way the audit skills say, with the installed ${role} fixture as its visibility, runs through the pinned audit module from snapshot to a report that waits for review`, () => {
+      const document = collected(role);
+      const unseen = document.visibility.filter(({ seen }) => !seen).map(({ signal }) => signal);
+      const snapshot = audit(['snapshot'], document);
+      assert.equal(snapshot.ok, true, JSON.stringify(snapshot.errors));
+      const id = { snapshotId: snapshot.data.snapshotId };
+      assert.deepEqual(snapshot.data.normalized.pages, document.pages, 'an unseen count stays null');
+
+      const mode = role === 'role-unknown' ? 'partial' : 'full';
+      const findings = audit(['findings'], id);
+      assert.equal(findings.data.mode, mode);
+      assert.deepEqual([...new Set(findings.data.findings.map(({ kind }) => kind))].sort(), ['rule', 'visibility']);
+      assert.equal(findings.data.findings.filter(({ kind }) => kind === 'visibility').length, unseen.length, 'one visibility finding for each unseen signal');
+      const withheld = findings.data.findings.filter((finding) => finding.withheld !== undefined);
+      assert.equal(withheld.length > 0, mode === 'partial', 'findings are marked withheld only when the role is unknown');
+
+      const advice = audit(['recommend'], id);
+      assert.equal(advice.data.mode, mode);
+      assert(advice.data.recommendations.length >= 1 && advice.data.recommendations.length <= 3);
+      for (const recommendation of advice.data.recommendations) {
+        assert.deepEqual(Object.keys(recommendation).sort(), ['effort', 'evidenceIds', 'id', 'title', 'why']);
+        assert(recommendation.evidenceIds.length > 0);
+      }
+      assert.deepEqual(advice.data.withheld, withheld.map(({ ruleId }) => ruleId));
+
+      assert.equal(audit(['baseline', 'set'], id).ok, true);
+      assert.deepEqual(audit(['diff'], { to: id.snapshotId }).data.changes, []);
+
+      const report = audit(['report', 'build'], { ...id, reviewRequired: true });
+      assert.equal(report.ok, true, JSON.stringify(report.errors));
+      assert.deepEqual(report.data.next, { kind: 'waitForReview', reportId: report.data.reportId });
+      const { payload } = report.data;
+      assert.equal(payload.accountKind, document.account.kind);
+      assert.deepEqual(payload.moduleVersions, { audit: rows.find((row) => row.module === 'audit').version });
+      assert.deepEqual(payload.counts.pages, document.pages);
+      assert.deepEqual(payload.counts.tasks, document.tasks);
+      assert.deepEqual(payload.visibility.filter(({ seen }) => !seen).map(({ signal }) => signal), unseen);
+      assert.equal(Object.hasOwn(payload, 'organisationId') || Object.hasOwn(payload, 'organizationId'), false);
+      const reviewed = audit(['report', 'mark'], { reportId: report.data.reportId, state: 'reviewed', at: '2026-01-08T00:05:00Z' });
+      assert.equal(reviewed.ok, true, JSON.stringify(reviewed.errors));
+      assert.equal(reviewed.data.next.kind, 'send');
+    });
+  }
+
+  await t.test('the pinned audit module refuses what the skills rule out: the four signals of an earlier version, an unseen value marked as seen, a guessed role and evidence without a source', () => {
+    const refusal = (document) => {
+      const answer = audit(['snapshot'], document);
+      assert.equal(answer.ok, false);
+      for (const error of answer.errors) assert.equal(error.code, 'E_INPUT_SCHEMA');
+      return answer.errors.map(({ message }) => message).join(' ');
+    };
+    const owner = collected('owner');
+    assert.match(refusal({ ...owner, visibility: owner.visibility.slice(0, 4) }), /\/visibility must have one entry whose signal is "accountRole"/u);
+    assert.match(refusal({ ...owner, pages: { count: null, updated7d: 0 } }), /\/visibility\/6\/seen must be false, because \/pages\/count is null/u);
+    assert.match(refusal({ ...collected('role-unknown'), account: { kind: 'owner', label: 'Example account' } }), /\/visibility\/4\/seen|\/account\/kind/u);
+    assert.match(refusal({ ...owner, evidence: [{ id: 'ev-1', kind: 'excerpt', text: 'No source.' }] }), /\/evidence\/0\/source is required/u);
+  });
+
+  await t.test('the feedback document the ambitious-send-feedback skill describes builds a payload with no organisation id', () => {
+    const answer = audit(['feedback', 'build'], { text: 'The weekly report is useful.', from: 'customer' });
+    assert.equal(answer.ok, true, JSON.stringify(answer.errors));
+    assert.equal(answer.data.payload.text, 'The weekly report is useful.');
+    assert.equal(Object.keys(answer.data.payload).some((key) => /organi[sz]ation/iu.test(key)), false);
+  });
 });
