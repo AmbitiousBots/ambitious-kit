@@ -1,0 +1,22 @@
+[
+  {
+    "signal": "transcripts",
+    "seen": false,
+    "why": "No tool returned transcript content for the requested bots; the current conversation does not establish transcript coverage."
+  },
+  {
+    "signal": "usage",
+    "seen": false,
+    "why": "Usage by bot was returned as percentage shares for the requested period, but usage by routine was unavailable."
+  },
+  {
+    "signal": "otherBots",
+    "seen": true,
+    "why": "The completed bot inventory included other bots in the scope the tools returned; no tool reported the account role."
+  },
+  {
+    "signal": "auditLog",
+    "seen": false,
+    "why": "No tool exposed account audit history for the requested scope."
+  }
+]

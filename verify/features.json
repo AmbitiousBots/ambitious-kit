@@ -31,7 +31,7 @@
   },
   {
     "id": "sync",
-    "userVisible": "A bot keeps every pinned module in place with one command: it installs what is missing, replaces what was removed or altered, upgrades when a pin moves, runs each selfcheck and says in plain words what happened.",
+    "userVisible": "A bot keeps every pinned module in place with one command: it installs what is missing, replaces what was removed or altered, upgrades when a pin moves, runs each selfcheck and says in plain words what happened. A newer template release is only reported: nothing from it is downloaded, installed or run.",
     "check": "node --test packages/kit/test/sync.test.ts"
   },
   {

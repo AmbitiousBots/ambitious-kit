@@ -5,88 +5,104 @@ import { envelope, exitCodeOf, serialize, type ErrorEntry, type Identity } from 
 import { Failure, failure } from "../domain/failure.ts";
 import type { JsonObject } from "../domain/json.ts";
 import { parseLock, type LockRow } from "../domain/lock.ts";
+import { decideSkillWrite, parseSkillOffers } from "../domain/skill-version.ts";
+import { templateNote, templateStatus, type TemplateStatus } from "../install/newer-template.ts";
 import { INSTALLER_MODULE, releaseDownload } from "../install/release.ts";
 import { findPython, summaryOf, sync } from "../install/sync.ts";
-import { updateInstaller } from "../install/update.ts";
+import { parseTemplateFiles, placeTemplateFiles } from "../install/template-files.ts";
 import { ambitiousHome, refuseAgentData } from "../paths/refuse-agent-data.ts";
-import { embedded, embeddedLock } from "./embedded.ts";
+import { embedded, embeddedLock, embeddedTemplateFiles } from "./embedded.ts";
 
-const USAGE = "ambitious-modules sync [--json] [--from <mirror directory>] [--lock <lock file>]";
+const USAGE = "ambitious-modules sync [--json] [--from <mirror directory>] [--lock <lock file>], or ambitious-modules skills [--json] [--in <file>]";
 
-type Wanted = { readonly mirror: string | null; readonly lockFile: string | null; readonly updatedFrom: string | null };
+const COMMANDS = ["sync", "skills"] as const;
 
-type Printed = { readonly stdout: string; readonly exitCode: number };
+type Command = (typeof COMMANDS)[number];
+
+type Wanted = { readonly command: Command; readonly mirror: string | null; readonly lockFile: string | null; readonly inFile: string | null };
 
 type Environment = Readonly<Record<string, string | undefined>>;
 
+const STDIN = 0;
+
+const wrong = (message: string): Failure => failure("E_USAGE", message, `Run it as: ${USAGE}`);
+
+const commandIn = (argv: readonly string[]): Command | null => COMMANDS.find((name) => argv.includes(name)) ?? null;
+
 const wanted = (argv: readonly string[], environment: Environment): Wanted => {
-  const wrong = (message: string): Failure => failure("E_USAGE", message, `Run it as: ${USAGE}`);
   const { positionals, values } = (() => {
     try {
       return parseArgs({
         args: [...argv],
         allowPositionals: true,
-        options: { from: { type: "string" }, lock: { type: "string" }, "updated-from": { type: "string" }, json: { type: "boolean" } },
+        options: { from: { type: "string" }, lock: { type: "string" }, in: { type: "string" }, json: { type: "boolean" } },
       });
     } catch (error) {
       throw wrong(error instanceof Error ? `${error.message}.` : "The arguments could not be read.");
     }
   })();
-  if (positionals.length !== 1 || positionals[0] !== "sync") throw wrong("The only command is sync.");
+  const command = COMMANDS.find((name) => name === positionals[0]);
+  if (positionals.length !== 1 || command === undefined) throw wrong("The commands are sync and skills.");
+  if (command === "skills" && (values.from !== undefined || values.lock !== undefined)) throw wrong("The skills command takes only --in.");
+  if (command === "sync" && values.in !== undefined) throw wrong("The sync command takes no --in.");
   const mirror = values.from ?? environment.AMBITIOUS_MODULE_MIRROR ?? "";
-  return { mirror: mirror === "" ? null : mirror, lockFile: values.lock ?? null, updatedFrom: values["updated-from"] ?? null };
+  return { command, mirror: mirror === "" ? null : mirror, lockFile: values.lock ?? null, inFile: values.in ?? null };
 };
 
-const lockFrom = (file: string): readonly LockRow[] => {
-  const path = refuseAgentData(file);
-  const parsed = ((): unknown => {
-    try {
-      return JSON.parse(readFileSync(path, "utf8"));
-    } catch (error) {
-      throw failure("E_INPUT_SCHEMA", `The lock file ${file} could not be read as JSON: ${error instanceof Error ? error.message : String(error)}.`, "Name a JSON lock file, or leave --lock out to use the pins that came with this installer.");
-    }
-  })();
-  return parseLock(parsed);
-};
-
-const run = async (argv: readonly string[], environment: Environment): Promise<Printed> => {
-  const { version } = embedded();
-  const identity: Identity = { schemaVersion: 1, module: INSTALLER_MODULE, command: "sync", meta: { now: new Date().toISOString(), seed: 0, version } };
-  const printed = (result: ReturnType<typeof envelope.ok> | ReturnType<typeof envelope.err>): Printed => ({ stdout: serialize(result), exitCode: exitCodeOf(result) });
+const jsonFrom = (file: string | number, what: string, hint: string): unknown => {
+  const source = typeof file === "string" ? refuseAgentData(file) : file;
   try {
-    const { mirror, lockFile, updatedFrom } = wanted(argv, environment);
-    const home = ambitiousHome(environment);
-    const rows = lockFile === null ? parseLock(embeddedLock()) : lockFrom(lockFile);
-    const node = process.execPath;
-    const selfcheckEnvironment = { ...environment, AMBITIOUS_HOME: home };
-    const update = await (async (): Promise<{ readonly template: JsonObject; readonly problems: readonly string[] } | Printed> => {
-      if (lockFile !== null) return { template: { version, update: "not checked", why: "A lock file was named, so its pins were used as given." }, problems: [] };
-      if (updatedFrom !== null) return { template: { version, update: "updated", from: updatedFrom }, problems: [] };
-      const outcome = await updateInstaller({ own: version, home, mirror, node, environment: selfcheckEnvironment });
-      if (outcome.kind === "handedOver") return { stdout: outcome.stdout, exitCode: outcome.status };
-      if (outcome.kind === "unchecked") return { template: { version, update: "not checked", why: outcome.problem }, problems: [outcome.problem] };
-      return { template: { version, update: "current" }, problems: [] };
-    })();
-    if ("stdout" in update) return update;
-    const reports = await sync({
-      rows,
-      home,
-      sourceFor: (row) => releaseDownload(row, mirror),
-      runtimes: { node, python: findPython },
-      environment: selfcheckEnvironment,
-    });
-    const problems = [...update.problems, ...reports.flatMap((report) => report.problems.map((problem) => `ambitious-${report.module}: ${problem}`))];
-    return printed(
-      envelope.ok(identity, {
-        home,
-        bin: join(home, "bin"),
-        source: mirror === null ? "the release addresses in the lock" : `the mirror directory ${mirror}`,
-        template: update.template,
-        modules: reports,
-        problems,
-        summary: summaryOf(reports, update.problems.length),
-      }),
-    );
+    return JSON.parse(readFileSync(source, "utf8"));
+  } catch (error) {
+    throw failure("E_INPUT_SCHEMA", `${what} could not be read as JSON: ${error instanceof Error ? error.message : String(error)}.`, hint);
+  }
+};
+
+const lockFrom = (file: string): readonly LockRow[] =>
+  parseLock(jsonFrom(file, `The lock file ${file}`, "Name a JSON lock file, or leave --lock out to use the pins that came with this installer."));
+
+const syncData = async ({ mirror, lockFile }: Wanted, version: string, environment: Environment): Promise<JsonObject> => {
+  const home = ambitiousHome(environment);
+  const rows = lockFile === null ? parseLock(embeddedLock()) : lockFrom(lockFile);
+  const fixtures = placeTemplateFiles(home, parseTemplateFiles(embeddedTemplateFiles()));
+  const status: TemplateStatus =
+    lockFile === null ? await templateStatus(version, mirror) : { update: "not checked", why: "A lock file was named, so its pins were used as given." };
+  const note = lockFile === null ? templateNote(version, status) : null;
+  const reports = await sync({
+    rows,
+    home,
+    sourceFor: (row) => releaseDownload(row, mirror),
+    runtimes: { node: process.execPath, python: findPython },
+    environment: { ...environment, AMBITIOUS_HOME: home },
+  });
+  return {
+    home,
+    bin: join(home, "bin"),
+    source: mirror === null ? "the release addresses in the lock" : `the mirror directory ${mirror}`,
+    template: { version, fixtures, ...status },
+    modules: reports,
+    problems: reports.flatMap((report) => report.problems.map((problem) => `ambitious-${report.module}: ${problem}`)),
+    notes: note === null ? [] : [note],
+    summary: summaryOf(reports),
+  };
+};
+
+const skillsData = ({ inFile }: Wanted): JsonObject => {
+  const decisions = parseSkillOffers(jsonFrom(inFile ?? STDIN, inFile === null ? "The input on stdin" : `The input file ${inFile}`, "Pass the list of skills as JSON on stdin or with --in."));
+  const skills = decisions.map(decideSkillWrite);
+  return { skills, tellOwner: skills.flatMap(({ tellOwner }) => (tellOwner === null ? [] : [tellOwner])) };
+};
+
+const run = async (argv: readonly string[], environment: Environment): Promise<{ readonly stdout: string; readonly exitCode: number }> => {
+  const { version } = embedded();
+  const identity: Identity = { schemaVersion: 1, module: INSTALLER_MODULE, command: commandIn(argv) ?? "sync", meta: { now: new Date().toISOString(), seed: 0, version } };
+  const printed = (result: ReturnType<typeof envelope.ok> | ReturnType<typeof envelope.err>): { readonly stdout: string; readonly exitCode: number } => ({
+    stdout: serialize(result),
+    exitCode: exitCodeOf(result),
+  });
+  try {
+    const request = wanted(argv, environment);
+    return printed(envelope.ok({ ...identity, command: request.command }, request.command === "sync" ? await syncData(request, version, environment) : skillsData(request)));
   } catch (error) {
     if (error instanceof Failure) return printed(envelope.err(identity, error.errors, error.data));
     process.stderr.write(`${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`);
