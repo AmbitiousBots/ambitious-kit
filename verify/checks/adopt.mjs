@@ -38,6 +38,7 @@ try {
           "@ambitious/depcruise": `file:vendor/${tarballs[2]}`,
           ...Object.fromEntries(["@types/node", "dependency-cruiser", "esbuild", "eslint", "typescript"].map((name) => [name, kit.devDependencies[name]])),
         },
+        overrides: kit.overrides,
       },
       null,
       2,
@@ -47,6 +48,11 @@ try {
 
   const npm = (...args) => sh("npm", args, { cwd: module, env: { ...process.env, npm_config_workspaces: undefined } });
   must(npm("install", "--prefer-offline", "--no-audit", "--no-fund").status === 0, "npm installs the three kit tarballs as devDependencies");
+  const minimatchCopies = npm("ls", "minimatch", "--all", "--parseable").stdout.trim().split("\n");
+  must(
+    minimatchCopies.length === 1 && readJson(join(minimatchCopies[0], "package.json")).version === kit.overrides["@typescript-eslint/typescript-estree"].minimatch,
+    "the module installs one minimatch, the fixed version named in overrides",
+  );
   sh("git", ["-C", module, "add", "--all"]);
   for (const [script, claim] of [
     ["typecheck", "the module typechecks against the type declarations in the kit tarball"],
