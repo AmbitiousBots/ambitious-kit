@@ -3,6 +3,8 @@ name: ambitious-compliance-for-bots
 description: For the Ambitious Bot only. Keep a register of controls, evidence and attestations with the Ambitious Compliance CLI. Use when the owner asks the Ambitious Bot to track what a program requires, record proof that it was done, see what is missing or about to expire, or check that a recorded document has not changed.
 ---
 
+Template version: 0.2.2
+
 # Track controls and evidence with Ambitious Compliance
 
 Use the installed `ambitious-compliance` binary in `/workspace/ambitious/bin`. It keeps one database with an append-only, hash-chained history: every change has an actor, a reason and a verifiable record. It makes no network calls and needs no key.

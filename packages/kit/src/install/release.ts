@@ -21,11 +21,6 @@ const GITHUB_RELEASE = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/releases\/downlo
 const KIT_TAG = /^kit-v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*))$/;
 const GH_MAX_BYTES = 512 * 1024 * 1024;
 
-export const kitRelease = (version: string): ReleaseAddress => ({
-  release: `https://github.com/${KIT_REPOSITORY}/releases/download/kit-v${version}`,
-  tag: `kit-v${version}`,
-});
-
 const reason = (error: unknown): string => (error instanceof Error ? error.message : String(error));
 
 export const networkFetchers: Fetchers = {

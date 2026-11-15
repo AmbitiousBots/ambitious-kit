@@ -27,3 +27,12 @@ export const embeddedLock = (): unknown => {
   }
   return AMBITIOUS_LOCK;
 };
+
+declare const AMBITIOUS_TEMPLATE_FILES: unknown;
+
+export const embeddedTemplateFiles = (): unknown => {
+  if (typeof AMBITIOUS_TEMPLATE_FILES === "undefined") {
+    throw new Error("The template fixture files are embedded when the installer is bundled. Run the file in dist/.");
+  }
+  return AMBITIOUS_TEMPLATE_FILES;
+};

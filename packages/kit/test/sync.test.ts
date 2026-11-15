@@ -7,9 +7,11 @@ import { test, type TestContext } from "node:test";
 import { Failure } from "../src/domain/failure.ts";
 import { isNewerVersion, parseLock, type LockRow } from "../src/domain/lock.ts";
 import type { Download } from "../src/install/install.ts";
-import { kitRelease, latestInstallerVersion, releaseDownload, type Fetchers } from "../src/install/release.ts";
+import { decideSkillWrite, parseSkillOffers, templateVersionOf } from "../src/domain/skill-version.ts";
+import { templateNote, templateStatus } from "../src/install/newer-template.ts";
+import { latestInstallerVersion, releaseDownload, type Fetchers } from "../src/install/release.ts";
 import { summaryOf, sync, type ModuleReport, type SyncRequest } from "../src/install/sync.ts";
-import { updateInstaller } from "../src/install/update.ts";
+import { fixturesDirectory, parseTemplateFiles, placeTemplateFiles } from "../src/install/template-files.ts";
 
 const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
 
@@ -159,7 +161,7 @@ test("a missing Python is a problem for the Python module only", async (t) => {
   const reports = await sync(requestFor(home, [rowOf(TASKS), rowOf(VIDEO)], mirrorOf(t, [TASKS, VIDEO]), null));
   assert.deepEqual(states(reports), { tasks: "installed, selfcheck ok", video: "installed, selfcheck not run" });
   assert.match(reports[1]?.problems.join(" ") ?? "", /Python 3\.13 was not found/);
-  assert.match(summaryOf(reports, 0), /Problems with ambitious-video/);
+  assert.match(summaryOf(reports), /Problems with ambitious-video/);
 });
 
 test("what a module's selfcheck reports, and a binary that is not the pinned module, become that module's problems", async (t) => {
@@ -180,10 +182,9 @@ test("the sync refuses the bot's private data directory before touching anything
 
 test("the summary says in plain words what happened", () => {
   const report = (state: ModuleReport["state"], problems: readonly string[] = []): ModuleReport => ({ module: "tasks", version: "0.1.0", state, selfcheck: problems.length === 0 ? "ok" : "problems", problems });
-  assert.equal(summaryOf([], 0), "No modules are pinned, so nothing was installed or checked.");
-  assert.equal(summaryOf([report("unchanged"), report("unchanged"), report("upgraded")], 0), "3 modules checked: 1 upgraded, 2 unchanged. Every selfcheck is ok.");
-  assert.equal(summaryOf([report("failed", ["no"])], 0), "1 module checked: 1 failed. Problems with ambitious-tasks; read data.problems.");
-  assert.match(summaryOf([report("unchanged")], 1), /there is a problem to report; read data\.problems/);
+  assert.equal(summaryOf([]), "No modules are pinned, so nothing was installed or checked.");
+  assert.equal(summaryOf([report("unchanged"), report("unchanged"), report("upgraded")]), "3 modules checked: 1 upgraded, 2 unchanged. Every selfcheck is ok.");
+  assert.equal(summaryOf([report("failed", ["no"])]), "1 module checked: 1 failed. Problems with ambitious-tasks; read data.problems.");
 });
 
 test("the lock accepts exact pins and names what is wrong with anything else", () => {
@@ -272,48 +273,74 @@ test("the latest template release is found in a mirror, on the web or through th
   await assert.rejects(latestInstallerVersion(null, fetchersOf({})), /404/);
 });
 
-const fakeInstaller = (version: string): string => `#!/usr/bin/env node
-process.stdout.write(JSON.stringify({ ok: true, module: "modules", version: ${JSON.stringify(version)}, asked: process.argv.slice(2) }) + "\\n");
-`;
+const TRAP = "#!/usr/bin/env node\nprocess.stdout.write('a tampered installer ran');\n";
 
-const installerMirror = (t: TestContext, version: string, content: string): string => {
-  const mirror = scratch(t);
-  const { tag } = kitRelease(version);
-  mkdirSync(join(mirror, tag));
-  writeFileSync(join(mirror, tag, `ambitious-modules-${version}.mjs`), content);
-  writeFileSync(join(mirror, tag, "SHA256SUMS"), `${sha256(content)}  ambitious-modules-${version}.mjs\n`);
-  return mirror;
-};
-
-const updateFor = (home: string, mirror: string, own: string): Parameters<typeof updateInstaller>[0] => ({ own, home, mirror, node: process.execPath, environment: { ...process.env, AMBITIOUS_HOME: home } });
-
-test("a newer template release is verified, installed and handed the run; the same or an older one is left alone", async (t) => {
+test("a newer template release is only reported: nothing of it is read, installed or run, even when its own checksum list matches it", async (t) => {
   const home = scratch(t);
-  const mirror = installerMirror(t, "0.3.0", fakeInstaller("0.3.0"));
-  assert.deepEqual(await updateInstaller(updateFor(home, mirror, "0.3.0")), { kind: "current" });
-  assert.deepEqual(await updateInstaller(updateFor(home, mirror, "0.4.0")), { kind: "current" });
+  const mirror = scratch(t);
+  mkdirSync(join(mirror, "kit-v0.3.0"));
+  writeFileSync(join(mirror, "kit-v0.3.0", "ambitious-modules-0.3.0.mjs"), TRAP);
+  writeFileSync(join(mirror, "kit-v0.3.0", "SHA256SUMS"), `${sha256(TRAP)}  ambitious-modules-0.3.0.mjs\n`);
+  assert.deepEqual(await templateStatus("0.3.0", mirror), { update: "current" });
+  assert.deepEqual(await templateStatus("0.4.0", mirror), { update: "current" });
+  const status = await templateStatus("0.2.0", mirror);
+  assert.deepEqual(status, { update: "available", latest: "0.3.0" });
+  assert.match(templateNote("0.2.0", status) ?? "", /newer template is available: release 0\.3\.0.*Update the bot's template to get it\. Nothing from the newer release was downloaded, installed or run\./);
+  assert.equal(templateNote("0.3.0", { update: "current" }), null);
   assert.equal(existsSync(join(home, "bin")), false);
-  const outcome = await updateInstaller(updateFor(home, mirror, "0.2.0"));
-  assert.equal(outcome.kind, "handedOver");
-  assert.deepEqual(outcome.kind === "handedOver" ? JSON.parse(outcome.stdout) : null, { ok: true, module: "modules", version: "0.3.0", asked: ["sync", "--json", "--updated-from", "0.2.0", "--from", mirror] });
-  assert.equal(readlinkSync(join(home, "bin", "ambitious-modules")), "ambitious-modules-0.3.0.mjs");
+
+  const calls: string[] = [];
+  const online = await templateStatus("0.2.0", null, fetchersOf({ webLatestTag: (repository) => (calls.push(`latest ${repository}`), Promise.resolve("kit-v0.3.0")) }, calls));
+  assert.deepEqual(online, { update: "available", latest: "0.3.0" });
+  assert.deepEqual(calls, ["latest AmbitiousBots/ambitious-kit"]);
 });
 
-test("a newer template release that is damaged or does not run is set aside, and the installer that was linked stays linked", async (t) => {
+test("a check for a newer template that cannot be made is a note about the check, and the installer's own pins stay in use", async () => {
+  const status = await templateStatus("0.2.0", null, fetchersOf({}));
+  assert.equal(status.update, "not checked");
+  assert.match(templateNote("0.2.0", status) ?? "", /Could not look for a newer template release: .*404.*The pins that came with this installer were used\./);
+});
+
+test("the template's fixture files are written under template/fixtures in the home, once, and never under the private data directory", (t) => {
   const home = scratch(t);
-  const bin = join(home, "bin");
-  await updateInstaller(updateFor(home, installerMirror(t, "0.2.0", fakeInstaller("0.2.0")), "0.1.0"));
-  const broken = await updateInstaller(updateFor(home, installerMirror(t, "0.3.0", "#!/usr/bin/env node\nprocess.exit(3);\n"), "0.2.0"));
-  assert.equal(broken.kind, "unchecked");
-  assert.match(broken.kind === "unchecked" ? broken.problem : "", /0\.3\.0 did not run correctly.*The pins that came with this installer were used\./);
-  assert.equal(readlinkSync(join(bin, "ambitious-modules")), "ambitious-modules-0.2.0.mjs");
+  const files = parseTemplateFiles({ "probe/owner.expected.json": "[1]\n", "notes.txt": "plain\n" });
+  const root = placeTemplateFiles(home, files);
+  assert.equal(root, fixturesDirectory(home));
+  assert.equal(readFileSync(join(home, "template", "fixtures", "probe", "owner.expected.json"), "utf8"), "[1]\n");
+  writeFileSync(join(root, "notes.txt"), "altered");
+  placeTemplateFiles(home, files);
+  assert.equal(readFileSync(join(root, "notes.txt"), "utf8"), "plain\n");
+  assert.throws(() => placeTemplateFiles("/home/box/agent-data/ambitious", files), Failure);
+  for (const bad of [{ "../escape.json": "x" }, { "/absolute.json": "x" }, { "a/../../b.json": "x" }, { "ok.json": 7 }, []]) {
+    assert.throws(() => parseTemplateFiles(bad), JSON.stringify(bad));
+  }
+});
 
-  const damaged = installerMirror(t, "0.4.0", fakeInstaller("0.4.0"));
-  writeFileSync(join(damaged, "kit-v0.4.0", "ambitious-modules-0.4.0.mjs"), "tampered");
-  const refused = await updateInstaller(updateFor(home, damaged, "0.2.0"));
-  assert.match(refused.kind === "unchecked" ? refused.problem : "", /0\.4\.0 could not be installed/);
-  assert.equal(readlinkSync(join(bin, "ambitious-modules")), "ambitious-modules-0.2.0.mjs");
+test("a shared skill is written only when none is stored or the stored one is older; identical text is left alone and a newer one is never replaced", () => {
+  const body = (version: string, text = "Do the thing."): string => `Template version: ${version}\n\n# Skill\n\n${text}\n`;
+  const decide = (stored: string | null, candidate: string): string => decideSkillWrite({ name: "ambitious-example", stored, candidate }).action;
+  assert.equal(templateVersionOf(body("0.2.2")), "0.2.2");
+  assert.equal(templateVersionOf("# Skill\n\nTemplate version: 0.2.2\n"), null);
+  assert.equal(decide(null, body("0.2.2")), "create");
+  assert.equal(decide(body("0.2.2"), body("0.2.2")), "unchanged");
+  assert.equal(decide(body("0.2.1"), body("0.2.2")), "update");
+  assert.equal(decide(body("0.9.0"), body("0.10.0")), "update");
+  assert.equal(decide("# Skill\n\nFrom before skills carried a version.\n", body("0.2.2")), "update");
 
-  const unreachable = await updateInstaller({ ...updateFor(home, "", "0.2.0"), mirror: null, fetchers: fetchersOf({}) });
-  assert.match(unreachable.kind === "unchecked" ? unreachable.problem : "", /Could not check for a newer template release/);
+  const newer = decideSkillWrite({ name: "ambitious-example", stored: body("0.3.0"), candidate: body("0.2.2") });
+  assert.equal(newer.action, "keep");
+  assert.match(newer.tellOwner ?? "", /ambitious-example belongs to template version 0\.3\.0, which is newer than this bot's template version 0\.2\.2/);
+  const edited = decideSkillWrite({ name: "ambitious-example", stored: body("0.2.2", "Edited by hand."), candidate: body("0.2.2") });
+  assert.equal(edited.action, "keep");
+  assert.match(edited.tellOwner ?? "", /marked template version 0\.2\.2 but its text differs/);
+  assert.equal(decideSkillWrite({ name: "ambitious-example", stored: null, candidate: body("0.2.2") }).tellOwner, null);
+
+  const refused = (value: unknown, names: RegExp): void => {
+    assert.throws(() => parseSkillOffers(value).map(decideSkillWrite), (error: unknown) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA" && names.test(error.errors[0].message), JSON.stringify(value));
+  };
+  refused({}, /must be a list/);
+  refused([{ name: "someone-elses-skill", stored: null, candidate: body("0.2.2") }], /skills\[0\]\.name/);
+  refused([{ name: "ambitious-example", candidate: body("0.2.2") }], /skills\[0\]\.stored/);
+  refused([{ name: "ambitious-example", stored: null, candidate: 7 }], /skills\[0\]\.candidate/);
+  refused([{ name: "ambitious-example", stored: null, candidate: "# No version line\n" }], /does not start with a "Template version: x\.y\.z" line/);
 });

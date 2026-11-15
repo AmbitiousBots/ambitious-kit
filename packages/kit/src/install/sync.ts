@@ -131,7 +131,7 @@ export const sync = async (request: SyncRequest): Promise<readonly ModuleReport[
 
 const STATE_ORDER: readonly ModuleState[] = ["installed", "upgraded", "reinstalled", "unchanged", "failed"];
 
-export const summaryOf = (reports: readonly ModuleReport[], otherProblems: number): string => {
+export const summaryOf = (reports: readonly ModuleReport[]): string => {
   if (reports.length === 0) return "No modules are pinned, so nothing was installed or checked.";
   const counts = STATE_ORDER.flatMap((state) => {
     const count = reports.filter((report) => report.state === state).length;
@@ -139,6 +139,6 @@ export const summaryOf = (reports: readonly ModuleReport[], otherProblems: numbe
   });
   const troubled = reports.filter((report) => report.problems.length > 0).map((report) => `ambitious-${report.module}`);
   const modules = `${reports.length} ${reports.length === 1 ? "module" : "modules"} checked: ${counts.join(", ")}.`;
-  if (troubled.length === 0 && otherProblems === 0) return `${modules} Every selfcheck is ok.`;
-  return `${modules} ${troubled.length === 0 ? "Every selfcheck is ok, but there is a problem to report" : `Problems with ${troubled.join(", ")}`}; read data.problems.`;
+  if (troubled.length === 0) return `${modules} Every selfcheck is ok.`;
+  return `${modules} Problems with ${troubled.join(", ")}; read data.problems.`;
 };

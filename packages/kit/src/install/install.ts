@@ -59,7 +59,7 @@ const readIfPresent = (path: string): Buffer | null => {
 export const currentLink = (path: string): string | null =>
   lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() === true ? readlinkSync(path) : null;
 
-const placeByRename = (directory: string, name: string, write: (temporary: string) => void): void => {
+export const placeByRename = (directory: string, name: string, write: (temporary: string) => void): void => {
   const temporary = join(directory, `.${name}.${process.pid}.partial`);
   try {
     write(temporary);

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { buildInstaller, gh, ghSignedIn, lock, NO_GH, releaseOf, sha256, sync } from './support.mjs';
+import { buildInstaller, gh, ghSignedIn, installer, lock, NO_GH, readJson, releaseOf, repoRoot, sha256, sync, templateRoot } from './support.mjs';
 
 const givenMirror = process.env.AMBITIOUS_MODULE_MIRROR ?? '';
 const skip =
@@ -27,6 +27,133 @@ const populate = (mirror) => {
     else gh(['release', 'download', tag, '--repo', repository, '--dir', join(mirror, tag)]);
   }
 };
+
+const NEWER = '99.0.0';
+
+const plantNewerRelease = (mirror, marker) => {
+  const asset = `ambitious-modules-${NEWER}.mjs`;
+  const trap = [
+    '#!/usr/bin/env node',
+    "import { writeFileSync } from 'node:fs';",
+    `writeFileSync(${JSON.stringify(marker)}, 'the newer release was run');`,
+    `process.stdout.write(JSON.stringify({ ok: true, schemaVersion: 1, module: 'modules', command: 'sync', data: { problems: [], modules: [] }, errors: [], meta: { now: '2026-01-01T00:00:00.000Z', seed: 0, version: '${NEWER}' } }) + '\\n');`,
+    '',
+  ].join('\n');
+  mkdirSync(join(mirror, `kit-v${NEWER}`), { recursive: true });
+  writeFileSync(join(mirror, `kit-v${NEWER}`, asset), trap);
+  writeFileSync(join(mirror, `kit-v${NEWER}`, 'SHA256SUMS'), `${sha256(Buffer.from(trap))}  ${asset}\n`);
+  return asset;
+};
+
+const assertNewerOnlyReported = (envelope, home, marker) => {
+  assert.equal(envelope.data.template.update, 'available');
+  assert.equal(envelope.data.template.latest, NEWER);
+  assert.equal(envelope.data.notes.length, 1);
+  assert.match(envelope.data.notes[0], /A newer template is available: release 99\.0\.0.*Update the bot's template to get it\. Nothing from the newer release was downloaded, installed or run\./u);
+  assert(!envelope.data.problems.some((problem) => /newer template|99\.0\.0/iu.test(problem)), 'a newer template is a note, never a problem');
+  assert.equal(existsSync(marker), false, 'the newer release\'s installer must never be run');
+  const bin = join(home, 'bin');
+  const placed = existsSync(bin) ? readdirSync(bin) : [];
+  assert.deepEqual(placed.filter((name) => name.includes(NEWER) || name === 'ambitious-modules'), [], 'nothing of the newer release may be placed in bin');
+  assert.equal(envelope.meta.version, readJson(join(repoRoot, 'package.json')).version, 'the run was answered by this installer, not handed over');
+};
+
+const scratch = (t, name) => {
+  const directory = mkdtempSync(join(tmpdir(), `ambitious-template-${name}-`));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  return directory;
+};
+
+test('a newer template release with a tampered installer and a matching SHA256SUMS beside it is reported, never fetched or run, and the selfcheck routine has problems to post only when a module has one', (t) => {
+  buildInstaller();
+  const work = scratch(t, 'newer');
+  const [home, mirror, marker] = [join(work, 'home'), join(work, 'mirror'), join(work, 'trap-ran')];
+  plantNewerRelease(mirror, marker);
+
+  const unreachable = sync(home, ['--from', mirror]);
+  assert.equal(unreachable.envelope.ok, true);
+  assertNewerOnlyReported(unreachable.envelope, home, marker);
+  assert.deepEqual(statesOf(unreachable.envelope), all('failed'));
+  assert.equal(unreachable.envelope.data.problems.length, rows.length);
+  for (const problem of unreachable.envelope.data.problems) assert.match(problem, /^ambitious-[a-z]+: .*could not be downloaded/u);
+
+  const emptyLock = join(work, 'empty.lock.json');
+  writeFileSync(emptyLock, '[]\n');
+  const quiet = sync(home, ['--from', mirror, '--lock', emptyLock]);
+  assert.equal(quiet.envelope.ok, true);
+  assert.deepEqual(quiet.envelope.data.problems, [], 'with nothing wrong the selfcheck routine has nothing to post');
+  assert.equal(existsSync(marker), false);
+
+  const handOver = sync(home, ['--from', mirror, '--updated-from', '0.0.1']);
+  assert.equal(handOver.envelope.errors[0].code, 'E_USAGE', 'the hand-over option of earlier installers is gone');
+  assert.equal(existsSync(marker), false);
+});
+
+test('the routines in bot.json carry a default time, the owner\'s time zone and a destination, and the selfcheck prompt is keyed on data.problems', () => {
+  const { routines } = readJson(join(templateRoot, 'bot.json'));
+  assert.deepEqual(routines.map(({ name, schedule }) => [name, schedule]), [['ambitious-selfcheck', 'every day at 7:00 AM'], ['ambitious-snapshot', 'every day at 8:00 AM']]);
+  for (const routine of routines) {
+    assert.match(routine.timeZone, /^the owner's time zone/u);
+    assert.equal(routine.destination, 'the owner\'s chat with this bot');
+  }
+  const [selfcheck] = routines;
+  assert.match(selfcheck.prompt, /`data\.problems` is empty, end the run without posting any message/u);
+  assert.match(selfcheck.prompt, /`data\.problems` is not empty, post one message to the owner's chat with this bot/u);
+});
+
+test('the installer places the template fixtures where the skills point, and decides every shared skill write by template version', (t) => {
+  buildInstaller();
+  const work = scratch(t, 'shared');
+  const home = join(work, 'home');
+  const emptyLock = join(work, 'empty.lock.json');
+  writeFileSync(emptyLock, '[]\n');
+  const { version } = readJson(join(repoRoot, 'package.json'));
+  const bot = readJson(join(templateRoot, 'bot.json'));
+
+  const first = sync(home, ['--lock', emptyLock]);
+  const fixtures = join(home, 'template', 'fixtures');
+  assert.equal(first.envelope.data.template.fixtures, fixtures);
+  const shipped = join(templateRoot, 'fixtures', 'ambitious-capability-probe');
+  const names = readdirSync(shipped).sort();
+  assert.deepEqual(readdirSync(join(fixtures, 'ambitious-capability-probe')).sort(), names);
+  for (const name of names) assert.equal(readFileSync(join(fixtures, 'ambitious-capability-probe', name), 'utf8'), readFileSync(join(shipped, name), 'utf8'));
+  const probe = bot.skills.find(({ name }) => name === 'ambitious-capability-probe').body;
+  assert(probe.includes('`template/fixtures/ambitious-capability-probe` under `AMBITIOUS_HOME`'));
+  for (const name of names) assert(probe.includes(`\`${name}\``), `the probe skill must name ${name}`);
+  writeFileSync(join(fixtures, 'ambitious-capability-probe', names[0]), 'altered');
+  sync(home, ['--lock', emptyLock]);
+  assert.equal(readFileSync(join(fixtures, 'ambitious-capability-probe', names[0]), 'utf8'), readFileSync(join(shipped, names[0]), 'utf8'));
+
+  const decide = (offers, viaStdin = false) => {
+    const file = join(work, 'skills.json');
+    writeFileSync(file, JSON.stringify(offers));
+    const run = spawnSync(process.execPath, [installer, 'skills', '--json', ...(viaStdin ? [] : ['--in', file])], { encoding: 'utf8', input: viaStdin ? JSON.stringify(offers) : undefined, env: { ...process.env, AMBITIOUS_HOME: home } });
+    const envelope = JSON.parse(run.stdout);
+    assert.equal(envelope.ok, true, run.stdout);
+    assert.equal(envelope.command, 'skills');
+    return envelope.data;
+  };
+  const actions = (data) => [...new Set(data.skills.map(({ action }) => action))];
+  const offers = (stored) => bot.skills.map(({ name, body }) => ({ name, stored: stored(body), candidate: body }));
+  const reversion = (body, to) => body.replace(`Template version: ${version}`, `Template version: ${to}`);
+
+  const fresh = decide(offers(() => null));
+  assert.equal(fresh.skills.length, bot.skills.length);
+  assert.deepEqual(actions(fresh), ['create']);
+  assert.deepEqual(actions(decide(offers((body) => body), true)), ['unchanged']);
+  assert.deepEqual(actions(decide(offers((body) => reversion(body, '0.0.1')))), ['update']);
+  assert.deepEqual(actions(decide(offers((body) => body.split('\n').slice(2).join('\n')))), ['update']);
+  assert.deepEqual([fresh, decide(offers((body) => reversion(body, '0.0.1')))].flatMap(({ tellOwner }) => tellOwner), []);
+
+  const owned = decide(offers((body) => reversion(body, NEWER)));
+  assert.deepEqual(actions(owned), ['keep'], 'a newer template\'s skill is never replaced by an older one');
+  assert.equal(owned.tellOwner.length, bot.skills.length);
+  assert.match(owned.tellOwner[0], new RegExp(`belongs to template version 99\\.0\\.0, which is newer than this bot's template version ${version.replaceAll('.', '\\.')}`, 'u'));
+
+  const edited = decide(offers((body) => `${body}\nEdited by hand.\n`));
+  assert.deepEqual(actions(edited), ['keep'], 'a skill of the same version with different text is not overwritten');
+  assert.match(edited.tellOwner[0], /its text differs/u);
+});
 
 const statesOf = (envelope) => Object.fromEntries(envelope.data.modules.map(({ module, state }) => [module, state]));
 const all = (state, except = {}) => ({ ...Object.fromEntries(names.map((module) => [module, state])), ...except });
@@ -71,10 +198,15 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
       assert.equal(readlinkSync(join(bin, `ambitious-${row.module}`)), row.url.split('/').at(-1));
     }
     assert.equal(envelope.data.template.update, 'current');
+    assert.deepEqual(envelope.data.notes, []);
   });
 
-  await t.test('a second run changes nothing', () => {
-    assert.deepEqual(statesOf(run()), all('unchanged'));
+  const marker = join(work, 'trap-ran');
+  await t.test('a second run changes nothing, and a newer template release that appeared meanwhile is a note the selfcheck routine does not post', () => {
+    plantNewerRelease(mirror, marker);
+    const envelope = run();
+    assert.deepEqual(statesOf(envelope), all('unchanged'));
+    assertNewerOnlyReported(envelope, home, marker);
   });
 
   await t.test('a deleted module binary is installed again', () => {
@@ -92,28 +224,44 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
   await t.test('a removed link is put back', () => {
     rmSync(join(bin, 'ambitious-records'));
     assert.deepEqual(statesOf(run()), all('unchanged', { records: 'reinstalled' }));
-    assert.equal(readlinkSync(join(bin, 'ambitious-records')), 'ambitious-records-0.1.0.mjs');
+    assert.equal(readlinkSync(join(bin, 'ambitious-records')), rows.find((row) => row.module === 'records').url.split('/').at(-1));
   });
 
   const bumpedLock = join(work, 'bumped.lock.json');
   await t.test('a lock row moved to a newer version upgrades that module and keeps the old file', () => {
     const fixture = Buffer.concat([readFileSync(fileOf('contracts')), Buffer.from('\n')]);
-    mkdirSync(join(mirror, 'contracts-v0.1.1'));
-    writeFileSync(join(mirror, 'contracts-v0.1.1', 'ambitious-contracts-0.1.1.mjs'), fixture);
-    writeFileSync(join(mirror, 'contracts-v0.1.1', 'SHA256SUMS'), `${sha256(fixture)}  ambitious-contracts-0.1.1.mjs\n`);
+    mkdirSync(join(mirror, `contracts-v${NEWER}`));
+    writeFileSync(join(mirror, `contracts-v${NEWER}`, `ambitious-contracts-${NEWER}.mjs`), fixture);
+    writeFileSync(join(mirror, `contracts-v${NEWER}`, 'SHA256SUMS'), `${sha256(fixture)}  ambitious-contracts-${NEWER}.mjs\n`);
     const bumped = rows.map((row) =>
-      row.module === 'contracts' ? { ...row, version: '0.1.1', url: row.url.replaceAll('0.1.0', '0.1.1'), sha256: sha256(fixture) } : row,
+      row.module === 'contracts' ? { ...row, version: NEWER, url: row.url.replaceAll(row.version, NEWER), sha256: sha256(fixture) } : row,
     );
     writeFileSync(bumpedLock, JSON.stringify(bumped));
     const envelope = run(['--lock', bumpedLock]);
     assert.deepEqual(statesOf(envelope), all('unchanged', { contracts: 'upgraded' }));
-    assert.equal(envelope.data.modules.find(({ module }) => module === 'contracts').version, '0.1.1');
-    assert.equal(readlinkSync(join(bin, 'ambitious-contracts')), 'ambitious-contracts-0.1.1.mjs');
+    assert.equal(envelope.data.modules.find(({ module }) => module === 'contracts').version, NEWER);
+    assert.equal(readlinkSync(join(bin, 'ambitious-contracts')), `ambitious-contracts-${NEWER}.mjs`);
     assert(existsSync(fileOf('contracts')), 'the old version stays beside the new one');
   });
 
   await t.test('after the upgrade a further run changes nothing', () => {
     assert.deepEqual(statesOf(run(['--lock', bumpedLock])), all('unchanged'));
+  });
+
+  await t.test('a pin that no release file matches is one problem for that module, which the selfcheck routine posts; the working version stays linked', () => {
+    const badLock = join(work, 'bad.lock.json');
+    writeFileSync(badLock, JSON.stringify(rows.map((row) => (row.module === 'tasks' ? { ...row, sha256: '0'.repeat(64) } : row))));
+    const { envelope } = sync(home, ['--from', mirror, '--lock', badLock]);
+    assert.equal(envelope.ok, true);
+    assert.equal(statesOf(envelope).tasks, 'failed');
+    const about = envelope.data.problems.filter((problem) => problem.startsWith('ambitious-tasks: '));
+    assert.equal(about.length, 1);
+    assert.match(about[0], /pinned checksum/u);
+    assert.equal(readlinkSync(join(bin, 'ambitious-tasks')), rows.find((row) => row.module === 'tasks').url.split('/').at(-1));
+  });
+
+  await t.test('after every run above, the newer release\'s installer was still never run', () => {
+    assert.equal(existsSync(marker), false);
   });
 
   await t.test('an installed module answers through its link in bin', () => {
