@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const USAGE = `Usage: node scripts/release-build.mjs [output directory]
 
 Builds every file of a kit release into the output directory (default:
-release/ at the repository root, which git ignores):
+release/ at the repository root, which git ignores). The directory must be
+missing, empty, or hold only the files of an earlier release build, which
+are replaced. A directory holding anything else is refused and left as it
+is, so the build never deletes a file it did not write:
 
   ambitious-kit-<version>.tgz        @ambitious/kit, compiled to JavaScript with type declarations
   ambitious-lint-<version>.tgz       @ambitious/lint, compiled the same way
@@ -87,9 +90,25 @@ const packPackage = (name, version, scratch, output) => {
   return filename;
 };
 
+const RELEASE_FILE = /^(SHA256SUMS|ambitious-(kit|lint|depcruise)-[0-9A-Za-z.+-]+\.tgz|ambitious_kit-[0-9A-Za-z.+-]+\.pyz|ambitious-(hello|install)-[0-9A-Za-z.+-]+\.mjs)$/;
+
+const emptyOfEarlierRelease = (output) => {
+  if (!existsSync(output)) return;
+  if (!statSync(output).isDirectory()) throw new Error(`${output} is not a directory. Name a directory for the release files.`);
+  const entries = readdirSync(output, { withFileTypes: true });
+  const foreign = entries.filter((entry) => !entry.isFile() || !RELEASE_FILE.test(entry.name)).map((entry) => entry.name);
+  if (foreign.length > 0) {
+    throw new Error(
+      `${output} holds files that are not release files (${foreign.slice(0, 5).join(", ")}${foreign.length > 5 ? ", ..." : ""}). ` +
+        "Nothing was deleted. Name an empty or new directory, or one that holds only an earlier release build.",
+    );
+  }
+  for (const entry of entries) rmSync(join(output, entry.name));
+};
+
 const build = (output) => {
   const { version } = readJson(join(repoRoot, "package.json"));
-  rmSync(output, { recursive: true, force: true });
+  emptyOfEarlierRelease(output);
   mkdirSync(output, { recursive: true });
   const scratch = mkdtempSync(join(tmpdir(), "ambitious-release-"));
   try {
