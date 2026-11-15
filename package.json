@@ -1,6 +1,6 @@
 {
   "name": "ambitious-kit",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -36,5 +36,10 @@
     "esbuild": "0.28.2",
     "eslint": "10.15.0",
     "typescript": "6.0.3"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.8"
+    }
   }
 }
