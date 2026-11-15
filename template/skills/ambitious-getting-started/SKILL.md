@@ -3,7 +3,7 @@ name: ambitious-getting-started
 description: For the Ambitious Bot only. Ask three setup questions, check observable capabilities, and write the first audit as a Grok Bot Page. Use on the Ambitious Bot's first chat, after the module sync.
 ---
 
-Template version: 0.2.3
+Template version: 0.2.4
 
 # Getting started
 

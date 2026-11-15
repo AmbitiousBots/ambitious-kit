@@ -209,8 +209,8 @@ test('every module skill names the pinned release it describes, and a copied ski
     assert.equal(sha256(releasedText(entry)), entry.sha256, `${entry.skill} differs from the file copied from ${entry.tag} in more than its name and description lines and its template version line`);
   }
   for (const entry of sources.written) assert.deepEqual(Object.keys(entry), ['skill', 'repository', 'tag', 'commit']);
-  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-page', 'ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback']);
-  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-tasks-for-bots', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
+  assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-page', 'ambitious-audit-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback']);
+  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-audit-collector', 'ambitious-tasks-for-bots', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
 });
 
 test('the instructions and every skill body start with the template version, so a shared skill library can tell which template wrote a skill', () => {

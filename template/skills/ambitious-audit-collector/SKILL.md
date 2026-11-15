@@ -3,13 +3,38 @@ name: ambitious-audit-collector
 description: For the Ambitious Bot only. Gather a collector document for ambitious-audit from the account the bot can see, write every unseen value as null, and say honestly what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
-Template version: 0.2.3
+Template version: 0.2.4
 
 # Audit collector
 
 Build the JSON document that `ambitious-audit snapshot` stores. Use only the bot's own tools. Do not read another program's private files, and do not put a conversation transcript in any field. Every text field is short: evidence text is at most 280 characters.
 
 When unsure about a field, run `ambitious-audit schema`. It prints the full schema with a description of every field. If `snapshot` refuses the document, each error names the field as a JSON pointer and the rule it broke; fix those fields and run it again.
+
+## Fields
+
+Each object takes exactly the fields listed for it. `[]` after a name means each entry of that list. Every field is required unless it is listed as optional.
+
+- The document: `schemaVersion`, `collectedAt`, `account`, `bots`, `routines`, `connectors`, `tasks`, `pages`, `visibility`, `evidence`
+- `account`: `kind`, `label`
+- `bots[]`: `id`, `name`, `lastActiveAt`, `routineCount`, `usage`
+- `routines[]`: `id`, `botId`, `schedule`, `state`, `lastRunAt`, `usage`; optional `lastError`
+- `bots[].usage`, `routines[].usage`: `unit`, `amount7d`
+- `connectors[]`: `name`, `status`
+- `tasks`: `open`, `stale7d`, `blocked`
+- `pages`: `count`, `updated7d`
+- `visibility[]`: `signal`, `seen`, `why`
+- `evidence[]`: `id`, `kind`, `text`, `source`
+
+These fields take only the values listed:
+
+- `schemaVersion`: `1`
+- `account.kind`: `owner`, `guest`, `team`, `unknown`
+- `routines[].state`: `active`, `paused`, `failing`
+- `bots[].usage.unit`, `routines[].usage.unit`: `credits`, `percent`
+- `connectors[].status`: `ok`, `needsAuth`, `needsGrant`, `initializing`, `error`
+- `visibility[].signal`: `transcripts`, `usage`, `otherBots`, `auditLog`, `accountRole`, `tasks`, `pages`, `botActivity`, `routines`
+- `evidence[].kind`: `excerpt`, `count`
 
 ## Write what was observed, and null for the rest
 
@@ -33,6 +58,39 @@ Every `null` needs its signal set to `seen: false`: `accountRole` for an unknown
 
 ## Evidence
 
-`evidence` entries use ids `ev-1`, `ev-2`, and so on. Point `source` at the bot id, routine id or connector name the line is about, or `tasks` for task counts, so a finding about that thing can cite it. A recommendation is only made when its finding has evidence.
+`evidence` entries use ids `ev-1`, `ev-2`, and so on. Every entry has a `kind`: `excerpt` when `text` is a short quote, `count` when it is a number with its unit. Point `source` at the bot id, routine id or connector name the line is about, or `tasks` for task counts, so a finding about that thing can cite it. A recommendation is only made when its finding has evidence.
+
+```json
+{ "id": "ev-1", "kind": "count", "text": "2 open tasks have not changed in 7 days.", "source": "tasks" }
+```
+
+## When nothing was observed
+
+This is the smallest document `snapshot` accepts: no tool returned anything and the role is `unknown`. Start from it and replace only what a tool returned, setting that signal's `seen` to true.
+
+```json
+{
+  "schemaVersion": 1,
+  "collectedAt": "2026-01-08T00:00:00Z",
+  "account": { "kind": "unknown", "label": "Example account" },
+  "bots": [],
+  "routines": [],
+  "connectors": [],
+  "tasks": { "open": null, "stale7d": null, "blocked": null },
+  "pages": { "count": null, "updated7d": null },
+  "visibility": [
+    { "signal": "transcripts", "seen": false, "why": "No tool returned conversation text." },
+    { "signal": "usage", "seen": false, "why": "No tool returned usage figures." },
+    { "signal": "otherBots", "seen": false, "why": "No tool listed the account's other bots." },
+    { "signal": "auditLog", "seen": false, "why": "No tool returned the account's audit log." },
+    { "signal": "accountRole", "seen": false, "why": "No tool reported the role and the account holder has not stated it." },
+    { "signal": "tasks", "seen": false, "why": "The ambitious-tasks module was not run." },
+    { "signal": "pages", "seen": false, "why": "The page tool returned no counts." },
+    { "signal": "botActivity", "seen": false, "why": "No tool returned when a bot was last active." },
+    { "signal": "routines", "seen": false, "why": "No tool listed any routines." }
+  ],
+  "evidence": []
+}
+```
 
 Write the document to a file outside the bot's private data directory and pass it with `--in`.
