@@ -84,7 +84,7 @@ There are two installers. `ambitious-install` puts one named module release in p
 `src/cli/install-main.ts` is bundled to `ambitious-install-<version>.mjs` in a kit release:
 
 ```text
-node ambitious-install-0.2.4.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz]
+node ambitious-install-0.2.5.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz]
 ```
 
 It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then moves the file into `$AMBITIOUS_HOME/bin` by a rename, records the checksum and switches the link `ambitious-<module>`. Running it again for an installed version downloads and writes nothing. The checksum shows the file is the one the release lists; it does not show who published the release. Its own error codes are `E_INSTALL_DOWNLOAD` and `E_INSTALL_CHECKSUM`, both exit code 1. `spec/` holds a TLA+ model of these steps.
@@ -92,8 +92,8 @@ It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then mov
 `src/cli/modules-main.ts` is bundled to `ambitious-modules-<version>.mjs`, with the pins in `template/modules.lock.json` embedded:
 
 ```text
-node ambitious-modules-0.2.4.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>]
-node ambitious-modules-0.2.4.mjs skills [--json] [--in <file>]
+node ambitious-modules-0.2.5.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>] [--instructions <file>]
+node ambitious-modules-0.2.5.mjs skills [--json] [--in <file>]
 ```
 
 For every pinned module, `sync` runs the same install steps with one more check: the asset's SHA-256 must match the pin as well as the release's `SHA256SUMS`, so a release that was changed after it was pinned is refused. It then runs the module's `selfcheck --json` through the link in `$AMBITIOUS_HOME/bin`, with Node for an `.mjs` module and Python 3.13 for a `.pyz` one. It prints one envelope:
@@ -105,6 +105,7 @@ For every pinned module, `sync` runs the same install steps with one more check:
 | `data.summary` | One sentence for a person. |
 | `data.notes` | Things worth knowing that are not problems: a newer template release, or that the check for one could not be made. |
 | `data.template` | `version`, the kit version of this installer; `fixtures`, the directory the template's fixture files were written to; and `update`: `current`, `available` with `latest`, or `not checked` with `why`. |
+| `data.instructions` | `{ state, problem, current, template, proposed, diff }`: how the bot's instructions compare with the template's. See below. |
 
 A module that fails does not stop the others, and `ok` stays `true`: the command ran and `data.problems` says what is wrong. `ok` is `false` only when the command could not run at all, for example `E_FORBIDDEN_PATH` for a home under `/home/box/agent-data`, the bot's private data directory. An upgrade leaves the old version's file in `bin` and switches the link only after the new file is verified. A missing Python 3.13 is a problem for the `.pyz` modules alone.
 
@@ -112,7 +113,9 @@ Each file is fetched from the HTTPS release address in the pin. When that is ref
 
 `sync` also looks up whether a newer kit release exists: the tag of the latest release of this repository, or the highest `kit-v<version>` directory name in a mirror. It only reports the answer, in `data.template` and as one entry of `data.notes`. It never downloads, installs or runs anything from a newer release: that release's `SHA256SUMS` is published by the same hand as its files, so it cannot show that the files are the ones to trust. The installer is replaced only from outside, by the fetch lines of the `ambitious-module-installer` skill of an updated template, which pin the new installer's SHA-256. If the lookup cannot be made, that is a note, not a problem, and the embedded pins are used. `--lock <file>` uses the pins in a file instead of the embedded ones and skips the lookup; it is for tests and for an operator trying a pin, and a bot never uses it.
 
-`sync` writes the template's fixture files, embedded at build time from `template/fixtures`, to `$AMBITIOUS_HOME/template/fixtures`, and puts back one that was altered.
+`sync` writes the template's fixture files, embedded at build time from `template/fixtures`, to `$AMBITIOUS_HOME/template/fixtures`, and the template's instructions text to `$AMBITIOUS_HOME/template/instructions.md`, and puts back one that was altered.
+
+`sync --instructions <file>` compares a bot's instructions with the template's. The file holds the bot's current instructions as text and must be outside the private data directory. The template's instructions carry a line `Instructions version: N`, and `template/instructions.json`, embedded at build time, lists the SHA-256 of every text a template has published. Before hashing, line endings are made uniform and trailing spaces and blank lines at either end are dropped. `state` is `current` (the text is the template's), `out-of-date` (it is an earlier published text, or empty), `custom` (it is not a published text), `newer` (it says a higher version than this installer knows) or `not checked` (no file was named). `problem` is `instructions-out-of-date`, `instructions-custom` or `null`; `current` and `template` are the two version numbers, with `current` `null` when the text is unpublished and has no version line. `proposed` is `$AMBITIOUS_HOME/template/instructions.md`, where every `sync` writes the template's text, and `diff` lists the differing lines, `- ` for the bot's and `+ ` for the template's. An out-of-date text, and a custom text that does not already say the template's version, add one entry to `data.problems` that starts with the problem's name; the other cases that are worth saying add one to `data.notes`. The command never writes to the named file: only a bot's owner changes its instructions.
 
 `skills` decides whether a skill may be written to a skill library that several bots share. Its input, on stdin or `--in`, is a list of `{ name, stored, candidate }`: a skill name starting with `ambitious-`, the body now stored (or `null`), and the body to write, whose first line is `Template version: x.y.z`. For each it answers `data.skills[].action`: `create` (nothing stored), `update` (the stored body is from an older template, or has no version line), `unchanged` (identical text) or `keep` (the stored body is from a newer template, or has the same version and different text). `data.tellOwner` has one sentence for each `keep`. The command reads and writes no skill itself.
 

@@ -22,7 +22,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.2.4`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.2.5`.
 
 | File | Use |
 |---|---|
@@ -42,9 +42,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.2.4.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.2.4.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.2.4.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.2.5.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.2.5.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.2.5.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -86,7 +86,7 @@ npm run release:check
 | `npm test` | Builds the example, then runs the tests for the kit, the rules, the template, the example and the checks themselves. `npm run test:python` runs the Python kit's tests. |
 | `npm run contract -- <binary>` | The contract tests against a built module. `npm run contract:python` runs the Python and TypeScript suites on each other's example module. |
 | `npm run tlc` | Every TLA+ model in `spec/`, `packages/kit/spec/` and `examples/hello/spec/` passes TLC, and every broken variant breaks the invariant listed for it. |
-| `npm run template:test` | The bot template in [template](template): every file and skill is present with no placeholder, `bot.json` and the installer pin are up to date, each module pin matches the published file and its release's `SHA256SUMS`, the six pinned modules install, repair, upgrade and selfcheck in a temporary `AMBITIOUS_HOME`, and the audit skills are held to the installed audit module: they name what its `schema` command prints, the field lists and value lists in the `ambitious-audit-collector` skill are exactly the fields and allowed values in that schema, the example documents in that skill are accepted by `snapshot`, and a collector document written their way runs from `snapshot` to a report that waits for review. The checks that download releases need a signed-in [GitHub CLI](https://cli.github.com) (`gh`), or `AMBITIOUS_MODULE_MIRROR` naming a directory that holds the release files; without either they are skipped and say so. `npm run template:e2e` runs the install test alone. |
+| `npm run template:test` | The bot template in [template](template): every file and skill is present with no placeholder, `bot.json` and the installer pin are up to date, no skill or routine requires a permission that the oldest supported instructions do not grant, `sync --instructions` tells an earlier, a customised and the present instructions text apart, each module pin matches the published file and its release's `SHA256SUMS`, the six pinned modules install, repair, upgrade and selfcheck in a temporary `AMBITIOUS_HOME`, and the audit skills are held to the installed audit module: they name what its `schema` command prints, the field lists and value lists in the `ambitious-audit-collector` skill are exactly the fields and allowed values in that schema, the example documents in that skill are accepted by `snapshot`, and a collector document written their way runs from `snapshot` to a report that waits for review. The checks that download releases need a signed-in [GitHub CLI](https://cli.github.com) (`gh`), or `AMBITIOUS_MODULE_MIRROR` naming a directory that holds the release files; without either they are skipped and say so. `npm run template:e2e` runs the install test alone. |
 | `npm run verify` | `verify/run`: every user-visible feature in `verify/features.json`, each against a fresh temporary `AMBITIOUS_HOME`. |
 | `npm run release:build` | Writes the release files and `SHA256SUMS` into `release/`, which git ignores. |
 
@@ -98,9 +98,11 @@ npm run release:check
 
 | File | What it is |
 |---|---|
-| [template/INSTRUCTIONS.md](template/INSTRUCTIONS.md) | The bot's instructions: its role, what may leave the computer, and how it runs modules. At most 120 lines. |
+| [template/INSTRUCTIONS.md](template/INSTRUCTIONS.md) | The bot's instructions: who it is, a pointer to the skills, and the hard limits. Short and stable; see [Instructions that stay compatible](#instructions-that-stay-compatible). |
+| [template/instructions.json](template/instructions.json) | Every instructions text a template has published: its `Instructions version`, its SHA-256, and the `grants` it gives. The earlier texts are kept in [template/instructions](template/instructions). |
+| [template/permissions.json](template/permissions.json) | For each skill and each routine, the grants it requires, the ones it uses only when the instructions allow them (`optional`), and the ones it names only to forbid (`rulesOut`). |
 | [template/skills](template/skills) | One directory per skill. `ambitious-module-installer`, `ambitious-capability-probe` and `ambitious-getting-started` are written here. The skills listed under `copied` in [template/skills/SOURCES.json](template/skills/SOURCES.json) come from a module's release tag, with only the `name` and `description` lines of the frontmatter changed and the template version line added here; those under `written` were written here for that module, and the record names the pinned release they describe. |
-| [template/routines.md](template/routines.md) | The routines: a daily selfcheck that is silent unless something is wrong, and a snapshot that starts paused. Each has a default time, the owner's time zone and the owner's chat with the bot as its destination. |
+| [template/routines.md](template/routines.md) | The routines: a daily selfcheck that is silent unless something is wrong, and a snapshot that starts paused. Each has a default time and runs in the owner's time zone, which the bot takes from the platform and asks for only when the platform gives none. A routine on the platform has no destination field, only a prompt, so each prompt says in words that the run reports as its reply in the bot's own chat. |
 | [template/fixtures](template/fixtures) | Example files the skills refer to. The installer carries them and writes them to `$AMBITIOUS_HOME/template/fixtures`, because a skill cannot store files. |
 | [template/modules.lock.json](template/modules.lock.json) | The pins: one `{ module, version, url, sha256 }` row per module release, described by [template/modules.lock.schema.json](template/modules.lock.schema.json). |
 | [template/bot.json](template/bot.json) | Everything above as one payload for creating the bot: `name`, `description`, `version`, `instructions`, `skills` and `routines`. Generated. |
@@ -111,11 +113,34 @@ Trust runs in one direction. The `ambitious-module-installer` skill pins the ins
 
 Every skill is named `ambitious-<name>`, and its description starts with `For the Ambitious Bot only.` followed by what it does and when the Ambitious Bot uses it. On Grok Bot a person's skills are one private library shared by all of that person's bots, so a skill the template adds can be seen and triggered by every other bot the same person owns. The prefix keeps a template skill from replacing another bot's skill of the same name, and the description keeps other bots from picking it up. A module release names its skills without the prefix, so for each copied skill `SOURCES.json` records the release tag, the commit, the file's path and SHA-256 in that release, and the two frontmatter lines as released (`releasedFrontmatter`). `npm run template:test` puts those two lines back and checks the SHA-256, which shows the rest of the file is the released text; it also fails when a skill lacks the prefix or when any file names a skill without it.
 
-Because the library is shared, two Ambitious Bots made from different template versions use the same `ambitious-*` skills. Every skill body therefore starts with the line `Template version: <x.y.z>`, as do the instructions, and one rule decides every write: a skill is written when none is stored or the stored one is from an older template; identical text is left alone; a skill from a newer template is never replaced by an older one, and neither is a skill of the same version whose text was changed. In the last two cases the bot follows the stored skill and tells the owner which template version owns it. The rule is a command, not a judgment: `ambitious-modules skills` takes the stored and the new bodies and answers `create`, `update`, `unchanged` or `keep` for each. A stored `ambitious-*` skill with no version line counts as older, since it comes from a template before 0.2.2.
+Because the library is shared, two Ambitious Bots made from different template versions use the same `ambitious-*` skills. Every skill body therefore starts with the line `Template version: <x.y.z>`, and one rule decides every write: a skill is written when none is stored or the stored one is from an older template; identical text is left alone; a skill from a newer template is never replaced by an older one, and neither is a skill of the same version whose text was changed. In the last two cases the bot follows the stored skill and tells the owner which template version owns it. The rule is a command, not a judgment: `ambitious-modules skills` takes the stored and the new bodies and answers `create`, `update`, `unchanged` or `keep` for each. A stored `ambitious-*` skill with no version line counts as older, since it comes from a template before 0.2.2.
 
 No instruction, routine or skill may point at a file that is not on the bot's computer: a skill names a module's documentation by its public address, and a fixture by its path under `$AMBITIOUS_HOME/template/fixtures`. `npm run template:test` checks both.
 
-To change a pin, edit `template/modules.lock.json` with the release's asset address and the SHA-256 of the downloaded asset, give that module's skills in `template/skills/SOURCES.json` the new release tag and its commit, then run `npm run template:generate`. It rebuilds the installer and rewrites the generated parts: the `Template version` line of the instructions and of every skill, the installer's own SHA-256 in the `ambitious-module-installer` skill, and `bot.json`. `npm run template:test` fails when either is out of date.
+To change a pin, edit `template/modules.lock.json` with the release's asset address and the SHA-256 of the downloaded asset, give that module's skills in `template/skills/SOURCES.json` the new release tag and its commit, then run `npm run template:generate`. It rebuilds the installer and rewrites the generated parts: the `Template version` line of every skill, the installer's own SHA-256 in the `ambitious-module-installer` skill, and `bot.json`. `npm run template:test` fails when either is out of date. The generator never touches `INSTRUCTIONS.md`.
+
+The monitoring connection is the connector whose server address is `https://ambitiousbots.com/api/mcp`. The `ambitious-getting-started` and `ambitious-capability-probe` skills find it by that address and never by its display name: a connector that happens to be named Ambitious but has another address is reported as "a different connector" and left alone.
+
+### Instructions that stay compatible
+
+A bot's instructions are set once, by its owner, when the bot is made. Nothing updates them afterwards, while the skills are replaced with every template update. So the template keeps the two apart:
+
+- `INSTRUCTIONS.md` holds only what does not change: who the bot is, a pointer to the skills, and the hard limits. Everything that changes with a release (modules, commands, schedules, tools) is in the skills. Its first line is `Instructions version: N`, a whole number that is raised only when the text has to change. The generator never rewrites the file, and the installer build fails when the text differs from the SHA-256 recorded for its version.
+- `instructions.json` lists every text a template has published, by version, with its SHA-256 and its `grants`: the things that text allows, such as `owner-chat`, `report-tool` or `factory-tools`. Version 1 is the text of template 0.2.1 and is the oldest one supported; version 2 is the text of templates 0.2.2 to 0.2.4; version 3 is the present one. Every later version grants at least what version 1 grants.
+- A skill never requires more than the oldest supported instructions grant. `permissions.json` is the explicit map, and `npm run template:test` fails when a skill or routine requires a grant version 1 lacks, uses a permission its entry does not list, or uses an `optional` one without saying in the same line that it is done only when the bot's instructions allow it. Under version 1 that means, for example, that a skill speaks to the owner only in the bot's own chat, asks for no file from the bot's private data directory, and treats the Factory tools and spoken voiceover as optional.
+- `ambitious-modules sync --instructions <file>` compares the bot's own instructions with the template's. The bot writes its instructions to a file outside its private data directory and names it. A text an earlier template published is reported as the problem `instructions-out-of-date`, with the bot's version and the template's; a text no template published is `instructions-custom`. Either way the installer writes the template's text to `$AMBITIOUS_HOME/template/instructions.md` and returns the differing lines, and the bot puts both in a Page and tells the owner, in its own chat, that pasting the text is the owner's choice. Nothing changes a bot's instructions except its owner. The check runs in a chat, not in the daily routine, so an owner who keeps the earlier text is told once and not every morning.
+
+### Upgrading a bot made from an earlier template
+
+A bot made from template 0.2.0 to 0.2.4 keeps the skills, instructions and routine prompts of that template, and its `ambitious-module-installer` skill pins only that template's installer. An earlier skill therefore cannot fetch a newer installer, and is written not to try. The upgrade starts with the owner and goes in this order:
+
+1. The owner gives the bot the new `ambitious-module-installer` skill, by updating the bot's template or by handing over `bot.json` from `ambitious-template-<version>.tgz` of the new kit release. The bot stores it in place of the earlier one. This skill text is where trust starts: it carries the new installer's checksum.
+2. The bot runs the skill's fetch lines. They download `ambitious-modules-<version>.mjs` from the address in the skill, check its SHA-256 against the pin in the skill, and only then switch the link `bin/ambitious-modules`. A file that fails the check is deleted and never run.
+3. The bot runs `ambitious-modules sync --json --instructions <file>`. The new installer upgrades every module whose pin moved, runs each selfcheck, and compares the instructions.
+4. The bot decides every other skill with `ambitious-modules skills` and writes those it answers `create` or `update` for. Skills of template 0.2.0 have no `ambitious-` prefix; they are left alone, and the owner is told they are no longer used.
+5. If the instructions are out of date or customised, the bot writes the Page with the proposed text and a short diff. The instructions change only if the owner pastes it. The same holds for routine prompts, which are copies too.
+
+Step 3 before step 2 fails safely: an earlier installer does not know `--instructions` and answers `E_USAGE`.
 
 ## Release
 

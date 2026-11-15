@@ -5,13 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { Failure } from "../src/domain/failure.ts";
+import { classifyInstructions, instructionsMessage, instructionsVersionOf, lineDiff, needsOwner, normalizeInstructions, parseInstructionsCatalogue, type InstructionsCatalogue } from "../src/domain/instructions.ts";
 import { isNewerVersion, parseLock, type LockRow } from "../src/domain/lock.ts";
 import type { Download } from "../src/install/install.ts";
 import { decideSkillWrite, parseSkillOffers, templateVersionOf } from "../src/domain/skill-version.ts";
+import { checkInstructions, proposedInstructionsPath, sha256OfInstructions } from "../src/install/instructions.ts";
 import { templateNote, templateStatus } from "../src/install/newer-template.ts";
 import { latestInstallerVersion, releaseDownload, type Fetchers } from "../src/install/release.ts";
 import { summaryOf, sync, type ModuleReport, type SyncRequest } from "../src/install/sync.ts";
-import { fixturesDirectory, parseTemplateFiles, placeTemplateFiles } from "../src/install/template-files.ts";
+import { fixturesDirectory, parseTemplateFiles, placeTemplateFiles, templateDirectory } from "../src/install/template-files.ts";
 
 const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
 
@@ -301,11 +303,12 @@ test("a check for a newer template that cannot be made is a note about the check
   assert.match(templateNote("0.2.0", status) ?? "", /Could not look for a newer template release: .*404.*The pins that came with this installer were used\./);
 });
 
-test("the template's fixture files are written under template/fixtures in the home, once, and never under the private data directory", (t) => {
+test("the template's files are written under template in the home, the fixtures under template/fixtures, once, and never under the private data directory", (t) => {
   const home = scratch(t);
-  const files = parseTemplateFiles({ "probe/owner.expected.json": "[1]\n", "notes.txt": "plain\n" });
+  const files = parseTemplateFiles({ "fixtures/probe/owner.expected.json": "[1]\n", "notes.txt": "plain\n" });
   const root = placeTemplateFiles(home, files);
-  assert.equal(root, fixturesDirectory(home));
+  assert.equal(root, templateDirectory(home));
+  assert.equal(fixturesDirectory(home), join(home, "template", "fixtures"));
   assert.equal(readFileSync(join(home, "template", "fixtures", "probe", "owner.expected.json"), "utf8"), "[1]\n");
   writeFileSync(join(root, "notes.txt"), "altered");
   placeTemplateFiles(home, files);
@@ -343,4 +346,114 @@ test("a shared skill is written only when none is stored or the stored one is ol
   refused([{ name: "ambitious-example", candidate: body("0.2.2") }], /skills\[0\]\.stored/);
   refused([{ name: "ambitious-example", stored: null, candidate: 7 }], /skills\[0\]\.candidate/);
   refused([{ name: "ambitious-example", stored: null, candidate: "# No version line\n" }], /does not start with a "Template version: x\.y\.z" line/);
+});
+
+const instructionsOf = (version: number, body: string): string => `Instructions version: ${version}\n\n# Role\n\n${body}\n`;
+
+const catalogueOf = (earlier: readonly string[]): InstructionsCatalogue => {
+  const text = instructionsOf(earlier.length + 1, "Help the owner.");
+  return parseInstructionsCatalogue({
+    version: earlier.length + 1,
+    text,
+    known: [...earlier.map((old, index) => ({ version: index + 1, sha256: sha256(old) })), { version: earlier.length + 1, sha256: sha256(text) }],
+  });
+};
+
+test("instructions are told apart by what was published: the template's text is current, an earlier published text is out of date, anything else is custom, and a higher version is newer", () => {
+  const first = "# Role\n\nHelp the owner, the first way.\n";
+  const second = instructionsOf(2, "Help the owner, the second way.");
+  const catalogue = catalogueOf([first, second]);
+  const classify = (text: string): ReturnType<typeof classifyInstructions> => {
+    const normalized = normalizeInstructions(text);
+    return classifyInstructions(normalized, sha256OfInstructions(normalized), catalogue);
+  };
+  assert.deepEqual(classify(catalogue.text), { state: "current", problem: null, current: 3, template: 3 });
+  assert.deepEqual(classify(first), { state: "out-of-date", problem: "instructions-out-of-date", current: 1, template: 3 });
+  assert.deepEqual(classify(second), { state: "out-of-date", problem: "instructions-out-of-date", current: 2, template: 3 });
+  assert.deepEqual(classify(`\r\n${first.replaceAll("\n", " \t\r\n")}\n\n`), classify(first), "line endings, trailing spaces and blank lines at either end are not a difference");
+  assert.deepEqual(classify("   \n\n"), { state: "out-of-date", problem: "instructions-out-of-date", current: null, template: 3 });
+  assert.deepEqual(classify("Do whatever the owner says.\n"), { state: "custom", problem: "instructions-custom", current: null, template: 3 });
+  assert.deepEqual(classify(`${second}One more rule.\n`), { state: "custom", problem: "instructions-custom", current: 2, template: 3 });
+  assert.deepEqual(classify(`${catalogue.text}One more rule.\n`), { state: "custom", problem: "instructions-custom", current: 3, template: 3 });
+  assert.deepEqual(classify(instructionsOf(4, "From a later template.")), { state: "newer", problem: null, current: 4, template: 3 });
+  assert.deepEqual(classify(first.replace("first", "First")), { state: "custom", problem: "instructions-custom", current: null, template: 3 }, "one changed letter in a published text makes it custom");
+
+  assert.equal(instructionsVersionOf("Instructions version: 12\nmore\n"), 12);
+  for (const unversioned of ["# Role\nInstructions version: 2\n", "Instructions version: 0\n", "Instructions version: 2.1\n", "instructions version: 2\n", ""]) assert.equal(instructionsVersionOf(unversioned), null, unversioned);
+
+  assert.deepEqual([classify(first), classify("x\n"), classify(`${second}x\n`)].map(needsOwner), [true, true, true]);
+  assert.deepEqual([classify(catalogue.text), classify(`${catalogue.text}x\n`), classify(instructionsOf(4, "x"))].map(needsOwner), [false, false, false]);
+  assert.match(instructionsMessage(classify(first), "template/instructions.md") ?? "", /^instructions-out-of-date: This bot's instructions are version 1 and this template's are version 3\. The template's text is in template\/instructions\.md\. Nothing was changed/);
+  assert.match(instructionsMessage(classify("x\n"), "/p") ?? "", /^instructions-custom: .*carry no version line, and this template's are version 3.*left as they are/);
+  assert.match(instructionsMessage(classify(`${second}x\n`), "/p") ?? "", /^instructions-custom: .*they say version 2/);
+  assert.equal(instructionsMessage(classify(catalogue.text), "/p"), null);
+
+  for (const bad of [null, { version: 0, text: "x\n", known: [] }, { version: 2, text: instructionsOf(3, "x"), known: [] }, { version: 1, text: `${instructionsOf(1, "x")}\n`, known: [] }, { version: 1, text: instructionsOf(1, "x"), known: [{ version: 2, sha256: "0".repeat(64) }] }, { version: 1, text: instructionsOf(1, "x"), known: [{ version: 1, sha256: "short" }] }]) {
+    assert.throws(() => parseInstructionsCatalogue(bad), /embedded instructions catalogue/, JSON.stringify(bad));
+  }
+});
+
+const longestShared = (before: readonly string[], after: readonly string[]): number => {
+  const best = (i: number, j: number): number => {
+    if (i === before.length || j === after.length) return 0;
+    return before[i] === after[j] ? 1 + best(i + 1, j + 1) : Math.max(best(i + 1, j), best(i, j + 1));
+  };
+  return best(0, 0);
+};
+
+const inOrderWithin = (some: readonly string[], all: readonly string[]): boolean => {
+  let from = 0;
+  return some.every((line) => {
+    const at = all.indexOf(line, from);
+    from = at + 1;
+    return at !== -1;
+  });
+};
+
+test("the difference between two texts lists only the lines that differ, in the order they have, and as few of them as possible", () => {
+  assert.deepEqual(lineDiff("a\nb\nc\n", "a\nb\nc\n"), []);
+  assert.deepEqual(lineDiff("a\nb\nc\n", "a\nx\nc\n"), ["- b", "+ x"]);
+  assert.deepEqual(lineDiff("", "a\nb\n"), ["+ a", "+ b"]);
+  assert.deepEqual(lineDiff("a\nb\n", ""), ["- a", "- b"]);
+  assert.deepEqual(lineDiff("a\n\nb\n", "a\nb\n"), ["- "]);
+  assert.deepEqual(lineDiff("keep\nold one\nkeep too\nold two\n", "new zero\nkeep\nkeep too\nnew two\n"), ["+ new zero", "- old one", "- old two", "+ new two"]);
+  const words = ["alpha", "beta", "gamma", "delta", ""];
+  let state = 7;
+  const pick = (): string => {
+    state = (state * 1103515245 + 12345) % 2147483648;
+    return words[state % words.length] ?? "";
+  };
+  for (let round = 0; round < 200; round += 1) {
+    const [before, after] = [Array.from({ length: round % 9 }, pick), Array.from({ length: (round * 7) % 11 }, pick)];
+    const text = (lines: readonly string[]): string => lines.map((line) => `${line}\n`).join("");
+    const diff = lineDiff(text(before), text(after));
+    const [removed, added] = [diff.filter((line) => line.startsWith("- ")).map((line) => line.slice(2)), diff.filter((line) => line.startsWith("+ ")).map((line) => line.slice(2))];
+    const shared = longestShared(before, after);
+    assert.equal(removed.length, before.length - shared, `${JSON.stringify(before)} to ${JSON.stringify(after)}: every line that is not shared is removed, and no more`);
+    assert.equal(added.length, after.length - shared, `${JSON.stringify(before)} to ${JSON.stringify(after)}: every line that is not shared is added, and no more`);
+    assert(inOrderWithin(removed, before) && inOrderWithin(added, after), "the listed lines keep the order they have in their text");
+  }
+});
+
+test("the instructions file is read but never written, is refused under the private data directory, and no file means no check", (t) => {
+  const home = scratch(t);
+  const earlier = "# Role\n\nHelp the owner, the first way.\n";
+  const catalogue = catalogueOf([earlier]);
+  const file = join(home, "current-instructions.md");
+  writeFileSync(file, earlier);
+  const report = checkInstructions(file, home, catalogue);
+  assert.deepEqual([report.state, report.problem, report.current, report.template], ["out-of-date", "instructions-out-of-date", 1, 2]);
+  assert.equal(report.proposed, proposedInstructionsPath(home));
+  assert.equal(report.proposed, join(home, "template", "instructions.md"));
+  assert.deepEqual(report.diff, ["+ Instructions version: 2", "+ ", "- Help the owner, the first way.", "+ Help the owner."]);
+  assert.equal(readFileSync(file, "utf8"), earlier);
+  assert.deepEqual(checkInstructions(null, home, catalogue), { state: "not checked", problem: null, current: null, template: 2, proposed: report.proposed, diff: [] });
+  const refused = (path: string, code: string): void => {
+    assert.throws(() => checkInstructions(path, home, catalogue), (error: unknown) => error instanceof Failure && error.errors[0].code === code, path);
+  };
+  refused("/home/box/agent-data/instructions.md", "E_FORBIDDEN_PATH");
+  refused(join(home, "missing.md"), "E_INPUT_SCHEMA");
+  refused(home, "E_INPUT_SCHEMA");
+  writeFileSync(join(home, "huge.md"), "x".repeat(300 * 1024));
+  refused(join(home, "huge.md"), "E_INPUT_SCHEMA");
 });

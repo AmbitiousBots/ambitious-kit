@@ -1,9 +1,9 @@
 [
   {
     "module": "tasks",
-    "version": "0.1.0",
-    "url": "https://github.com/AmbitiousBots/ambitious-tasks/releases/download/tasks-v0.1.0/ambitious-tasks-0.1.0.mjs",
-    "sha256": "a528db533748f44ee18f9485c20d6e2bc0aa9625c7f2dc0756dd6df209a2754a"
+    "version": "0.1.1",
+    "url": "https://github.com/AmbitiousBots/ambitious-tasks/releases/download/tasks-v0.1.1/ambitious-tasks-0.1.1.mjs",
+    "sha256": "3f5e5ddb4b66df5b212a449eac055df244eb6617b2e59a3bce818494d02f833b"
   },
   {
     "module": "records",
@@ -25,9 +25,9 @@
   },
   {
     "module": "audit",
-    "version": "0.2.0",
-    "url": "https://github.com/AmbitiousBots/ambitious-audit/releases/download/audit-v0.2.0/ambitious-audit-0.2.0.mjs",
-    "sha256": "692fc924c2e0c5ab920db4dd26dfaade32274ce6360ea8e7692700142b7b472d"
+    "version": "0.2.1",
+    "url": "https://github.com/AmbitiousBots/ambitious-audit/releases/download/audit-v0.2.1/ambitious-audit-0.2.1.mjs",
+    "sha256": "7f12b9921b5e5c96e62bbf85105c0ff7473a3ebe9096f9523757dec1b54af660"
   },
   {
     "module": "video",

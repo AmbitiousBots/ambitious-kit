@@ -1,0 +1,96 @@
+{
+  "current": 3,
+  "oldestSupported": 1,
+  "grants": {
+    "owner-chat": "Speak to the owner in this bot's own chat, in a conversation or as the reply of a routine run.",
+    "pages": "Write and update Grok Bot Pages.",
+    "modules": "Run the installed Ambitious modules through their command lines and pass them JSON.",
+    "pinned-downloads": "Download the pinned public release files that the installer skill names.",
+    "account-read-tools": "Use the read-only account tools that are available to this bot.",
+    "report-tool": "Call the Ambitious connection's send_report tool after the owner's tool approval.",
+    "feedback-tool": "Call the Ambitious connection's send_feedback tool after the owner's tool approval.",
+    "routines": "Keep the template's routines: the daily selfcheck, and others created paused for the owner to turn on.",
+    "message-owner": "Send the owner a message outside this bot's own chat.",
+    "factory-tools": "Call the Ambitious connection's Factory tools after the owner's tool approval.",
+    "private-reference-files": "Read the platform's own reference files that the platform documents inside the bot's private data directory.",
+    "shared-skills": "Write an ambitious- skill to the shared skill library when the installer's skills command answers create or update.",
+    "provider-call": "Let a module call an outside provider with a key the owner supplied."
+  },
+  "versions": [
+    {
+      "version": 1,
+      "firstTemplate": "0.2.1",
+      "file": "instructions/1.md",
+      "sha256": "0e054d7288f676daa2b9208812050ad54cb95a62d5b36a7f2c21cfd5b520c523",
+      "variants": [
+        {
+          "template": "0.2.0",
+          "sha256": "30e76838f2814be38c092a880f59d20b7ef5c8a61981493cbc82bc2a534b10fd",
+          "difference": "Names four skills without the ambitious- prefix."
+        }
+      ],
+      "grants": [
+        "owner-chat",
+        "pages",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "report-tool",
+        "feedback-tool",
+        "routines"
+      ]
+    },
+    {
+      "version": 2,
+      "firstTemplate": "0.2.4",
+      "file": "instructions/2.md",
+      "sha256": "afe584ea1f6c438d16f142305b428fc178adf2a2a9c83614d1a9ae62eadd4591",
+      "variants": [
+        {
+          "template": "0.2.3",
+          "sha256": "6d3efeb1381a2dfe323a9556be00fad6bc995827b6965ab1c3af385535b31d21",
+          "difference": "Its first line names template version 0.2.3."
+        },
+        {
+          "template": "0.2.2",
+          "sha256": "e512cc7dd67841f101cb0625712bbd8a88b68708764701fe7ac8bbdbaf74e459",
+          "difference": "Its first line names template version 0.2.2, and one sentence about an unknown account role is worded differently."
+        }
+      ],
+      "grants": [
+        "owner-chat",
+        "pages",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "report-tool",
+        "feedback-tool",
+        "routines",
+        "message-owner",
+        "factory-tools",
+        "private-reference-files",
+        "shared-skills"
+      ]
+    },
+    {
+      "version": 3,
+      "firstTemplate": "0.2.5",
+      "file": "INSTRUCTIONS.md",
+      "sha256": "2480777c66a14e827f4ef7ec6c92e99324e90b564c79982420612a0f6177dcd3",
+      "variants": [],
+      "grants": [
+        "owner-chat",
+        "pages",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "report-tool",
+        "feedback-tool",
+        "routines",
+        "factory-tools",
+        "private-reference-files",
+        "shared-skills"
+      ]
+    }
+  ]
+}

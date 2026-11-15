@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { build } from "esbuild";
@@ -13,8 +14,23 @@ const templateFiles = Object.fromEntries(
     .filter((entry) => entry.isFile())
     .map((entry) => relative(fixtures, join(entry.parentPath, entry.name)).split(sep).join("/"))
     .sort()
-    .map((name) => [name, readFileSync(join(fixtures, name), "utf8")]),
+    .map((name) => [`fixtures/${name}`, readFileSync(join(fixtures, name), "utf8")]),
 );
+
+const published = JSON.parse(readFileSync(join(template, "instructions.json"), "utf8"));
+const instructionsText = readFileSync(join(template, "INSTRUCTIONS.md"), "utf8");
+const instructions = {
+  version: published.current,
+  text: instructionsText,
+  known: published.versions.flatMap(({ version, sha256, variants }) => [sha256, ...variants.map((variant) => variant.sha256)].map((hash) => ({ version, sha256: hash }))),
+};
+const recorded = published.versions.find(({ version }) => version === published.current)?.sha256;
+if (recorded !== createHash("sha256").update(instructionsText).digest("hex")) {
+  throw new Error(
+    `template/INSTRUCTIONS.md is not the text recorded for instructions version ${published.current} in template/instructions.json. ` +
+      'A changed text is a new version: raise its "Instructions version" line, keep the old text under template/instructions/, and add the new version with its SHA-256 and grants to instructions.json.',
+  );
+}
 
 const shared = {
   bundle: true,
@@ -42,5 +58,5 @@ await build({
   ...shared,
   entryPoints: [join(root, "src", "cli", "modules-main.ts")],
   outfile: join(root, "dist", "ambitious-modules.mjs"),
-  define: { ...defineFor("modules"), AMBITIOUS_LOCK: JSON.stringify(JSON.parse(lock)), AMBITIOUS_TEMPLATE_FILES: JSON.stringify(templateFiles) },
+  define: { ...defineFor("modules"), AMBITIOUS_LOCK: JSON.stringify(JSON.parse(lock)), AMBITIOUS_TEMPLATE_FILES: JSON.stringify(templateFiles), AMBITIOUS_INSTRUCTIONS: JSON.stringify(instructions) },
 });

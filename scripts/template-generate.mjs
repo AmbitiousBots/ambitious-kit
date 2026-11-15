@@ -8,7 +8,7 @@ const USAGE = `Usage: node scripts/template-generate.mjs [--check]
 
 Regenerates the generated parts of the Ambitious Bot template in template/:
 
-  INSTRUCTIONS.md and every skills/*/SKILL.md
+  every skills/*/SKILL.md
              the "Template version: x.y.z" line, set to the version in package.json
   skills/ambitious-module-installer/SKILL.md
              the release tag, file name and SHA-256 pin of the bundled installer,
@@ -17,8 +17,12 @@ Regenerates the generated parts of the Ambitious Bot template in template/:
              version, instructions, skills and routines
 
 All are derived from the other files: the installer is built from packages/kit with
-template/modules.lock.json and template/fixtures embedded, and bot.json is
-INSTRUCTIONS.md, every skills/*/SKILL.md and the "ambitious-" sections of routines.md.
+template/modules.lock.json, template/fixtures, template/INSTRUCTIONS.md and the
+SHA-256 list of template/instructions.json embedded, and bot.json is INSTRUCTIONS.md,
+every skills/*/SKILL.md and the "ambitious-" sections of routines.md.
+
+INSTRUCTIONS.md is never rewritten here. It carries an "Instructions version: N" line
+that is raised by hand, and only when its text has to change.
 
 With --check nothing is written; the exit code is 1 when a generated part is out of date.
 Needs "npm ci" first.
@@ -110,14 +114,13 @@ const generate = (check) => {
   };
   const { version } = JSON.parse(read(join(repoRoot, "package.json")));
   const instructions = join(template, "INSTRUCTIONS.md");
-  settle(instructions, versioned(read(instructions), version, "INSTRUCTIONS.md"));
   for (const name of skillNames().filter((skill) => join(template, "skills", skill, "SKILL.md") !== installerSkill)) {
     const path = join(template, "skills", name, "SKILL.md");
     settle(path, versioned(read(path), version, `skills/${name}/SKILL.md`));
   }
   const installerText = pinnedInstallerSkill(version);
   settle(installerSkill, installerText);
-  const bot = { name: BOT_NAME, description: BOT_DESCRIPTION, version, instructions: versioned(read(instructions), version, "INSTRUCTIONS.md"), skills: skills(version, installerText), routines: routines() };
+  const bot = { name: BOT_NAME, description: BOT_DESCRIPTION, version, instructions: read(instructions), skills: skills(version, installerText), routines: routines() };
   const wanted = `${JSON.stringify(bot, null, 2)}\n`;
   try {
     settle(botFile, wanted);

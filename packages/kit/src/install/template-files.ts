@@ -26,10 +26,12 @@ const textIfPresent = (path: string): string | null => {
   }
 };
 
-export const fixturesDirectory = (home: string): string => join(home, "template", "fixtures");
+export const templateDirectory = (home: string): string => join(home, "template");
+
+export const fixturesDirectory = (home: string): string => join(templateDirectory(home), "fixtures");
 
 export const placeTemplateFiles = (home: string, files: TemplateFiles): string => {
-  const root = fixturesDirectory(refuseAgentData(home));
+  const root = templateDirectory(refuseAgentData(home));
   for (const [name, text] of files) {
     const path = join(root, name);
     if (textIfPresent(path) === text) continue;

@@ -3,7 +3,7 @@ name: ambitious-video-for-bots
 description: For the Ambitious Bot only. Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the owner asks the Ambitious Bot for a video made from screen recordings, title cards, stills, captions or voiceover, or asks what such a video would cost.
 ---
 
-Template version: 0.2.4
+Template version: 0.2.5
 
 # Make a video with Ambitious Video
 
@@ -22,7 +22,8 @@ Work in this order, and show the owner each result before the next step.
 | Any time | `jobs`, `ledger` | The jobs so far, and the recorded cost lines. |
 
 Always run `estimate` and get the owner's go-ahead on the price before `render`. Quote costs only from `estimate` and `ledger`; never work out a price yourself.
-A script with `voice` set makes a keyed speech call during `render`, which sends the voiceover text to the speech provider. Do that only when the owner asked for spoken voiceover and has supplied `XAI_API_KEY` in the environment for that call. Never write the key to a file, a script, a Page or a log. Without `voice`, voiceover clips are captions only and nothing leaves the computer; `E_NO_KEY` means a voice was set without a key.
+Leave `voice` unset: voiceover clips are then captions only and nothing leaves the computer.
+A script with `voice` set makes a keyed speech call during `render`, which sends the voiceover text to the speech provider. That is optional and no step of this skill needs it. Set `voice` only when this bot's instructions allow a module to call an outside provider, the owner asked for spoken voiceover, and the owner has supplied `XAI_API_KEY` in the environment for that call. Under instructions that let nothing leave the computer except through the Ambitious connection, render captions only and tell the owner why. Never write the key to a file, a script, a Page or a log. `E_NO_KEY` means a voice was set without a key.
 Retry a failed render with its `jobId`, not as a new job, so the cost is not recorded twice. `E_JOB_STATE` means the job cannot be retried: read `jobs`. Call a video finished only after `verify` passes; `E_VERIFY` lists the failed checks in `data.checks`.
 
 Script problems name their fix: `E_UNKNOWN_STEP` for an unknown clip type, `E_OVERLAP` for two clips overlapping on one track, `E_MEDIA` for a missing file or a time outside it, `E_RANGE` for a cut off a clip boundary or a video longer than 1800 seconds, `E_TOOL` for missing ffmpeg or Pillow, and `E_SPEECH` when the speech service refused the call.

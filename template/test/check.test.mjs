@@ -16,6 +16,11 @@ const pinnedModules = ['audit', 'compliance', 'contracts', 'records', 'tasks', '
 const visibilitySignals = ['transcripts', 'usage', 'otherBots', 'auditLog', 'accountRole', 'tasks', 'pages', 'botActivity', 'routines'];
 const { version: templateVersion } = readJson(join(repoRoot, 'package.json'));
 const fixtureNames = ['guest', 'owner', 'role-unknown'].map((role) => `ambitious-capability-probe/${role}.expected.json`);
+const published = readJson(join(root, 'instructions.json'));
+const permissions = readJson(join(root, 'permissions.json'));
+const MONITORING_ADDRESS = 'https://ambitiousbots.com/api/mcp';
+const skillText = (name) => readFileSync(join(root, 'skills', name, 'SKILL.md'), 'utf8');
+const routineSections = () => Object.fromEntries(readFileSync(join(root, 'routines.md'), 'utf8').split(/^## /mu).slice(1).map((section) => [section.split('\n')[0], section]));
 
 async function filesIn(directory) {
   const entries = (await readdir(directory, { withFileTypes: true })).filter((entry) => !(directory === root && entry.name === 'test'));
@@ -86,7 +91,7 @@ function validateLock(value) {
 test('the required template files and skill frontmatter are present', async () => {
   const files = await filesIn(root);
   const paths = files.map((path) => relative(root, path));
-  for (const path of ['INSTRUCTIONS.md', 'routines.md', 'bot.json', 'modules.lock.json', 'modules.lock.schema.json', 'skills/SOURCES.json', ...fixtureNames.map((name) => `fixtures/${name}`), ...expectedSkills.map((name) => `skills/${name}/SKILL.md`)]) {
+  for (const path of ['INSTRUCTIONS.md', 'instructions.json', 'instructions/1.md', 'instructions/2.md', 'permissions.json', 'routines.md', 'bot.json', 'modules.lock.json', 'modules.lock.schema.json', 'skills/SOURCES.json', ...fixtureNames.map((name) => `fixtures/${name}`), ...expectedSkills.map((name) => `skills/${name}/SKILL.md`)]) {
     assert(paths.includes(path), `Missing ${path}`);
   }
   const skills = files.filter((path) => path.endsWith('/SKILL.md'));
@@ -114,11 +119,173 @@ test('template prose and JSON contain no placeholders', async () => {
   }
 });
 
-test('instructions stay within 120 lines', async () => {
+test('the instructions are short and hold nothing that changes with a release: no template version, no module list, no schedule and no tool beyond the two that send audit data', async () => {
   const contents = await readFile(join(root, 'INSTRUCTIONS.md'), 'utf8');
   const lines = contents.replace(/\r\n/gu, '\n').replace(/\n$/u, '').split('\n');
-  assert(lines.length <= 120, `INSTRUCTIONS.md has ${lines.length} lines`);
-  assert(contents.trim().length > 0);
+  assert(lines.length <= 60, `INSTRUCTIONS.md has ${lines.length} lines; what changes belongs in a skill`);
+  assert.equal(lines[0], `Instructions version: ${published.current}`);
+  assert.deepEqual(lines.filter((line) => line.startsWith('# ')), ['# Role', '# Skills', '# Hard limits'], 'identity, a pointer to the skills, and the hard limits');
+  assert.doesNotMatch(contents, /Template version|[0-9]+\.[0-9]+\.[0-9]+|[0-9]:[0-9]{2} ?(?:AM|PM)|factory_|data\.[a-z]+|--[a-z]/u);
+  for (const module of pinnedModules) assert.doesNotMatch(contents, new RegExp(`ambitious-${module}\\b`, 'u'), `the instructions name the module ${module}; modules come and go with the pins`);
+  for (const [, skill] of contents.matchAll(/`(ambitious-[a-z-]+)` skill/gu)) assert(expectedSkills.includes(skill), `the instructions point at ${skill}, which is not a skill of this template`);
+  for (const skill of ['ambitious-getting-started', 'ambitious-module-installer']) assert(contents.includes(`\`${skill}\` skill`), `the instructions must point at ${skill}`);
+});
+
+const SHA256 = /^[0-9a-f]{64}$/u;
+
+test('instructions.json records every published instructions text by version and SHA-256, the newest is INSTRUCTIONS.md, and the oldest supported is the text of template 0.2.1', () => {
+  assert.deepEqual(Object.keys(published), ['current', 'oldestSupported', 'grants', 'versions']);
+  assert.deepEqual(published.versions.map(({ version }) => version), published.versions.map((_, index) => index + 1), 'versions are whole numbers counted up from 1');
+  assert.equal(published.current, published.versions.length);
+  assert.equal(published.oldestSupported, 1);
+  for (const entry of published.versions) {
+    assert.deepEqual(Object.keys(entry), ['version', 'firstTemplate', 'file', 'sha256', 'variants', 'grants']);
+    const text = readFileSync(join(root, entry.file), 'utf8');
+    assert.equal(sha256(text), entry.sha256, `${entry.file} is not the text recorded for instructions version ${entry.version}. A published text never changes: a new text is a new version, with the "Instructions version" line raised.`);
+    assert.equal(text, `${text.split('\n').map((line) => line.trimEnd()).join('\n').trim()}\n`, `${entry.file}: no trailing spaces or blank lines at either end, so the recorded SHA-256 is that of the text as a bot would write it out`);
+    for (const variant of entry.variants) {
+      assert.deepEqual(Object.keys(variant), ['template', 'sha256', 'difference']);
+      assert.match(variant.sha256, SHA256);
+    }
+    for (const grant of entry.grants) assert(Object.hasOwn(published.grants, grant), `version ${entry.version} lists the grant ${grant}, which instructions.json does not describe`);
+    assert.equal(new Set(entry.grants).size, entry.grants.length);
+  }
+  const [oldest, middle, current] = published.versions;
+  assert.deepEqual([oldest.file, oldest.firstTemplate, middle.file, middle.firstTemplate, current.file], ['instructions/1.md', '0.2.1', 'instructions/2.md', '0.2.4', 'INSTRUCTIONS.md']);
+  assert.doesNotMatch(readFileSync(join(root, oldest.file), 'utf8'), /^(?:Instructions|Template) version:/mu);
+  assert.match(readFileSync(join(root, middle.file), 'utf8'), /^Template version: 0\.2\.4\n/u);
+  const hashes = published.versions.flatMap(({ sha256: hash, variants }) => [hash, ...variants.map((variant) => variant.sha256)]);
+  assert.equal(new Set(hashes).size, hashes.length, 'one SHA-256 names one version');
+  const oldestGrants = published.versions.find(({ version }) => version === published.oldestSupported).grants;
+  for (const entry of published.versions) {
+    for (const grant of oldestGrants) assert(entry.grants.includes(grant), `instructions version ${entry.version} does not grant ${grant}, which the oldest supported version grants; a skill written for the oldest would break under it`);
+  }
+});
+
+test('each recorded instructions text is the one its template release published', (t) => {
+  const tagged = (template) => spawnSync('git', ['show', `kit-v${template}:template/INSTRUCTIONS.md`], { cwd: repoRoot, encoding: 'utf8' });
+  const releases = published.versions.flatMap(({ version, firstTemplate, sha256: hash, variants }) => [{ version, template: firstTemplate, hash }, ...variants.map((variant) => ({ version, template: variant.template, hash: variant.sha256 }))]);
+  const earlier = releases.filter(({ template }) => template !== templateVersion);
+  for (const template of ['0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4']) assert(earlier.some((release) => release.template === template), `instructions.json must record the text of template ${template}`);
+  if (earlier.some(({ template }) => tagged(template).status !== 0)) {
+    t.skip(`Skipped: this checkout does not have every release tag from kit-v0.2.0 to the one before kit-v${templateVersion}, so the recorded texts were not compared with them. Fetch the tags to run it.`);
+    return;
+  }
+  for (const { version, template, hash } of earlier) assert.equal(sha256(tagged(template).stdout), hash, `instructions version ${version}: the SHA-256 recorded for template ${template} is not that of its INSTRUCTIONS.md`);
+});
+
+const MARKERS = {
+  pages: /\bPages?\b|\bpage tool\b/u,
+  'report-tool': /send_report/u,
+  'feedback-tool': /send_feedback/u,
+  'pinned-downloads': /\bcurl \b|gh release download/u,
+  'message-owner': /\bpost(?:s|ing)?\b[^.\n]*\b(?:message|chat)\b|\bmessage the owner\b|\bsend(?:s|ing)? (?:the owner )?(?:a|one) message\b|\bemail the owner\b/iu,
+  'factory-tools': /factory_[a-z]+|Factory tools?/u,
+  'private-reference-files': /reference files/u,
+  'shared-skills': /\b[Ww]rit(?:e|ing) (?:a |one |the )?(?:shared )?skill\b|Write the candidate/u,
+  'provider-call': /speech provider|outside provider|_API_KEY/u,
+};
+
+const permissionProblems = (name, text, entry, oldestGrants) => {
+  const problems = [];
+  const lines = text.split('\n');
+  const declared = [...entry.requires, ...entry.optional, ...entry.rulesOut];
+  for (const grant of declared) if (!Object.hasOwn(published.grants, grant)) problems.push(`${name} declares the grant ${grant}, which instructions.json does not describe`);
+  if (new Set(declared).size !== declared.length) problems.push(`${name} declares a grant twice`);
+  for (const grant of entry.requires) {
+    if (!oldestGrants.includes(grant)) problems.push(`${name} requires ${grant}, which instructions version ${published.oldestSupported} does not grant. Rewrite the step to work without it, or make it optional and say so in the text.`);
+  }
+  for (const [grant, marker] of Object.entries(MARKERS)) {
+    const using = lines.filter((line) => marker.test(line));
+    if (using.length > 0 && !declared.includes(grant)) problems.push(`${name} uses ${grant} ("${using[0].slice(0, 80)}") but permissions.json does not list it`);
+    if (entry.rulesOut.includes(grant)) {
+      for (const line of using) if (!/\b(?:not|never|no|nothing)\b/iu.test(line)) problems.push(`${name} lists ${grant} as ruled out, but this line does not rule it out: "${line.slice(0, 80)}"`);
+    }
+    if (entry.optional.includes(grant) && !oldestGrants.includes(grant) && !using.some((line) => /only when this bot's instructions (?:allow|say)/u.test(line))) {
+      problems.push(`${name} lists ${grant} as optional, so the line that uses it must say it is done "only when this bot's instructions allow" it`);
+    }
+  }
+  return problems;
+};
+
+test('no skill and no routine requires a permission that the oldest supported instructions do not grant, and every permission a text uses is in its explicit map', () => {
+  const oldestGrants = published.versions.find(({ version }) => version === published.oldestSupported).grants;
+  assert.deepEqual(Object.keys(permissions), ['skills', 'routines']);
+  assert.deepEqual(Object.keys(permissions.skills), expectedSkills, 'permissions.json has one entry for each skill');
+  const sections = routineSections();
+  assert.deepEqual(Object.keys(permissions.routines), Object.keys(sections).filter((name) => name !== 'How a copy of this template stays current'));
+  const texts = [...expectedSkills.map((name) => [name, skillText(name), permissions.skills[name]]), ...Object.entries(permissions.routines).map(([name, entry]) => [`the routine section "${name}"`, sections[name], entry])];
+  for (const [name, text, entry] of texts) {
+    assert.deepEqual(Object.keys(entry), ['requires', 'optional', 'rulesOut'], name);
+    assert.deepEqual(permissionProblems(name, text, entry, oldestGrants), []);
+  }
+  for (const grant of ['message-owner', 'private-reference-files']) {
+    for (const [name, , entry] of texts) assert(![...entry.requires, ...entry.optional].includes(grant), `${name} must not use ${grant}: instructions version ${published.oldestSupported} forbids it`);
+  }
+
+  const caught = (text, entry) => permissionProblems('a skill', text, { requires: [], optional: [], rulesOut: [], ...entry }, oldestGrants).join(' ');
+  assert.match(caught('Call `factory_match` for the owner.', {}), /uses factory-tools .* but permissions\.json does not list it/u);
+  assert.match(caught('Call `factory_match` for the owner.', { requires: ['factory-tools'] }), /requires factory-tools, which instructions version 1 does not grant/u);
+  assert.match(caught('Call `factory_match` for the owner.', { optional: ['factory-tools'] }), /must say it is done "only when this bot's instructions allow" it/u);
+  assert.equal(caught('Call `factory_match` only when this bot\'s instructions allow it.', { optional: ['factory-tools'] }), '');
+  assert.match(caught('Post one message to the owner\'s chat with this bot.', {}), /uses message-owner/u);
+  assert.match(caught('Read the platform\'s reference files in the private data directory.', {}), /uses private-reference-files/u);
+  assert.match(caught('Call `send_report` now.', { rulesOut: ['report-tool'] }), /does not rule it out/u);
+  assert.equal(caught('Never call `send_report` here.', { rulesOut: ['report-tool'] }), '');
+});
+
+test('the time zone comes from the platform when it gives one, is asked for only when it gives none, and is never silently UTC', () => {
+  const started = skillText('ambitious-getting-started');
+  for (const required of [
+    'Use the time zone the platform already gives for the owner',
+    'Ask the owner only when the platform gives none.',
+    'Never assume UTC silently.',
+  ]) assert(started.includes(required), `ambitious-getting-started must say: ${required}`);
+  const prose = [readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8'), readFileSync(join(root, 'routines.md'), 'utf8'), ...expectedSkills.map(skillText)];
+  for (const text of prose) assert.doesNotMatch(text, /routines? runs? in UTC|or UTC until|Then ask for the owner's time zone/u);
+});
+
+test('the monitoring connection is found by its address and not by its name, and a connector with that name and another address is left alone', () => {
+  for (const name of ['ambitious-getting-started', 'ambitious-capability-probe']) {
+    const text = skillText(name);
+    assert(text.includes(`The monitoring connection is the connector whose server address is exactly \`${MONITORING_ADDRESS}\`.`), name);
+    assert.match(text, /never by its display name/u, name);
+    assert.match(text, /named Ambitious, or anything like it, (?:but has|with) another address is a different connector/u, name);
+    assert.match(text, /"a different connector"/u, name);
+    assert.match(text, /leave it alone/u, name);
+    assert.match(text, /does not show addresses/u, name);
+  }
+  assert(readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8').includes(`\`${MONITORING_ADDRESS}\``));
+});
+
+test('the collector and the task skills take task counts from the counts command of the pinned tasks module', () => {
+  const collector = skillText('ambitious-audit-collector');
+  assert.match(collector, /`tasks\.open`, `tasks\.stale7d` and `tasks\.blocked` come from `ambitious-tasks counts`\./u);
+  for (const field of ['data.open', 'data.stale7d', 'data.blocked']) assert(collector.includes(`\`${field}\``), field);
+  assert.match(collector, /Do not count tasks from `list` or `board` output, and do not add the counts of several lists together/u);
+  assert.match(skillText('ambitious-capability-probe'), /`ambitious-tasks counts`/u);
+  assert.match(skillText('ambitious-tasks-for-bots'), /Use `counts` with a list name/u);
+  assert.match(skillText('ambitious-tasks-page'), /run `counts` for the list/u);
+});
+
+test('the upgrade from an earlier template is written down in order, in the installer skill and in the README', () => {
+  const ordered = (text, steps, where) => {
+    let from = 0;
+    for (const step of steps) {
+      const at = text.indexOf(step, from);
+      assert(at !== -1, `${where} must say, in this order: ${step}`);
+      from = at + step.length;
+    }
+  };
+  const skill = skillText('ambitious-module-installer');
+  const section = skill.split('\n## ').find((part) => part.startsWith('Upgrade a copy made from an earlier template\n')) ?? '';
+  ordered(section, ['template 0.2.0 to 0.2.4', '1. The owner brings this skill.', '2. Store this skill', '3. Run the lines under "Fetch the pinned installer"', '4. Run the sync command with `--instructions`', '5. Decide every other `ambitious-*` skill', '6. Read `data.instructions`', '7. Tell the owner that the routines keep the prompts'], 'the installer skill');
+  assert.match(section, /cannot fetch a newer one and must not try/u);
+  assert.match(section, /`E_USAGE` and names `--instructions`/u);
+  assert(skill.indexOf('## Upgrade a copy made from an earlier template') < skill.indexOf('## Fetch the pinned installer'));
+  const readme = readFileSync(join(repoRoot, 'README.md'), 'utf8');
+  const guide = readme.split('\n### ').find((part) => part.startsWith('Upgrading a bot made from an earlier template\n')) ?? '';
+  ordered(guide, ['0.2.0 to 0.2.4', '1. ', '`ambitious-module-installer` skill', '2. ', 'SHA-256', '3. ', '`ambitious-modules sync --json --instructions', '4. ', '`ambitious-modules skills`', '5. ', 'the Page with the proposed text'], 'README.md');
 });
 
 test('the module lock pins the six released modules, and the schema and the installer agree on what a pin is', () => {
@@ -213,10 +380,10 @@ test('every module skill names the pinned release it describes, and a copied ski
   assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-audit-collector', 'ambitious-tasks-for-bots', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
 });
 
-test('the instructions and every skill body start with the template version, so a shared skill library can tell which template wrote a skill', () => {
+test('every skill body starts with the template version, so a shared skill library can tell which template wrote a skill, and the instructions start with their own version instead', () => {
   const bot = readJson(join(root, 'bot.json'));
   assert.equal(bot.version, templateVersion);
-  assert.equal(bot.instructions.split('\n')[0], `Template version: ${templateVersion}`);
+  assert.equal(bot.instructions.split('\n')[0], `Instructions version: ${published.current}`);
   for (const skill of bot.skills) {
     const [first, second] = skill.body.split('\n');
     assert.match(first, VERSION_LINE, `${skill.name}: the first line of the body must be the template version`);
@@ -246,13 +413,15 @@ test('no instruction, routine or skill points at a file that is not on the bot\'
   }
 });
 
-test('the private data directory rule is exact: modules and module input never read it, and the bot reads only the platform\'s documented reference files there', async () => {
+test('the private data directory rule is exact: modules and module input never read it, the bot reads only the platform\'s documented reference files there, and no skill asks the bot to read there at all', async () => {
   const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
   for (const required of [
     'Modules and module input never read `/home/box/agent-data`, the bot\'s private data directory.',
-    'Never give a module a path under it, and never put anything read from it into module input.',
-    'You yourself may read there only the platform\'s own skill and Page-kit reference files that the platform documents at that location, and nothing else under it.',
+    'Never give a module a path under it or anything read from it.',
+    'You yourself may read there only the platform\'s own reference files that the platform documents at that location.',
   ]) assert(instructions.includes(required), `INSTRUCTIONS.md must say: ${required}`);
+  for (const name of expectedSkills) assert.doesNotMatch(skillText(name), /may read there|files you may read/u, `${name} must work without reading the private data directory, which the oldest supported instructions forbid`);
+  assert.match(skillText('ambitious-module-installer'), /Do not look for skill files in the bot's private data directory\./u);
   for (const path of [join(root, 'INSTRUCTIONS.md'), join(root, 'routines.md'), ...(await filesIn(join(root, 'skills'))).filter((file) => file.endsWith('.md'))]) {
     assert.doesNotMatch(await readFile(path, 'utf8'), /Never read (?:Grok internals or )?`\/home\/box\/agent-data`/u, `${relative(root, path)} still forbids every read of the private data directory`);
   }
@@ -337,40 +506,54 @@ test('bot.json is a complete payload for creating the bot', () => {
   for (const routine of bot.routines) {
     assert.deepEqual(Object.keys(routine), ['name', 'schedule', 'timeZone', 'destination', 'prompt', 'paused']);
     assert.match(routine.schedule, /^every day at (?:[1-9]|1[0-2]):[0-5][0-9] (?:AM|PM)$/u, `${routine.name}: the schedule needs a default time`);
-    assert.equal(routine.timeZone, 'the owner\'s time zone, or UTC until the owner has given one', routine.name);
-    assert.equal(routine.destination, 'the owner\'s chat with this bot', routine.name);
+    assert.equal(routine.timeZone, 'the owner\'s time zone as the platform gives it; ask the owner only when it gives none', routine.name);
+    assert.equal(routine.destination, 'the run\'s reply, in this bot\'s own chat', routine.name);
     assert(routine.prompt.trim().length > 0, routine.name);
   }
 });
 
-test('the selfcheck routine is quiet when nothing is wrong and speaks only about problems, and the instructions say the same', () => {
+test('the selfcheck routine is quiet when nothing is wrong, speaks only about problems and only in this bot\'s own chat, and the ambitious-getting-started skill says the same; routines.md says that a routine has no destination field', () => {
   const [selfcheck] = readJson(join(root, 'bot.json')).routines;
   assert.match(selfcheck.prompt, /`ambitious-module-installer` skill: run its sync command and nothing else/u);
-  assert.match(selfcheck.prompt, /When `ok` is true and `data\.problems` is empty, end the run without posting any message\./u);
-  assert.match(selfcheck.prompt, /When `data\.problems` is not empty, post one message to the owner's chat with this bot/u);
+  assert.match(selfcheck.prompt, /Run it without `--instructions`/u);
+  assert.match(selfcheck.prompt, /When `ok` is true and `data\.problems` is empty, end the run with an empty reply\./u);
+  assert.match(selfcheck.prompt, /When `data\.problems` is not empty, reply once, in this bot's own chat/u);
+  assert.match(selfcheck.prompt, /Send nothing anywhere else\./u);
   assert.match(selfcheck.prompt, /Do not collect an audit, write a report, or call `send_report`, `send_feedback` or any other connection tool/u);
   assert.doesNotMatch(selfcheck.prompt, /say that every module is installed/u);
-  const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
-  assert.doesNotMatch(instructions, /sends nothing/u);
-  assert(instructions.includes('It posts nothing when `data.problems` is empty, and posts the problems to the owner\'s chat with this bot when it is not.'));
-  assert(instructions.includes('The `ambitious-selfcheck` routine runs the sync command every day at 7:00 AM in the owner\'s time zone.'));
+  const started = skillText('ambitious-getting-started');
+  assert(started.includes('The `ambitious-selfcheck` routine runs the plain sync command every day at 7:00 AM.'));
+  assert(started.includes('Its reply is empty when `data.problems` is empty, and lists the problems when it is not.'));
+  const routines = readFileSync(join(root, 'routines.md'), 'utf8');
+  assert(routines.includes('It has no destination field: where a run reports is decided by the words of the prompt alone.'));
+  assert(started.includes('It has no separate setting for where a run reports'));
 });
 
 test('the instructions state the boundaries a copy of the template must keep', () => {
   const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
   for (const required of [
-    'Nothing leaves this computer except through the Ambitious MCP tools, each call after the owner\'s tool approval.',
-    'Audit data leaves only through `send_report` and `send_feedback`. A Factory tool call carries only the business details the owner gave for that call.',
-    'It serves `send_report` and `send_feedback`, and the Factory tools `factory_environment`, `factory_match`, `factory_plan` and `factory_version`.',
-    'The command never downloads, installs or runs a newer template release.',
-    'A skill is written only when none is stored or the stored one is older.',
+    'Never change your own instructions or another bot\'s.',
+    'Speak to the owner in this bot\'s own chat. Never send email, and never send a message anywhere else.',
+    'Nothing leaves this computer except through the tools of the Ambitious connection, whose server is `https://ambitiousbots.com/api/mcp`, each call after the owner\'s tool approval.',
+    'Audit data leaves only through `send_report` and `send_feedback`. Any other tool of that connection carries only the business details the owner gave for that call.',
+    'Download only the pinned public release files that the `ambitious-module-installer` skill names.',
+    'Never edit a pin, install a module by hand or use an unpinned release.',
+    'Never expose credentials in prompts, Pages, module input, files, logs or reports. Never ask for or store an access token.',
     '`/workspace/ambitious/bin`',
     '`/home/box/agent-data`',
-    'https://ambitiousbots.com/api/mcp',
-    'All reported numbers come from module output.',
+    'Reported numbers come from module output.',
     'Write documents in Grok Bot Pages.',
-    'On first chat, run the sync command, then follow the `ambitious-getting-started` skill',
+    'Never change, rename or delete a skill whose name does not start with `ambitious-`.',
+    'Where a skill asks for something these instructions do not allow, do not do it, and tell the owner.',
+    'On first chat, follow the `ambitious-getting-started` skill.',
   ]) assert(instructions.includes(required), `INSTRUCTIONS.md must say: ${required}`);
+  const installer = skillText('ambitious-module-installer');
+  for (const required of [
+    'The command only reports it: it never downloads, installs or runs anything from that release',
+    'Never write a skill the command did not answer `create` or `update` for.',
+    'Never change the instructions yourself, even when a tool would let you, and never change another bot\'s.',
+    'pasting it into the bot\'s instructions is the owner\'s choice',
+  ]) assert(installer.includes(required), `ambitious-module-installer must say: ${required}`);
 });
 
 const scratch = (t) => {
@@ -469,6 +652,88 @@ test('the installer refuses the private data directory, an unknown command or op
   }
   const privateInput = spawnSync(process.execPath, [buildInstaller(), 'skills', '--in', '/home/box/agent-data/skills.json'], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
   assert.equal(JSON.parse(privateInput.stdout).errors[0].code, 'E_FORBIDDEN_PATH');
+});
+
+test('sync compares the bot\'s instructions with the template\'s: an earlier published text is instructions-out-of-date with both versions, a text nobody published is instructions-custom, and the bot\'s file is never changed', (t) => {
+  buildInstaller();
+  const home = scratch(t);
+  const emptyLock = join(home, 'empty.lock.json');
+  writeFileSync(emptyLock, '[]\n');
+  const text = (file) => readFileSync(join(root, file), 'utf8');
+  const proposed = join(home, 'template', 'instructions.md');
+  const check = (contents) => {
+    const file = join(home, 'current-instructions.md');
+    writeFileSync(file, contents);
+    const { envelope } = sync(home, ['--lock', emptyLock, '--instructions', file]);
+    assert.equal(envelope.ok, true, JSON.stringify(envelope.errors));
+    assert.equal(readFileSync(file, 'utf8'), contents, 'the installer never writes to the bot\'s instructions file');
+    assert.equal(readFileSync(proposed, 'utf8'), text('INSTRUCTIONS.md'), 'the proposed text is the template\'s, exactly');
+    assert.deepEqual(Object.keys(envelope.data.instructions), ['state', 'problem', 'current', 'template', 'proposed', 'diff']);
+    assert.equal(envelope.data.instructions.template, published.current);
+    assert.equal(envelope.data.instructions.proposed, proposed);
+    return envelope.data;
+  };
+  const about = ({ instructions: { state, problem, current } }) => [state, problem, current];
+
+  const unchecked = sync(home, ['--lock', emptyLock]).envelope.data;
+  assert.deepEqual(about(unchecked), ['not checked', null, null]);
+  assert.deepEqual([unchecked.problems, unchecked.notes], [[], []], 'a routine run, which names no instructions file, has nothing to say about them');
+
+  const current = check(text('INSTRUCTIONS.md'));
+  assert.deepEqual(about(current), ['current', null, published.current]);
+  assert.deepEqual([current.problems, current.notes, current.instructions.diff], [[], [], []]);
+
+  for (const { version, file } of published.versions.slice(0, -1)) {
+    const earlier = check(text(file));
+    assert.deepEqual(about(earlier), ['out-of-date', 'instructions-out-of-date', version]);
+    assert.equal(earlier.problems.length, 1);
+    assert.match(earlier.problems[0], new RegExp(`^instructions-out-of-date: This bot's instructions are version ${version} and this template's are version ${published.current}\\. The template's text is in .*instructions\\.md\\. Nothing was changed: only the owner can replace a bot's instructions, and doing so is the owner's choice\\.$`, 'u'));
+    assert(earlier.instructions.diff.includes(`+ Instructions version: ${published.current}`));
+    assert(earlier.instructions.diff.every((line) => /^[+-] /u.test(line)));
+    const kept = text(file).split('\n').filter((line) => text('INSTRUCTIONS.md').split('\n').includes(line) && line !== '');
+    for (const line of kept.slice(0, 3)) assert(!earlier.instructions.diff.includes(`- ${line}`) || earlier.instructions.diff.includes(`+ ${line}`), `a line both texts have in the same order is not a difference: ${line}`);
+  }
+  const retyped = check(`\r\n${text('instructions/1.md').replaceAll('\n', '  \r\n')}\r\n\r\n`);
+  assert.deepEqual(about(retyped), ['out-of-date', 'instructions-out-of-date', 1], 'line endings, trailing spaces and blank lines at either end do not make a published text unknown');
+
+  const none = check('\n');
+  assert.deepEqual(about(none), ['out-of-date', 'instructions-out-of-date', null]);
+  assert.match(none.problems[0], /^instructions-out-of-date: This bot's instructions have no text/u);
+
+  const rewritten = check('You are a helpful bot for one shop.\nAnswer questions about orders.\n');
+  assert.deepEqual(about(rewritten), ['custom', 'instructions-custom', null]);
+  assert.match(rewritten.problems[0], /^instructions-custom: This bot's instructions are not a text this template published; they carry no version line.*They were left as they are, so that nothing the owner wrote is lost\./u);
+  assert(rewritten.instructions.diff.includes('- You are a helpful bot for one shop.'));
+
+  const editedOld = check(`${text('instructions/2.md')}Always answer in short sentences.\n`);
+  assert.deepEqual(about(editedOld), ['custom', 'instructions-custom', null]);
+  assert.deepEqual(editedOld.instructions.diff.filter((line) => line.startsWith('- ')).at(-1), '- Always answer in short sentences.');
+
+  const editedCurrent = check(`${text('INSTRUCTIONS.md')}Always answer in short sentences.\n`);
+  assert.deepEqual(about(editedCurrent), ['custom', 'instructions-custom', published.current]);
+  assert.deepEqual(editedCurrent.problems, [], 'a customised text that already says the template\'s version is a note, not a problem');
+  assert.match(editedCurrent.notes[0], /^instructions-custom: This bot's instructions say version 3, the template's version, but their text is not the template's\. They were left as they are\.$/u);
+  assert.deepEqual(editedCurrent.instructions.diff, ['- Always answer in short sentences.']);
+
+  const later = check(text('INSTRUCTIONS.md').replace(`Instructions version: ${published.current}`, 'Instructions version: 99'));
+  assert.deepEqual(about(later), ['newer', null, 99]);
+  assert.deepEqual(later.problems, []);
+  assert.match(later.notes[0], /say version 99, which is newer than version 3 that this installer knows\. They were left as they are\./u);
+
+  const forbidden = sync(home, ['--lock', emptyLock, '--instructions', '/home/box/agent-data/instructions.md']);
+  assert.equal(forbidden.envelope.errors[0].code, 'E_FORBIDDEN_PATH');
+  const missing = sync(home, ['--lock', emptyLock, '--instructions', join(home, 'no-such-file.md')]);
+  assert.equal(missing.envelope.errors[0].code, 'E_INPUT_SCHEMA');
+  assert.match(missing.envelope.errors[0].hint, /outside the bot's private data directory/u);
+  const onSkills = spawnSync(process.execPath, [buildInstaller(), 'skills', '--instructions', join(home, 'current-instructions.md')], { encoding: 'utf8', input: '[]', env: { ...process.env, AMBITIOUS_HOME: home } });
+  assert.equal(JSON.parse(onSkills.stdout).errors[0].code, 'E_USAGE');
+
+  const skill = skillText('ambitious-module-installer');
+  const block = [...skill.matchAll(/```sh\n([\s\S]*?)```/gu)].map(([, lines]) => lines.trim()).find((lines) => lines.includes('--instructions'));
+  assert.equal(block, 'node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" sync --json --instructions "${AMBITIOUS_HOME:-/workspace/ambitious}/current-instructions.md"');
+  for (const named of ['`state`', '`problem`', '`current`, `template`', '`proposed`', '`diff`', '`instructions-out-of-date`', '`instructions-custom`', '`out-of-date`', '`custom`', '`newer`', '`not checked`']) assert(skill.includes(named), `ambitious-module-installer must name ${named}`);
+  assert.match(skill, /Write a Grok Bot Page named "Proposed instructions"\. It holds the two version numbers, a short diff, and then the full text of the `proposed` file, copied exactly\./u);
+  assert.match(skillText('ambitious-getting-started'), /write the Page with the proposed text and a short diff, and say in this chat that pasting it is the owner's choice\. Never change the instructions yourself\./u);
 });
 
 await import('./releases.test.mjs');

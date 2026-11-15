@@ -1,0 +1,160 @@
+{
+  "skills": {
+    "ambitious-audit-collector": {
+      "requires": [
+        "modules",
+        "account-read-tools",
+        "pages"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-audit-page": {
+      "requires": [
+        "modules",
+        "pages"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-capability-probe": {
+      "requires": [
+        "account-read-tools",
+        "pages",
+        "modules"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-compliance-for-bots": {
+      "requires": [
+        "modules",
+        "pages"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-contracts-for-bots": {
+      "requires": [
+        "modules"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-getting-started": {
+      "requires": [
+        "owner-chat",
+        "modules",
+        "pages",
+        "account-read-tools",
+        "routines",
+        "report-tool",
+        "feedback-tool"
+      ],
+      "optional": [
+        "factory-tools"
+      ],
+      "rulesOut": []
+    },
+    "ambitious-module-installer": {
+      "requires": [
+        "owner-chat",
+        "modules",
+        "pinned-downloads",
+        "pages"
+      ],
+      "optional": [
+        "shared-skills"
+      ],
+      "rulesOut": []
+    },
+    "ambitious-records-for-bots": {
+      "requires": [
+        "modules"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-send-feedback": {
+      "requires": [
+        "modules",
+        "feedback-tool"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-snapshot-routine": {
+      "requires": [
+        "modules",
+        "pages",
+        "report-tool"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-tasks-for-bots": {
+      "requires": [
+        "modules"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-tasks-page": {
+      "requires": [
+        "modules",
+        "pages"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "ambitious-video-for-bots": {
+      "requires": [
+        "modules",
+        "owner-chat"
+      ],
+      "optional": [
+        "provider-call"
+      ],
+      "rulesOut": [
+        "pages"
+      ]
+    }
+  },
+  "routines": {
+    "ambitious-selfcheck": {
+      "requires": [
+        "owner-chat",
+        "modules",
+        "pinned-downloads"
+      ],
+      "optional": [],
+      "rulesOut": [
+        "report-tool",
+        "feedback-tool"
+      ]
+    },
+    "ambitious-snapshot": {
+      "requires": [
+        "owner-chat",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "pages",
+        "report-tool",
+        "feedback-tool"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
+    "Routines from packs": {
+      "requires": [
+        "routines",
+        "pages"
+      ],
+      "optional": [
+        "factory-tools"
+      ],
+      "rulesOut": []
+    }
+  }
+}
