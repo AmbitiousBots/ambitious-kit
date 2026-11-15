@@ -1,0 +1,36 @@
+# Agent guide
+
+## Goal
+
+Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious Bot template, flat per-org monthly monitoring with human review, and open-source single-purpose CLI modules with no UI that the bot drives. This repo is the kit those modules are built from: the module contract, the lint and dependency rules, and the repo template. Everything here is copied into every module, so a change is good when it makes every module safer or simpler for the bot that drives it.
+
+## How to work
+
+- Work in small steps and prove each one: say what the change must do, make the smallest change that does it, then run the checks and show their output. Model choices per agent role are in `.cursor/rules/agent-models.mdc`. Claude Code analysis runs use `--model claude-fable-5-2`.
+- Trust in this order: types and API design, then lint and the dependency graph, then tests and verification, then prose.
+- When you are corrected, turn the correction into a lint rule with a fix-the-root-cause message or into an API change. Do not add it to this file.
+- When a check fails, fix the cause. Never weaken or skip a check to make it pass.
+
+## Data shape
+
+- The contract is `MODULE_CONTRACT.md`. The envelope every module prints is `schemas/envelope.v1.json`.
+- The lint bans are one table, `packages/lint/src/bans.ts`: what is banned, the fix message, and the directories where it is allowed.
+- The dependency rules are one list, `forbidden` in `packages/depcruise/src/config.ts`.
+- The repo template is the files under `repo-template/`, copied by `scripts/apply-template.mjs`.
+
+## Directory boundaries
+
+- `packages/lint/`: `@ambitious/lint`, the ESLint config and rules, plus the Python comment checker in `python/`.
+- `packages/depcruise/`: `@ambitious/depcruise`, the dependency-cruiser config.
+- `repo-template/`: the files every repo gets. `template/` is reserved for the bot template and is not this.
+- `src/`, `spec/`, `test/`, `verify/`: the same layout every module has.
+- `schemas/`, `examples/`: the machine-checked parts of the contract.
+
+## Judgment calls
+
+- Whether a rule belongs in the kit: only when every module needs it. A rule for one module lives in that module.
+- What a rule's message says: where the code should move, not only what is wrong. Someone reading it should be able to fix the cause without opening this repo.
+- How to prove a rule: a fixture that fails with the message and clean code that passes. A rule with no failing fixture is not done.
+- How strict to be when a module's own documentation and `MODULE_CONTRACT.md` differ: follow the stricter one and say so in the PR under `## Decisions`.
+- How much to build: the smallest change that meets the goal. Delete before you add. Every line here is copied many times.
+- Wording: keep code and docs generic for every kind of organization. No person, bot or customer names, no industry terms, and no compliance or security claim beyond what the code enforces.
