@@ -5,15 +5,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 import { Failure } from "../src/domain/failure.ts";
-import { classifyInstructions, instructionsMessage, instructionsVersionOf, lineDiff, needsOwner, normalizeInstructions, parseInstructionsCatalogue, type InstructionsCatalogue } from "../src/domain/instructions.ts";
+import { identifyConnection, MONITORING_IDENTITY, MONITORING_TOOLS, parseConnectorOffers } from "../src/domain/connection.ts";
+import { ADDITIONAL_PERMISSIONS, classifyInstructions, instructionsMessage, instructionsVersionOf, lineDiff, needsOwner, parseInstructionsCatalogue, permissionChange, type InstructionsCatalogue } from "../src/domain/instructions.ts";
 import { isNewerVersion, parseLock, type LockRow } from "../src/domain/lock.ts";
 import type { Download } from "../src/install/install.ts";
+import { classifyRoutine, parseTemplateRoutines, routineMessage, type BotRoutine, type TemplateRoutine } from "../src/domain/routines.ts";
 import { decideSkillWrite, parseSkillOffers, templateVersionOf } from "../src/domain/skill-version.ts";
-import { checkInstructions, proposedInstructionsPath, sha256OfInstructions } from "../src/install/instructions.ts";
+import { foldWhitespace } from "../src/domain/whitespace.ts";
+import { checkInstructions, proposedInstructionsPath } from "../src/install/instructions.ts";
 import { templateNote, templateStatus } from "../src/install/newer-template.ts";
 import { latestInstallerVersion, releaseDownload, type Fetchers } from "../src/install/release.ts";
+import { checkRoutines } from "../src/install/routines.ts";
 import { summaryOf, sync, type ModuleReport, type SyncRequest } from "../src/install/sync.ts";
 import { fixturesDirectory, parseTemplateFiles, placeTemplateFiles, templateDirectory } from "../src/install/template-files.ts";
+import { fingerprintOf } from "../src/install/text-file.ts";
 
 const sha256 = (text: string): string => createHash("sha256").update(text).digest("hex");
 
@@ -350,47 +355,149 @@ test("a shared skill is written only when none is stored or the stored one is ol
 
 const instructionsOf = (version: number, body: string): string => `Instructions version: ${version}\n\n# Role\n\n${body}\n`;
 
-const catalogueOf = (earlier: readonly string[]): InstructionsCatalogue => {
+const GRANTS = { chat: "Speak to the owner.", report: "Send a report after approval.", extra: "Call the extra tool.", files: "Read private reference files." };
+
+const catalogueOf = (earlier: readonly string[], grantLists: readonly (readonly string[])[] = []): InstructionsCatalogue => {
   const text = instructionsOf(earlier.length + 1, "Help the owner.");
+  const oldest = grantLists[0] ?? ["chat"];
   return parseInstructionsCatalogue({
     version: earlier.length + 1,
+    oldestSupported: 1,
     text,
-    known: [...earlier.map((old, index) => ({ version: index + 1, sha256: sha256(old) })), { version: earlier.length + 1, sha256: sha256(text) }],
+    known: [...earlier, text].map((published, index) => ({ version: index + 1, ...fingerprintOf(published) })),
+    grants: GRANTS,
+    versions: [...earlier, text].map((_, index) => {
+      const grants = grantLists[index] ?? oldest;
+      return { version: index + 1, grants, reasons: Object.fromEntries(grants.filter((grant) => !oldest.includes(grant)).map((grant) => [grant, `Why ${grant} was added.`])) };
+    }),
   });
 };
+
+const classifierFor = (catalogue: InstructionsCatalogue) => (text: string): ReturnType<typeof classifyInstructions> => classifyInstructions(foldWhitespace(text), fingerprintOf(text), catalogue);
 
 test("instructions are told apart by what was published: the template's text is current, an earlier published text is out of date, anything else is custom, and a higher version is newer", () => {
   const first = "# Role\n\nHelp the owner, the first way.\n";
   const second = instructionsOf(2, "Help the owner, the second way.");
   const catalogue = catalogueOf([first, second]);
-  const classify = (text: string): ReturnType<typeof classifyInstructions> => {
-    const normalized = normalizeInstructions(text);
-    return classifyInstructions(normalized, sha256OfInstructions(normalized), catalogue);
-  };
-  assert.deepEqual(classify(catalogue.text), { state: "current", problem: null, current: 3, template: 3 });
-  assert.deepEqual(classify(first), { state: "out-of-date", problem: "instructions-out-of-date", current: 1, template: 3 });
-  assert.deepEqual(classify(second), { state: "out-of-date", problem: "instructions-out-of-date", current: 2, template: 3 });
-  assert.deepEqual(classify(`\r\n${first.replaceAll("\n", " \t\r\n")}\n\n`), classify(first), "line endings, trailing spaces and blank lines at either end are not a difference");
-  assert.deepEqual(classify("   \n\n"), { state: "out-of-date", problem: "instructions-out-of-date", current: null, template: 3 });
-  assert.deepEqual(classify("Do whatever the owner says.\n"), { state: "custom", problem: "instructions-custom", current: null, template: 3 });
-  assert.deepEqual(classify(`${second}One more rule.\n`), { state: "custom", problem: "instructions-custom", current: 2, template: 3 });
-  assert.deepEqual(classify(`${catalogue.text}One more rule.\n`), { state: "custom", problem: "instructions-custom", current: 3, template: 3 });
-  assert.deepEqual(classify(instructionsOf(4, "From a later template.")), { state: "newer", problem: null, current: 4, template: 3 });
-  assert.deepEqual(classify(first.replace("first", "First")), { state: "custom", problem: "instructions-custom", current: null, template: 3 }, "one changed letter in a published text makes it custom");
+  const classify = classifierFor(catalogue);
+  assert.deepEqual(classify(catalogue.text), { state: "current", problem: null, current: 3, template: 3, match: "exact" });
+  assert.deepEqual(classify(first), { state: "out-of-date", problem: "instructions-out-of-date", current: 1, template: 3, match: "exact" });
+  assert.deepEqual(classify(second), { state: "out-of-date", problem: "instructions-out-of-date", current: 2, template: 3, match: "exact" });
+  assert.deepEqual(classify("   \n\n"), { state: "out-of-date", problem: "instructions-out-of-date", current: null, template: 3, match: null });
+  assert.deepEqual(classify("Do whatever the owner says.\n"), { state: "custom", problem: "instructions-custom", current: null, template: 3, match: null });
+  assert.deepEqual(classify(`${second}One more rule.\n`), { state: "custom", problem: "instructions-custom", current: 2, template: 3, match: null });
+  assert.deepEqual(classify(`${catalogue.text}One more rule.\n`), { state: "custom", problem: "instructions-custom", current: 3, template: 3, match: null });
+  assert.deepEqual(classify(instructionsOf(4, "From a later template.")), { state: "newer", problem: null, current: 4, template: 3, match: null });
+  assert.deepEqual(classify(first.replace("first", "First")), { state: "custom", problem: "instructions-custom", current: null, template: 3, match: null }, "one changed letter in a published text makes it custom");
 
   assert.equal(instructionsVersionOf("Instructions version: 12\nmore\n"), 12);
   for (const unversioned of ["# Role\nInstructions version: 2\n", "Instructions version: 0\n", "Instructions version: 2.1\n", "instructions version: 2\n", ""]) assert.equal(instructionsVersionOf(unversioned), null, unversioned);
 
   assert.deepEqual([classify(first), classify("x\n"), classify(`${second}x\n`)].map(needsOwner), [true, true, true]);
   assert.deepEqual([classify(catalogue.text), classify(`${catalogue.text}x\n`), classify(instructionsOf(4, "x"))].map(needsOwner), [false, false, false]);
-  assert.match(instructionsMessage(classify(first), "template/instructions.md") ?? "", /^instructions-out-of-date: This bot's instructions are version 1 and this template's are version 3\. The template's text is in template\/instructions\.md\. Nothing was changed/);
-  assert.match(instructionsMessage(classify("x\n"), "/p") ?? "", /^instructions-custom: .*carry no version line, and this template's are version 3.*left as they are/);
-  assert.match(instructionsMessage(classify(`${second}x\n`), "/p") ?? "", /^instructions-custom: .*they say version 2/);
-  assert.equal(instructionsMessage(classify(catalogue.text), "/p"), null);
+  assert.match(instructionsMessage(classify(first), "template/instructions.md", null) ?? "", /^instructions-out-of-date: This bot's instructions are version 1 and this template's are version 3\. The template's text is in template\/instructions\.md\. Nothing was changed/);
+  assert.match(instructionsMessage(classify("x\n"), "/p", null) ?? "", /^instructions-custom: .*carry no version line, and this template's are version 3.*left as they are/);
+  assert.match(instructionsMessage(classify(`${second}x\n`), "/p", null) ?? "", /^instructions-custom: .*they say version 2/);
+  assert.equal(instructionsMessage(classify(catalogue.text), "/p", null), null);
 
-  for (const bad of [null, { version: 0, text: "x\n", known: [] }, { version: 2, text: instructionsOf(3, "x"), known: [] }, { version: 1, text: `${instructionsOf(1, "x")}\n`, known: [] }, { version: 1, text: instructionsOf(1, "x"), known: [{ version: 2, sha256: "0".repeat(64) }] }, { version: 1, text: instructionsOf(1, "x"), known: [{ version: 1, sha256: "short" }] }]) {
+  const valid = { version: 1, oldestSupported: 1, text: instructionsOf(1, "x"), known: [], grants: GRANTS, versions: [{ version: 1, grants: ["chat"], reasons: {} }] };
+  assert.equal(parseInstructionsCatalogue(valid).version, 1);
+  const hash = "0".repeat(64);
+  for (const bad of [
+    null,
+    { ...valid, version: 0 },
+    { ...valid, version: 2, text: instructionsOf(3, "x") },
+    { ...valid, text: `${instructionsOf(1, "x")}\n` },
+    { ...valid, oldestSupported: 2 },
+    { ...valid, known: [{ version: 2, sha256: hash, whitespaceSha256: hash }] },
+    { ...valid, known: [{ version: 1, sha256: "short", whitespaceSha256: hash }] },
+    { ...valid, known: [{ version: 1, sha256: hash }] },
+    { ...valid, grants: { chat: "" } },
+    { ...valid, versions: [] },
+    { ...valid, versions: [{ version: 1, grants: ["undescribed"], reasons: {} }] },
+    { ...valid, versions: [{ version: 1, grants: ["chat"] }] },
+  ]) {
     assert.throws(() => parseInstructionsCatalogue(bad), /embedded instructions catalogue/, JSON.stringify(bad));
   }
+});
+
+test("a published text that differs only in whitespace is recognised and reported as a whitespace match; any other difference makes it custom", () => {
+  const first = "# Role\n\nHelp the owner,  the first way.\nNever send email.\n";
+  const catalogue = catalogueOf([first]);
+  const classify = classifierFor(catalogue);
+  const published = { state: "out-of-date", problem: "instructions-out-of-date", current: 1, template: 2 };
+  assert.deepEqual(classify(first), { ...published, match: "exact" });
+  const copies = {
+    "Windows line endings": first.replaceAll("\n", "\r\n"),
+    "old Mac line endings": first.replaceAll("\n", "\r"),
+    "trailing spaces and tabs": first.replaceAll("\n", " \t\n"),
+    "no final newline": first.trimEnd(),
+    "blank lines at both ends": `\n\n${first}\n\n`,
+    "a run of blank lines": first.replace("\n\n", "\n\n\n\n"),
+    "a blank line dropped": first.replace("\n\n", "\n"),
+    "non-breaking spaces": first.replaceAll(" ", "\u00a0"),
+    "narrow non-breaking spaces": first.replace("Help the", "Help\u202fthe"),
+    "tabs for spaces": first.replaceAll(" ", "\t"),
+    "one space for two": first.replace(",  the", ", the"),
+    "indented lines": first.replaceAll("\n", "\n  "),
+    "a byte order mark": `\ufeff${first}`,
+  };
+  for (const [what, copy] of Object.entries(copies)) {
+    assert.notEqual(copy, first, what);
+    assert.deepEqual(classify(copy), { ...published, match: "whitespace" }, what);
+  }
+  assert.deepEqual(classify(catalogue.text.replaceAll("\n", "\r\n")), { state: "current", problem: null, current: 2, template: 2, match: "whitespace" });
+  const changed = {
+    "a changed letter": first.replace("first", "First"),
+    "a dropped word": first.replace("Never send", "Send"),
+    "an added line": `${first}One more rule.\n`,
+    "two lines joined": first.replace("way.\nNever", "way. Never"),
+    "a line split in two": first.replace("the first", "the\nfirst"),
+    "a space inside a word": first.replace("owner", "own er"),
+    "a missing space between words": first.replace("the owner", "theowner"),
+    "changed punctuation": first.replace("email.", "email!"),
+  };
+  for (const [what, copy] of Object.entries(changed)) assert.deepEqual(classify(copy), { state: "custom", problem: "instructions-custom", current: null, template: 2, match: null }, what);
+
+  assert.equal(foldWhitespace(" a \t b\u00a0\u00a0c \r\n\r\n\r\n d\u3000e\n"), "a b c\nd e");
+  assert.equal(foldWhitespace(" \n\t\n"), "");
+});
+
+test("what pasting the template's text would change is said in plain words: additional permissions, permissions taken away, or the same", () => {
+  const [first, second] = ["# Role\n\nFirst.\n", instructionsOf(2, "Second.")];
+  const adding = catalogueOf([first], [["chat", "report"], ["chat", "report", "extra"]]);
+  const more = permissionChange(classifierFor(adding)(first), adding);
+  assert.deepEqual(more, {
+    comparedWith: "the bot's present text",
+    comparison: "more",
+    added: [{ grant: "extra", permission: "Call the extra tool.", reason: "Why extra was added." }],
+    removed: [],
+    statement: "Pasting this text gives the bot these additional permissions: (1) Call the extra tool.",
+  });
+  assert(more?.statement.startsWith(ADDITIONAL_PERMISSIONS));
+  assert.match(instructionsMessage(classifierFor(adding)(first), "/p", more) ?? "", /the owner's choice\. Pasting this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
+
+  const narrowing = catalogueOf([first, second], [["chat", "report"], ["chat", "report", "extra", "files"], ["chat", "report"]]);
+  const fewer = permissionChange(classifierFor(narrowing)(second), narrowing);
+  assert.equal(fewer?.comparison, "fewer");
+  assert.deepEqual(fewer?.removed.map(({ grant }) => grant), ["extra", "files"]);
+  assert.equal(fewer?.statement, "Pasting this text gives the bot no additional permissions. It takes away these permissions: (1) Call the extra tool. (2) Read private reference files.");
+  const same = permissionChange(classifierFor(narrowing)(first), narrowing);
+  assert.deepEqual([same?.comparison, same?.added, same?.removed], ["same", [], []]);
+  assert.equal(same?.statement, "Pasting this text gives the bot no additional permissions and takes none away: it allows the same things as the bot's present text.");
+  assert.equal(permissionChange(classifierFor(narrowing)(narrowing.text), narrowing)?.comparison, "same");
+
+  const both = catalogueOf([first], [["chat"], ["chat", "extra"]]);
+  const swapped = { ...both, versions: [{ version: 1, grants: ["chat", "files"], reasons: {} }, { version: 2, grants: ["chat", "extra"], reasons: { extra: "Why." } }] };
+  const mixed = permissionChange(classifierFor(swapped)(first), swapped);
+  assert.equal(mixed?.comparison, "more and fewer");
+  assert.equal(mixed?.statement, "Pasting this text gives the bot these additional permissions: (1) Call the extra tool. It takes away these permissions: (1) Read private reference files.");
+
+  const unknown = permissionChange(classifierFor(adding)("Written by hand.\n"), adding);
+  assert.equal(unknown?.comparedWith, "the oldest supported text");
+  assert.match(unknown?.statement ?? "", /^This bot's present instructions are not a text this template published, so what they allow cannot be compared; the comparison is with the oldest instructions text still supported\. Pasting this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
+  assert.equal(permissionChange(classifierFor(adding)(""), adding)?.comparedWith, "the oldest supported text");
+  assert.equal(permissionChange(classifierFor(adding)(instructionsOf(9, "Later.")), adding), null, "a text newer than this installer knows is not compared");
 });
 
 const longestShared = (before: readonly string[], after: readonly string[]): number => {
@@ -442,12 +549,16 @@ test("the instructions file is read but never written, is refused under the priv
   const file = join(home, "current-instructions.md");
   writeFileSync(file, earlier);
   const report = checkInstructions(file, home, catalogue);
-  assert.deepEqual([report.state, report.problem, report.current, report.template], ["out-of-date", "instructions-out-of-date", 1, 2]);
+  assert.deepEqual([report.state, report.problem, report.current, report.template, report.match], ["out-of-date", "instructions-out-of-date", 1, 2, "exact"]);
   assert.equal(report.proposed, proposedInstructionsPath(home));
   assert.equal(report.proposed, join(home, "template", "instructions.md"));
-  assert.deepEqual(report.diff, ["+ Instructions version: 2", "+ ", "- Help the owner, the first way.", "+ Help the owner."]);
+  assert.deepEqual(report.diff, ["+ Instructions version: 2", "- Help the owner, the first way.", "+ Help the owner."]);
+  assert.equal(report.permissions?.comparison, "same");
   assert.equal(readFileSync(file, "utf8"), earlier);
-  assert.deepEqual(checkInstructions(null, home, catalogue), { state: "not checked", problem: null, current: null, template: 2, proposed: report.proposed, diff: [] });
+  writeFileSync(file, earlier.replaceAll("\n", "  \r\n\r\n"));
+  const copied = checkInstructions(file, home, catalogue);
+  assert.deepEqual([copied.state, copied.current, copied.match, copied.diff], ["out-of-date", 1, "whitespace", report.diff], "a whitespace-only copy gives the same answer and the same diff");
+  assert.deepEqual(checkInstructions(null, home, catalogue), { state: "not checked", problem: null, current: null, template: 2, match: null, proposed: report.proposed, diff: [], permissions: null });
   const refused = (path: string, code: string): void => {
     assert.throws(() => checkInstructions(path, home, catalogue), (error: unknown) => error instanceof Failure && error.errors[0].code === code, path);
   };
@@ -456,4 +567,116 @@ test("the instructions file is read but never written, is refused under the priv
   refused(home, "E_INPUT_SCHEMA");
   writeFileSync(join(home, "huge.md"), "x".repeat(300 * 1024));
   refused(join(home, "huge.md"), "E_INPUT_SCHEMA");
+});
+
+const templateRoutine = (name: string, prompt: string, earlier: readonly (readonly [string, string])[] = [], paused = false): TemplateRoutine =>
+  parseTemplateRoutines([
+    { name, schedule: "every day at 7:00 AM", paused, prompt, ...fingerprintOf(prompt), earlier: earlier.map(([template, text]) => ({ template, whitespaceSha256: fingerprintOf(text).whitespaceSha256 })) },
+  ])[0] ?? assert.fail("one routine was given");
+
+const mine = (name: string, prompt: string, schedule = "every day at 7:00 AM"): BotRoutine => ({ name, schedule, ...fingerprintOf(prompt) });
+
+test("a routine is compared with the template's by its prompt: the same prompt is current, an earlier template's prompt is out of date, any other is custom, and no routine of that name is missing", () => {
+  const [now, before] = ["Run the sync command.\nReply only about problems.", "Run the sync command.\nSay that all is well."];
+  const routine = templateRoutine("ambitious-selfcheck", now, [["0.2.1", before]]);
+  const about = (bot: readonly BotRoutine[]): readonly unknown[] => {
+    const { state, problem, match, publishedIn } = classifyRoutine(routine, bot);
+    return [state, problem, match, publishedIn];
+  };
+  assert.deepEqual(about([mine("ambitious-selfcheck", now)]), ["current", null, "exact", null]);
+  assert.deepEqual(about([mine("ambitious-selfcheck", `\r\n${now.replaceAll("\n", " \r\n\r\n").replaceAll(" ", "\u00a0")}\n`)]), ["current", null, "whitespace", null]);
+  assert.deepEqual(about([mine("ambitious-selfcheck", before)]), ["out-of-date", "routine-prompt-out-of-date", "whitespace", "0.2.1"]);
+  assert.deepEqual(about([mine("ambitious-selfcheck", before.replaceAll(" ", "\t"))]), ["out-of-date", "routine-prompt-out-of-date", "whitespace", "0.2.1"]);
+  assert.deepEqual(about([mine("ambitious-selfcheck", now.replace("only", "never"))]), ["custom", "routine-custom", null, null]);
+  assert.deepEqual(about([mine("some-other-routine", now)]), ["missing", "routine-missing", null, null]);
+  assert.deepEqual(about([]), ["missing", "routine-missing", null, null]);
+  assert.deepEqual(about([mine("ambitious-selfcheck", "Written by hand."), mine("ambitious-selfcheck", now)]), ["current", null, "exact", null], "of two routines with the template's name, the one that runs the template's prompt counts");
+
+  const moved = classifyRoutine(routine, [mine("ambitious-selfcheck", now, "every day at 6:30 AM")]);
+  assert.deepEqual([moved.state, moved.schedule], ["current", { current: "every day at 6:30 AM", template: "every day at 7:00 AM" }], "a time the owner changed is reported and is not a problem");
+  const absent = classifyRoutine(templateRoutine("ambitious-snapshot", now, [], true), []);
+  assert.deepEqual([absent.starts, absent.schedule.current, absent.prompt], ["paused", null, now], "the proposal carries the template's prompt and how the routine starts");
+
+  assert.equal(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", now)]), "/p"), null);
+  assert.match(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", before)]), "/p") ?? "", /^routine-prompt-out-of-date: The routine ambitious-selfcheck runs the prompt that template 0\.2\.1 published.*This template's prompt is in \/p\. Nothing was changed: a routine's prompt is replaced only when the owner asks for it\.$/);
+  assert.match(routineMessage(classifyRoutine(routine, []), "/p") ?? "", /^routine-missing: This bot has no routine named ambitious-selfcheck\..*starts active\..*Nothing was created/);
+  assert.match(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", "x")]), "/p") ?? "", /^routine-custom: The routine ambitious-selfcheck runs a prompt that no template published.*left as it is/);
+
+  for (const bad of [{}, [{ name: "not-a-template-routine", schedule: "", paused: false, prompt: "x", ...fingerprintOf("x"), earlier: [] }], [{ name: "ambitious-a", schedule: "", paused: false, prompt: "", ...fingerprintOf(""), earlier: [] }], [{ name: "ambitious-a", schedule: "", paused: false, prompt: "x", earlier: [] }], [{ name: "ambitious-a", schedule: "", paused: false, prompt: "x", ...fingerprintOf("x"), earlier: [{ template: "0.1.0" }] }]]) {
+    assert.throws(() => parseTemplateRoutines(bad), /embedded template routines/, JSON.stringify(bad));
+  }
+});
+
+test("the routines file is read but never written, is refused under the private data directory, and no file means no check", (t) => {
+  const home = scratch(t);
+  const [now, before] = ["Run the sync command.", "Run the old command."];
+  const template = [templateRoutine("ambitious-selfcheck", now, [["0.2.1", before]]), templateRoutine("ambitious-snapshot", "Collect a snapshot.", [], true)];
+  const file = join(home, "current-routines.json");
+  const written = JSON.stringify([{ name: "ambitious-selfcheck", schedule: "every day at 7:00 AM", prompt: `${before}\r\n`, paused: false }, { name: "weekly-digest", schedule: "every Monday", prompt: "Summarise the week." }]);
+  writeFileSync(file, written);
+  const report = checkRoutines(file, home, template);
+  assert.equal(report.state, "checked");
+  assert.deepEqual(report.routines.map(({ name, state, proposed }) => [name, state, proposed]), [
+    ["ambitious-selfcheck", "out-of-date", join(home, "template", "routines", "ambitious-selfcheck.md")],
+    ["ambitious-snapshot", "missing", join(home, "template", "routines", "ambitious-snapshot.md")],
+  ], "one entry for each template routine; a routine the template does not have is not looked at");
+  assert.deepEqual(report.messages.map((message) => message.split(":")[0]), ["routine-prompt-out-of-date", "routine-missing"]);
+  assert.equal(readFileSync(file, "utf8"), written);
+  assert.deepEqual(checkRoutines(null, home, template), { state: "not checked", routines: [], messages: [] });
+
+  const refused = (contents: string | null, path: string, names: RegExp): void => {
+    if (contents !== null) writeFileSync(path, contents);
+    assert.throws(() => checkRoutines(path, home, template), (error: unknown) => error instanceof Failure && names.test(`${error.errors[0].code} ${error.errors[0].message}`), path);
+  };
+  refused(null, "/home/box/agent-data/routines.json", /^E_FORBIDDEN_PATH/);
+  refused(null, join(home, "missing.json"), /^E_INPUT_SCHEMA .*could not be read/);
+  refused("not json", file, /^E_INPUT_SCHEMA .*could not be read as JSON/);
+  refused("{}", file, /^E_INPUT_SCHEMA .*must hold a list/);
+  refused('[{"name":"ambitious-selfcheck","schedule":"x"}]', file, /^E_INPUT_SCHEMA routines\[0\]\.prompt must be text/);
+  refused('[{"schedule":"x","prompt":"y"}]', file, /^E_INPUT_SCHEMA routines\[0\]\.name must be text/);
+  refused("[7]", file, /^E_INPUT_SCHEMA routines\[0\] must be an object/);
+});
+
+test("the monitoring connection is found by its three tool names and confirmed by its identity; a name is never evidence, and a connector that fails is a different connector", () => {
+  const tools = ["factory_plan", "send_feedback", "send_report", "server_info"];
+  const find = (connector: { readonly name: string; readonly tools: unknown; readonly serverInfo: unknown }): readonly unknown[] => {
+    const { kind, identity } = identifyConnection(parseConnectorOffers([connector])).connectors[0] ?? assert.fail("one connector was given");
+    return [kind, identity];
+  };
+  assert.deepEqual(find({ name: "Anything", tools, serverInfo: null }), ["monitoring", "not confirmed"]);
+  assert.deepEqual(find({ name: "Anything", tools, serverInfo: { identity: MONITORING_IDENTITY, service: "ambitious-monitoring" } }), ["monitoring", "confirmed"]);
+  assert.deepEqual(find({ name: "Anything", tools: tools.map((tool) => `mcp__anything__${tool}`), serverInfo: null }), ["monitoring", "not confirmed"], "a platform prefix before a tool name is set aside");
+  assert.deepEqual(find({ name: "Ambitious", tools: ["search", "resend_report", "send_feedback", "server_info"], serverInfo: null }), ["different", null], "a name is not evidence, and a tool that only ends like one of the three does not count");
+  for (const absent of MONITORING_TOOLS) assert.deepEqual(find({ name: "Ambitious", tools: tools.filter((tool) => tool !== absent), serverInfo: null }), ["different", null], `without ${absent}`);
+  assert.deepEqual(find({ name: "Ambitious", tools, serverInfo: { identity: "example.com/mcp/v1" } }), ["different", "mismatch"]);
+  assert.deepEqual(find({ name: "Ambitious", tools, serverInfo: { identity: `${MONITORING_IDENTITY} ` } }), ["different", "mismatch"], "the identity must be exactly the service's");
+  assert.deepEqual(find({ name: "Ambitious", tools, serverInfo: {} }), ["different", "mismatch"]);
+  assert.deepEqual(find({ name: "Ambitious", tools: ["search"], serverInfo: { identity: MONITORING_IDENTITY } }), ["different", null], "an identity cannot make up for missing tools");
+  assert.deepEqual(find({ name: "Ambitious", tools: null, serverInfo: null }), ["unidentified", null]);
+  assert.equal(MONITORING_IDENTITY, "ambitiousbots.com/mcp/v1");
+  assert.deepEqual([...MONITORING_TOOLS], ["server_info", "send_report", "send_feedback"]);
+
+  const one = identifyConnection(parseConnectorOffers([{ name: "Reports", tools, serverInfo: null }, { name: "Ambitious", tools: ["search"], serverInfo: null }]));
+  assert.deepEqual([one.monitoring, one.identity], ["Reports", "not confirmed"]);
+  assert.equal(one.tellOwner.length, 1);
+  assert.match(one.tellOwner[0] ?? "", /"Reports" has the tools `server_info`, `send_report`, `send_feedback`.*Its identity was not confirmed, because `server_info` was not called\./);
+  const two = identifyConnection(parseConnectorOffers([{ name: "A", tools, serverInfo: null }, { name: "B", tools, serverInfo: null }]));
+  assert.deepEqual([two.monitoring, two.identity], [null, null]);
+  assert.match(two.tellOwner[0] ?? "", /More than one connector looks like the monitoring connection: "A", "B"\. None was chosen/);
+  const none = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools: ["search"], serverInfo: null }]));
+  assert.deepEqual([none.monitoring, none.tellOwner], [null, ["This bot has no monitoring connection. The owner adds it through the platform's connection flow."]]);
+  const hidden = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools: null, serverInfo: null }]));
+  assert.match(hidden.tellOwner.join(" "), /could not be identified.*Its name is not evidence\./);
+  const impostor = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools, serverInfo: { identity: "other" } }]));
+  assert.match(impostor.tellOwner.join(" "), /is a different connector: it has the tool names of the monitoring connection, but its `server_info` tool answered with the identity "other".*send it nothing/);
+
+  const refused = (value: unknown, names: RegExp): void => {
+    assert.throws(() => parseConnectorOffers(value), (error: unknown) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA" && names.test(error.errors[0].message), JSON.stringify(value));
+  };
+  refused({}, /must be a list/);
+  refused([{ tools, serverInfo: null }], /connectors\[0\]\.name/);
+  refused([{ name: "A", tools: "server_info", serverInfo: null }], /connectors\[0\]\.tools/);
+  refused([{ name: "A", serverInfo: null }], /connectors\[0\]\.tools/);
+  refused([{ name: "A", tools, serverInfo: "ambitiousbots.com/mcp/v1" }], /connectors\[0\]\.serverInfo/);
+  refused([{ name: "A", tools }], /connectors\[0\]\.serverInfo/);
 });

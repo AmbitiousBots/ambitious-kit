@@ -3,7 +3,7 @@ name: ambitious-capability-probe
 description: For the Ambitious Bot only. Inspect observed account access and produce an honest visibility array for an audit. Use before the Ambitious Bot collects an audit or a snapshot, and after an account, role, connector or computer change.
 ---
 
-Template version: 0.2.5
+Template version: 0.2.6
 
 # Capability probe
 
@@ -41,7 +41,7 @@ Do not use a successful read of one resource as proof of access to other resourc
 | Usage by routine | Reported usage attributed to routines for the same scope and period. Bot totals alone do not establish this. |
 | Pages | Readable Page inventory and content, with any sharing or pagination limits. |
 | Memory | Memory exposed through supported tools, with the scope and limits of what was actually returned. |
-| Connectors | Returned connector inventory, with each connector's name, server address and status. Configuration alone does not prove that connector content is readable. |
+| Connectors | Returned connector inventory, with each connector's name, tool names and status. Configuration alone does not prove that connector content is readable. |
 | Audit log | Readable account event history for the requested scope and period, not an ordinary chat transcript. |
 
 Keep this inventory in the audit's Grok Bot Page. Pass observed source values to the collector without estimating missing counts or calculating totals. A value no tool returned is passed as `null`, never as zero.
@@ -50,10 +50,23 @@ Keep tool identifiers and short evidence references so the collector can trace c
 
 ## The monitoring connection
 
-The monitoring connection is the connector whose server address is exactly `https://ambitiousbots.com/api/mcp`. Identify it by that address, never by its display name.
-Record it in the Page inventory as present and signed in, present and needing a sign-in, or absent.
-A connector named Ambitious, or anything like it, with another address is a different connector: record it as "a different connector" with its name and address, and leave it alone. It says nothing about monitoring.
-When the connector list does not show addresses, record that the monitoring connection could not be identified, and do not go by the name.
+Identify the monitoring connection by the tools the connector offers, never by its display name. The connector list may show no server address, so do not wait for one and do not guess one.
+
+1. Tool names. The monitoring connection is a connector whose tool list includes all three of `server_info`, `send_report` and `send_feedback`. Write every connector's name and tool names, as the connector list shows them, to `connectors.json` under `AMBITIOUS_HOME`, never under `/home/box/agent-data`, as a list of `{ "name", "tools", "serverInfo" }`: `tools` is `null` when the list shows no tools for a connector, and `serverInfo` is `null` until step 2. The probe only reads these names; it does not call `send_report` or `send_feedback`. Then ask the installer:
+
+```sh
+node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" connection --json --in "${AMBITIOUS_HOME:-/workspace/ambitious}/connectors.json"
+```
+
+2. Identity. Call `server_info`, which takes no arguments, only when this bot's instructions allow calling `server_info`, on a connector that passed step 1, with whatever tool approval the platform asks of the owner. Put the object it returned in `serverInfo` and run the command again. The `identity` must be exactly `ambitiousbots.com/mcp/v1`.
+
+Instructions that let nothing leave this computer except through `send_report` and `send_feedback` do not allow step 2: the call carries no data, but it is a call to the service through a third tool. Under them, go by the tool names alone and record that the identity was not confirmed.
+
+Read `data.connectors[]`: `kind` is `monitoring`, `different` or `unidentified`, and `identity` is `confirmed`, `not confirmed`, `mismatch` or `null`. `data.monitoring` names the one monitoring connection, or is `null` when there is none or more than one.
+Record it in the Page inventory as present and signed in, present and needing a sign-in, or absent, and whether its identity was confirmed or not confirmed.
+A connector that fails both checks is "a different connector", even when it is named Ambitious or anything like it: record it as "a different connector" with its name, and leave it alone. It says nothing about monitoring.
+When a connector is `unidentified`, record that the monitoring connection could not be identified because the connector list shows no tools, and do not go by the name.
+A confirmed identity means the server answered with the service's identity string; it does not prove who runs that server. The `ambitious-getting-started` skill has the same steps with a table of every answer, and the installer writes worked examples to `template/fixtures/ambitious-connection` under `AMBITIOUS_HOME`.
 
 ## Write the audit visibility array
 
@@ -68,7 +81,7 @@ The installed audit module names the signals it expects: run `ambitious-audit sc
 | `otherBots` | A completed bot inventory beyond the current bot was returned for the requested scope. An authoritative empty inventory can establish visibility; a missing response cannot. |
 | `auditLog` | Audit event history was actually observed across the requested scope and period. |
 | `accountRole` | An account tool reported the role, or the account holder stated it. |
-| `tasks` | The open, stale and blocked task counts were read from the output of `ambitious-tasks counts`. |
+| `tasks` | The open, stale and blocked task counts were read from the output of `ambitious-tasks counts`, and its `exists` was `true`. A list that does not exist was not seen. |
 | `pages` | The Page count and the count of Pages updated in the last 7 days were both returned. |
 | `botActivity` | A last-active time, or that the bot has never been active, was shown for every listed bot. |
 | `routines` | A routine count was shown for every listed bot, and a last run, or that it has never run, for every listed routine. |

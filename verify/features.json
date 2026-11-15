@@ -36,8 +36,18 @@
   },
   {
     "id": "instructions",
-    "userVisible": "A bot whose instructions come from an earlier template is told so, with the newer text and the lines that differ. A text the owner wrote is recognised as theirs and left alone. Only the owner ever changes a bot's instructions, and the skills keep working with the earlier ones.",
-    "check": "node --test --test-name-pattern=instructions packages/kit/test/sync.test.ts"
+    "userVisible": "A bot whose instructions come from an earlier template is told so, with the newer text, the lines that differ, and in plain words which permissions the newer text would add or take away. A careful copy by hand that differs only in whitespace is still recognised. A text the owner wrote is recognised as theirs and left alone. Only the owner ever changes a bot's instructions, and the skills keep working with the earlier ones.",
+    "check": "node --test --test-name-pattern='instructions|whitespace|pasting' packages/kit/test/sync.test.ts"
+  },
+  {
+    "id": "routines",
+    "userVisible": "A bot whose routine still runs a prompt from an earlier template is told so, with the newer prompt. A missing routine and a prompt the owner changed are told apart, and nothing is changed until the owner asks.",
+    "check": "node --test --test-name-pattern=routine packages/kit/test/sync.test.ts"
+  },
+  {
+    "id": "connection",
+    "userVisible": "A bot finds its connection to the Ambitious monitoring service by the tools the connector offers and, where its instructions allow, by the identity the service answers with. A connector that only has the right name is left alone.",
+    "check": "node --test --test-name-pattern='monitoring connection' packages/kit/test/sync.test.ts"
   },
   {
     "id": "comment-ban",

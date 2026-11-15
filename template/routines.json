@@ -1,0 +1,42 @@
+{
+  "ambitious-selfcheck": {
+    "current": {
+      "firstTemplate": "0.2.5",
+      "whitespaceSha256": "e5bf4622cb0690fc6a97354ff51c414c4d3f0ec02650685d0530b0ae1eb21d92"
+    },
+    "earlier": [
+      {
+        "firstTemplate": "0.2.0",
+        "whitespaceSha256": "59468ecd427331c72e6c1ed2706ac4e7c5013c7f9afe76142231e926595dbd7e"
+      },
+      {
+        "firstTemplate": "0.2.1",
+        "whitespaceSha256": "e3d15aef536601a4a2c9ddbed16d28da440b3491133637ffc0d46215a4e47fd6"
+      },
+      {
+        "firstTemplate": "0.2.2",
+        "whitespaceSha256": "08d7c4571ff01f2d2c3456b35d69e6b89a36ed4552646077cce5194fc7e1e633"
+      }
+    ]
+  },
+  "ambitious-snapshot": {
+    "current": {
+      "firstTemplate": "0.2.5",
+      "whitespaceSha256": "7cc08f853ffe46a606c678dc9fd86c9f7ddf9328608f5d246768683872d59ea3"
+    },
+    "earlier": [
+      {
+        "firstTemplate": "0.2.0",
+        "whitespaceSha256": "ffb123546f0bab735788d9c728b95e7e3d7b20cf1741e143a84e22afd602d986"
+      },
+      {
+        "firstTemplate": "0.2.1",
+        "whitespaceSha256": "c3c0cfe2f9866d51e66b569106ebf62729e0fefb533285ceed7c4e4476fb9373"
+      },
+      {
+        "firstTemplate": "0.2.2",
+        "whitespaceSha256": "4fb533e0a78c5d590ad7235afb5ff753aa0b0f662f27bcc4202da23302181e48"
+      }
+    ]
+  }
+}

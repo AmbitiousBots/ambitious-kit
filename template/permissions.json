@@ -23,8 +23,13 @@
         "pages",
         "modules"
       ],
-      "optional": [],
-      "rulesOut": []
+      "optional": [
+        "server-info-tool"
+      ],
+      "rulesOut": [
+        "report-tool",
+        "feedback-tool"
+      ]
     },
     "ambitious-compliance-for-bots": {
       "requires": [
@@ -52,20 +57,21 @@
         "feedback-tool"
       ],
       "optional": [
-        "factory-tools"
+        "server-info-tool"
       ],
-      "rulesOut": []
+      "rulesOut": [
+        "other-connection-tools"
+      ]
     },
     "ambitious-module-installer": {
       "requires": [
         "owner-chat",
         "modules",
         "pinned-downloads",
-        "pages"
+        "pages",
+        "owner-requested-skills"
       ],
-      "optional": [
-        "shared-skills"
-      ],
+      "optional": [],
       "rulesOut": []
     },
     "ambitious-records-for-bots": {
@@ -151,9 +157,7 @@
         "routines",
         "pages"
       ],
-      "optional": [
-        "factory-tools"
-      ],
+      "optional": [],
       "rulesOut": []
     }
   }

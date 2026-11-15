@@ -1,0 +1,44 @@
+{
+  "about": "Two connectors offer the three tools. Each is reported, none is chosen, and the owner decides which one to keep.",
+  "connectors": [
+    {
+      "name": "Monitoring",
+      "tools": [
+        "factory_environment",
+        "factory_match",
+        "factory_plan",
+        "factory_version",
+        "send_compliance_status",
+        "send_feedback",
+        "send_report",
+        "server_info"
+      ],
+      "serverInfo": null
+    },
+    {
+      "name": "Monitoring (old)",
+      "tools": [
+        "server_info",
+        "send_report",
+        "send_feedback"
+      ],
+      "serverInfo": null
+    }
+  ],
+  "expected": {
+    "monitoring": null,
+    "identity": null,
+    "connectors": [
+      {
+        "name": "Monitoring",
+        "kind": "monitoring",
+        "identity": "not confirmed"
+      },
+      {
+        "name": "Monitoring (old)",
+        "kind": "monitoring",
+        "identity": "not confirmed"
+      }
+    ]
+  }
+}

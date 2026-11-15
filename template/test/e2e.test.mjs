@@ -480,7 +480,7 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
     assert.match(refusal({ ...owner, evidence: [{ id: 'ev-1', kind: 'excerpt', text: 'No source.' }] }), /\/evidence\/0\/source is required/u);
   });
 
-  await t.test('the task counts the collector skill names come from the counts command of the pinned tasks module, and a collector document that carries them is accepted', () => {
+  await t.test('the task counts the collector skill names come from the counts command of the pinned tasks module; a list that does not exist answers exists false with null counts, which the collector document carries as not seen and never as zero', () => {
     const tasks = (command, input) => {
       const answer = spawnSync(process.execPath, [join(bin, 'ambitious-tasks'), command], { encoding: 'utf8', input: JSON.stringify(input), env: { ...process.env, AMBITIOUS_HOME: home } });
       return JSON.parse(answer.stdout);
@@ -490,12 +490,24 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
     const counts = tasks('counts', { list: 'audit' });
     assert.equal(counts.ok, true, JSON.stringify(counts.errors));
     assert.equal(counts.meta.version, rows.find((row) => row.module === 'tasks').version);
-    assert.deepEqual(Object.keys(counts.data), ['list', 'open', 'stale7d', 'blocked', 'waiting', 'done7d', 'asOf']);
-    assert.deepEqual([counts.data.open, counts.data.stale7d, counts.data.blocked], [2, 0, 0]);
+    assert.deepEqual(Object.keys(counts.data), ['list', 'exists', 'open', 'stale7d', 'blocked', 'waiting', 'done7d', 'asOf']);
+    assert.deepEqual([counts.data.exists, counts.data.open, counts.data.stale7d, counts.data.blocked], [true, 2, 0, 0]);
     const collectorSkill = skillText('ambitious-audit-collector');
     for (const field of ['open', 'stale7d', 'blocked']) assert(collectorSkill.includes(`\`data.${field}\``), `the collector skill must name data.${field} of the counts command`);
-    assert.equal(tasks('counts', {}).ok, false, 'counts needs a list name, as the collector skill says');
+    assert.match(collectorSkill, /Run it with `\{\}` to count the list named `default`/u);
     const [, nothingObserved] = jsonBlocks(collectorSkill);
+    const unused = tasks('counts', {});
+    assert.equal(unused.ok, true, 'counts takes {} and counts the list named default, as the collector skill says');
+    assert.deepEqual([unused.data.list, unused.data.exists, unused.data.open, unused.data.stale7d, unused.data.blocked], ['default', false, null, null, null], 'no task was ever added without a list here, so the default list does not exist and nothing is counted as zero');
+    assert.match(unused.data.note, /"audit"/u, 'the note names the list that does exist');
+    const misspelt = tasks('counts', { list: 'Audit' });
+    assert.deepEqual([misspelt.ok, misspelt.data.exists, misspelt.data.open], [true, false, null]);
+    const notSeen = nothingObserved.visibility.map((entry) => (entry.signal === 'tasks' ? { signal: 'tasks', seen: false, why: `The task list "${unused.data.list}" does not exist, so nothing was counted. ${unused.data.note}` } : entry));
+    const missingList = audit(['snapshot'], { ...nothingObserved, tasks: { open: unused.data.open, stale7d: unused.data.stale7d, blocked: unused.data.blocked }, visibility: notSeen });
+    assert.equal(missingList.ok, true, JSON.stringify(missingList.errors));
+    assert.deepEqual(missingList.data.normalized.tasks, { open: null, stale7d: null, blocked: null }, 'a list that does not exist stays unseen in the stored snapshot');
+    const asZero = audit(['snapshot'], { ...nothingObserved, tasks: { open: null, stale7d: null, blocked: null }, visibility: nothingObserved.visibility.map((entry) => (entry.signal === 'tasks' ? { ...entry, seen: true } : entry)) });
+    assert.equal(asZero.ok, false, 'the audit module refuses null counts that are marked as seen');
     const { open, stale7d, blocked } = counts.data;
     const visibility = nothingObserved.visibility.map((entry) => (entry.signal === 'tasks' ? { signal: 'tasks', seen: true, why: 'Read from ambitious-tasks counts for the list audit.' } : entry));
     const snapshot = audit(['snapshot'], { ...nothingObserved, tasks: { open, stale7d, blocked }, visibility });
@@ -520,7 +532,7 @@ const skipUpgrade =
       ? `Skipped: AMBITIOUS_MODULE_MIRROR does not hold ${earlierTags.join(', ')}, the releases a bot on template ${EARLIER.version} runs. The upgrade from that template was not run.`
       : false;
 
-test('a bot on template 0.2.4 gets to this version in the order the installer skill gives: the new skill\'s fetch lines, its pin check, then a sync that upgrades the moved pins and reports the earlier instructions', { skip: skipUpgrade }, (t) => {
+test('a bot on template 0.2.4 gets to this version in the order the installer skill gives: the new skill\'s fetch lines, its pin check, then a sync that upgrades the moved pins and reports the earlier instructions and the routines', { skip: skipUpgrade }, (t) => {
   const built = buildInstaller();
   const work = scratch(t, 'upgrade');
   const [home, mirror] = [join(work, 'home'), join(work, 'mirror')];
@@ -556,8 +568,13 @@ test('a bot on template 0.2.4 gets to this version in the order the installer sk
   assert.equal(before.data.template.update, 'available', 'the earlier installer says a newer template exists');
   assert.equal(before.data.template.latest, version);
   assert.deepEqual(readdirSync(bin).filter((name) => name.includes(version)), [], 'and fetches nothing of it');
-  const tooEarly = viaLink(['--instructions', instructions]);
-  assert.equal(tooEarly.errors[0].code, 'E_USAGE', 'the earlier installer does not know --instructions, so syncing before fetching fails without changing anything');
+  const routines = join(home, 'current-routines.json');
+  const [selfcheck] = readJson(join(templateRoot, 'bot.json')).routines;
+  writeFileSync(routines, JSON.stringify([{ name: selfcheck.name, schedule: selfcheck.schedule, prompt: selfcheck.prompt }]));
+  for (const option of [['--instructions', instructions], ['--routines', routines]]) {
+    const tooEarly = viaLink(option);
+    assert.equal(tooEarly.errors[0].code, 'E_USAGE', `the earlier installer does not know ${option[0]}, so syncing before fetching fails without changing anything`);
+  }
 
   const skill = readFileSync(join(templateRoot, 'skills', 'ambitious-module-installer', 'SKILL.md'), 'utf8');
   const blocks = [...skill.matchAll(/```sh\n([\s\S]*?)```/gu)].map(([, block]) => block);
@@ -570,20 +587,26 @@ test('a bot on template 0.2.4 gets to this version in the order the installer sk
   assert.equal(readlinkSync(join(bin, 'ambitious-modules')), asset);
   assert(existsSync(join(bin, earlierAsset)), 'the earlier installer stays beside the new one');
 
-  const after = viaLink(['--instructions', instructions]);
+  const after = viaLink(['--instructions', instructions, '--routines', routines]);
   assert.equal(after.ok, true, JSON.stringify(after.errors));
   assert.equal(after.meta.version, version);
   assert.deepEqual(statesOf(after), all('unchanged', { tasks: 'upgraded', audit: 'upgraded' }));
   assert.deepEqual(after.data.modules.map(({ module, version: at }) => `${module} ${at}`), rows.map(({ module, version: at }) => `${module} ${at}`));
   for (const report of after.data.modules.filter(({ module }) => module !== 'video' || hasPython313)) assert.equal(report.selfcheck, 'ok', `${report.module}: ${report.problems.join(' ')}`);
   assert.equal(after.data.template.update, 'current');
-  assert.deepEqual([after.data.instructions.state, after.data.instructions.problem, after.data.instructions.current, after.data.instructions.template], ['out-of-date', 'instructions-out-of-date', 1, 3]);
-  assert.equal(after.data.problems.filter((problem) => problem.startsWith('instructions-out-of-date: ')).length, 1);
+  const { current: presentInstructions } = readJson(join(templateRoot, 'instructions.json'));
+  assert.deepEqual([after.data.instructions.state, after.data.instructions.problem, after.data.instructions.current, after.data.instructions.template, after.data.instructions.match], ['out-of-date', 'instructions-out-of-date', 1, presentInstructions, 'exact']);
+  const aboutInstructions = after.data.problems.filter((problem) => problem.startsWith('instructions-out-of-date: '));
+  assert.equal(aboutInstructions.length, 1);
+  assert.match(aboutInstructions[0], /Pasting this text gives the bot these additional permissions: \(1\) Call the Ambitious connection's server_info tool/u, 'the upgraded bot is told what the newer instructions would add');
+  assert.deepEqual(after.data.routines.routines.map(({ name, state }) => [name, state]), [['ambitious-selfcheck', 'current'], ['ambitious-snapshot', 'missing']]);
+  assert.equal(after.data.problems.filter((problem) => problem.startsWith('routine-missing: This bot has no routine named ambitious-snapshot.')).length, 1);
+  assert.equal(readFileSync(routines, 'utf8'), JSON.stringify([{ name: selfcheck.name, schedule: selfcheck.schedule, prompt: selfcheck.prompt }]), 'the bot\'s routines file was not touched');
   assert.equal(readFileSync(after.data.instructions.proposed, 'utf8'), readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8'));
   assert.equal(readFileSync(instructions, 'utf8'), readFileSync(join(templateRoot, 'instructions', '1.md'), 'utf8'), 'the bot\'s instructions were not touched');
   assert(existsSync(join(bin, 'ambitious-tasks-0.1.0.mjs')) && existsSync(join(bin, 'ambitious-audit-0.2.0.mjs')), 'the earlier module versions stay beside the new ones');
 
   const routine = viaLink([]);
   assert.deepEqual(statesOf(routine), all('unchanged'));
-  assert.deepEqual(routine.data.problems.filter((problem) => problem.startsWith('instructions-')), [], 'the daily routine names no instructions file, so it does not repeat the instructions problem');
+  assert.deepEqual(routine.data.problems.filter((problem) => /^(?:instructions|routine)-/u.test(problem)), [], 'the daily routine names no instructions or routines file, so it does not repeat those problems');
 });
