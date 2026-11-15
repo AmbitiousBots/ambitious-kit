@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pinned module releases",
+  "description": "An empty list installs nothing. Each entry identifies one exact release asset.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["module", "version", "url", "sha256"],
+    "properties": {
+      "module": {
+        "type": "string",
+        "description": "The module suffix used after ambitious-, such as tasks.",
+        "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+      },
+      "version": {
+        "type": "string",
+        "description": "An exact semantic version, without a range or tag prefix.",
+        "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+      },
+      "url": {
+        "type": "string",
+        "description": "The HTTPS release asset URL, without credentials, a query or a fragment.",
+        "pattern": "^https://[^\\s/?#@]+/[^\\s?#]+\\.(?:mjs|pyz)$"
+      },
+      "sha256": {
+        "type": "string",
+        "description": "The SHA-256 digest of the release asset in lowercase hexadecimal.",
+        "pattern": "^[0-9a-f]{64}$"
+      }
+    }
+  }
+}

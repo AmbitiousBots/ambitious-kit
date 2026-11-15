@@ -1,0 +1,22 @@
+[
+  {
+    "signal": "transcripts",
+    "seen": true,
+    "why": "Transcript reads returned content for all requested bots and the requested period."
+  },
+  {
+    "signal": "usage",
+    "seen": false,
+    "why": "Usage by bot was returned for the requested period, but usage by routine was unavailable."
+  },
+  {
+    "signal": "otherBots",
+    "seen": true,
+    "why": "The completed bot inventory included other bots in the requested account scope."
+  },
+  {
+    "signal": "auditLog",
+    "seen": false,
+    "why": "No tool exposed account audit history for the requested scope."
+  }
+]

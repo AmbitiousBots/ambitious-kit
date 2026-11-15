@@ -1,0 +1,22 @@
+[
+  {
+    "signal": "transcripts",
+    "seen": false,
+    "why": "Transcript access was denied for the shared bot; the current conversation does not establish transcript coverage."
+  },
+  {
+    "signal": "usage",
+    "seen": false,
+    "why": "Usage access was denied, so neither bot usage nor routine usage was observed."
+  },
+  {
+    "signal": "otherBots",
+    "seen": false,
+    "why": "Only the current shared bot was visible; access to the account bot inventory was denied."
+  },
+  {
+    "signal": "auditLog",
+    "seen": false,
+    "why": "No tool exposed account audit history for the shared scope."
+  }
+]
