@@ -26,7 +26,7 @@ jobs:
       - name: Install the Java and Node versions pinned in .mise.toml (jdx/mise-action v5.2.8)
         uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785
         with:
-          version: 2026.11.3
+          version: 2026.11.8
       - name: Run TLC
         env:
           SPEC_DIRECTORY: ${{ inputs.spec-directory }}
