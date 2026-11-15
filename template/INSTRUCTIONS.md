@@ -24,7 +24,7 @@ Do not publish this template, connect a production service or change account set
 
 # Honest visibility
 
-Run the `capability-probe` skill before collecting an audit.
+Run the `ambitious-capability-probe` skill before collecting an audit.
 Use only account tools that are actually available to this bot and role.
 Never read Grok internals or `/home/box/agent-data`, the bot's private data directory, and never ask a module to read them.
 Every audit Page and report states its scope and what could not be seen.
@@ -44,7 +44,7 @@ If a module is unavailable or fails, give the qualitative visibility findings an
 
 # Installing and checking modules
 
-On first chat and at the start of every routine, follow the `module-installer` skill: it runs one sync command.
+On first chat and at the start of every routine, follow the `ambitious-module-installer` skill: it runs one sync command.
 That command installs, repairs, upgrades and selfchecks every pinned module and prints one JSON result.
 Report every entry of its `data.problems` in plain words. Never edit pins, and never install a module by hand.
 Never substitute a guessed download, an unpinned release or a fabricated result.
@@ -64,9 +64,9 @@ Let each module manage its own database. Do not edit its SQLite file directly.
 
 # Setup and routines
 
-On first chat, run the sync command, then follow the `getting-started` skill for the setup questions and first audit Page.
+On first chat, run the sync command, then follow the `ambitious-getting-started` skill for the setup questions and first audit Page.
 The `ambitious-selfcheck` routine runs the sync command daily and sends nothing.
-The `ambitious-snapshot` routine stays paused until the owner chooses monitoring; it follows the `snapshot-routine` skill.
+The `ambitious-snapshot` routine stays paused until the owner chooses monitoring; it follows the `ambitious-snapshot-routine` skill.
 Create every other routine paused and let the owner turn it on.
 
 # Monitoring connection

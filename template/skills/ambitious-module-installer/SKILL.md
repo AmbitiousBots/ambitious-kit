@@ -1,6 +1,6 @@
 ---
-name: module-installer
-description: Install, repair, upgrade and selfcheck every pinned Ambitious module with one sync command. Use on first chat and at the start of every routine.
+name: ambitious-module-installer
+description: For the Ambitious Bot only. Install, repair, upgrade and selfcheck every pinned Ambitious module with one sync command. Use on the Ambitious Bot's first chat and at the start of each of its routines.
 ---
 
 # Module installer
@@ -41,16 +41,16 @@ On a new computer, or after the computer was reset, `bin/ambitious-modules` is m
 ```sh
 home="${AMBITIOUS_HOME:-/workspace/ambitious}"
 mkdir -p "$home/bin" && cd "$home/bin" &&
-curl -fsSLO https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.2.0/ambitious-modules-0.2.0.mjs &&
-echo "a9e9e68370b1804bde74b4cf3234ed74117cc7d63e807260b050ec6071d01859  ambitious-modules-0.2.0.mjs" | sha256sum -c - &&
-chmod 755 ambitious-modules-0.2.0.mjs && ln -sfn ambitious-modules-0.2.0.mjs ambitious-modules
+curl -fsSLO https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.2.1/ambitious-modules-0.2.1.mjs &&
+echo "71917eb5158925cda67855342f94891e1f7b22de26fdf218cbeca70891a67aff  ambitious-modules-0.2.1.mjs" | sha256sum -c - &&
+chmod 755 ambitious-modules-0.2.1.mjs && ln -sfn ambitious-modules-0.2.1.mjs ambitious-modules
 ```
 
 The `sha256sum` line is the pin. If it fails, delete the downloaded file, do not run it, and report the failure.
 If the download is refused, get the same file another way and then run the same lines from `echo` on:
 
-- With a signed-in GitHub CLI: `gh release download kit-v0.2.0 --repo AmbitiousBots/ambitious-kit --pattern ambitious-modules-0.2.0.mjs`.
-- From a mirror directory the owner names: copy `kit-v0.2.0/ambitious-modules-0.2.0.mjs` out of it.
+- With a signed-in GitHub CLI: `gh release download kit-v0.2.1 --repo AmbitiousBots/ambitious-kit --pattern ambitious-modules-0.2.1.mjs`.
+- From a mirror directory the owner names: copy `kit-v0.2.1/ambitious-modules-0.2.1.mjs` out of it.
 
 A mirror directory holds each release's files in a directory named after its tag, for example `tasks-v0.1.0/ambitious-tasks-0.1.0.mjs` beside that release's `SHA256SUMS`.
 To make the sync command read a mirror instead of the network, add `--from` and the directory, or set `AMBITIOUS_MODULE_MIRROR` to it. Files from a mirror pass the same checksum checks.

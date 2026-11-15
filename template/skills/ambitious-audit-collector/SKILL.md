@@ -1,6 +1,6 @@
 ---
-name: audit-collector
-description: "Gather a collector document for ambitious-audit from the account the bot can see, and say honestly what it could not see."
+name: ambitious-audit-collector
+description: For the Ambitious Bot only. Gather a collector document for ambitious-audit from the account the bot can see, and say honestly what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
 # Audit collector

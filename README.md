@@ -22,7 +22,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.2.0`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.2.1`.
 
 | File | Use |
 |---|---|
@@ -42,9 +42,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.2.0.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.2.0.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.2.0.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.2.1.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.2.1.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.2.1.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -99,14 +99,16 @@ npm run release:check
 | File | What it is |
 |---|---|
 | [template/INSTRUCTIONS.md](template/INSTRUCTIONS.md) | The bot's instructions: its role, what may leave the computer, and how it runs modules. At most 120 lines. |
-| [template/skills](template/skills) | One directory per skill. `module-installer`, `capability-probe` and `getting-started` are written here. The skills listed under `copied` in [template/skills/SOURCES.json](template/skills/SOURCES.json) are byte-for-byte copies from a module's release tag; those under `written` were written here from that module's documentation at the tag. |
+| [template/skills](template/skills) | One directory per skill. `ambitious-module-installer`, `ambitious-capability-probe` and `ambitious-getting-started` are written here. The skills listed under `copied` in [template/skills/SOURCES.json](template/skills/SOURCES.json) come from a module's release tag, with only the `name` and `description` lines of the frontmatter changed here; those under `written` were written here from that module's documentation at the tag. |
 | [template/routines.md](template/routines.md) | The routines: a daily selfcheck, and a snapshot that starts paused. |
 | [template/modules.lock.json](template/modules.lock.json) | The pins: one `{ module, version, url, sha256 }` row per module release, described by [template/modules.lock.schema.json](template/modules.lock.schema.json). |
 | [template/bot.json](template/bot.json) | Everything above as one payload for creating the bot: `name`, `description`, `instructions`, `skills` and `routines`. Generated. |
 
 The bot runs one command, `node "$AMBITIOUS_HOME/bin/ambitious-modules" sync --json`, described in [packages/kit](packages/kit/README.md#installer). The pins are embedded in that installer when it is built, so a kit release carries its own pins in `ambitious-modules-<version>.mjs`. A bot made from the template keeps its own copy of the skills, which later template changes may not reach; the installer therefore looks for the latest kit release at the start of every run and hands over to that release's installer, after checking it against the release's `SHA256SUMS`.
 
-To change a pin, edit `template/modules.lock.json` with the release's asset address and the SHA-256 of the downloaded asset, then run `npm run template:generate`. It rebuilds the installer and rewrites the two generated parts: the installer's own SHA-256 in the `module-installer` skill, and `bot.json`. `npm run template:test` fails when either is out of date.
+Every skill is named `ambitious-<name>`, and its description starts with `For the Ambitious Bot only.` followed by what it does and when the Ambitious Bot uses it. On Grok Bot a person's skills are one private library shared by all of that person's bots, so a skill the template adds can be seen and triggered by every other bot the same person owns. The prefix keeps a template skill from replacing another bot's skill of the same name, and the description keeps other bots from picking it up. A module release names its skills without the prefix, so for each copied skill `SOURCES.json` records the release tag, the commit, the file's path and SHA-256 in that release, and the two frontmatter lines as released (`releasedFrontmatter`). `npm run template:test` puts those two lines back and checks the SHA-256, which shows the rest of the file is the released text; it also fails when a skill lacks the prefix or when any file names a skill without it.
+
+To change a pin, edit `template/modules.lock.json` with the release's asset address and the SHA-256 of the downloaded asset, then run `npm run template:generate`. It rebuilds the installer and rewrites the two generated parts: the installer's own SHA-256 in the `ambitious-module-installer` skill, and `bot.json`. `npm run template:test` fails when either is out of date.
 
 ## Release
 

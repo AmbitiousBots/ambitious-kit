@@ -1,6 +1,6 @@
 ---
-name: compliance-for-bots
-description: Keep a register of controls, evidence and attestations with the Ambitious Compliance CLI. Use when the owner wants to track what a program requires, record proof that it was done, see what is missing or about to expire, or check that a recorded document has not changed.
+name: ambitious-compliance-for-bots
+description: For the Ambitious Bot only. Keep a register of controls, evidence and attestations with the Ambitious Compliance CLI. Use when the owner asks the Ambitious Bot to track what a program requires, record proof that it was done, see what is missing or about to expire, or check that a recorded document has not changed.
 ---
 
 # Track controls and evidence with Ambitious Compliance

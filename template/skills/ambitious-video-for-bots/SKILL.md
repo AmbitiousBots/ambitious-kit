@@ -1,11 +1,11 @@
 ---
-name: video-for-bots
-description: Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the owner asks for a video made from screen recordings, title cards, stills, captions or voiceover, or asks what such a video would cost.
+name: ambitious-video-for-bots
+description: For the Ambitious Bot only. Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the owner asks the Ambitious Bot for a video made from screen recordings, title cards, stills, captions or voiceover, or asks what such a video would cost.
 ---
 
 # Make a video with Ambitious Video
 
-Use the installed `ambitious-video` binary in `/workspace/ambitious/bin`. It needs Python 3.13, with ffmpeg and Pillow for rendering; the `module-installer` sync and the module's `selfcheck` report what is missing in `data.problems` and `data.tools`. If something is missing, tell the owner and stop; do not install software unasked.
+Use the installed `ambitious-video` binary in `/workspace/ambitious/bin`. It needs Python 3.13, with ffmpeg and Pillow for rendering; the `ambitious-module-installer` sync and the module's `selfcheck` report what is missing in `data.problems` and `data.tools`. If something is missing, tell the owner and stop; do not install software unasked.
 A video is described by a script: JSON or YAML naming clips on tracks, such as screen recordings, title cards, still images, captions, voiceover and cuts. Write the script with the owner, save it beside the media files it names, and pass it with `--in`; paths in a script are relative to the script's directory. Keep scripts and media out of `/home/box/agent-data`.
 
 Work in this order, and show the owner each result before the next step.

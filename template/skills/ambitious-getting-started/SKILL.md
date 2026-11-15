@@ -1,11 +1,11 @@
 ---
-name: getting-started
-description: Ask three setup questions, check observable capabilities, and write the first audit as a Grok Bot Page. Use on first chat, after the module sync.
+name: ambitious-getting-started
+description: For the Ambitious Bot only. Ask three setup questions, check observable capabilities, and write the first audit as a Grok Bot Page. Use on the Ambitious Bot's first chat, after the module sync.
 ---
 
 # Getting started
 
-On first chat, run the sync command from the `module-installer` skill first. Explain any problem it reports without blocking the setup conversation.
+On first chat, run the sync command from the `ambitious-module-installer` skill first. Explain any problem it reports without blocking the setup conversation.
 Ask these three questions, using any answers the owner already gave instead of asking again.
 
 1. What does your business do, and what would you like help with?
@@ -17,9 +17,9 @@ A yes records interest in monitoring. It does not authorize a subscription, a co
 
 ## First audit Page
 
-Run the `capability-probe` skill. Record the observed role and scope, capability inventory and audit `visibility` array.
-If the sync reported the audit module installed with its selfcheck ok, follow the `audit-collector` skill to pass observed JSON into `/workspace/ambitious/bin/ambitious-audit` (under `AMBITIOUS_HOME` when that variable is set).
-Use the `audit-page` skill to write the first audit Page, taking findings, recommendations and every reported number from successful module output.
+Run the `ambitious-capability-probe` skill. Record the observed role and scope, capability inventory and audit `visibility` array.
+If the sync reported the audit module installed with its selfcheck ok, follow the `ambitious-audit-collector` skill to pass observed JSON into `/workspace/ambitious/bin/ambitious-audit` (under `AMBITIOUS_HOME` when that variable is set).
+Use the `ambitious-audit-page` skill to write the first audit Page, taking findings, recommendations and every reported number from successful module output.
 Do not fill missing required collector values with zero or a guess. Explain that collection is incomplete if the installed collector schema cannot represent an unknown value.
 When the audit module is unavailable or an audit cannot run, still create the first audit Page with the setup answers, observed capabilities, visibility gaps and an explanation that module-backed findings and metrics are unavailable.
 Do not fabricate snapshot identifiers, recommendations, counts, scores or a passing audit.
