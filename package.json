@@ -7,7 +7,20 @@
   "engines": {
     "node": "24.x"
   },
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "check:contract": "node scripts/check-envelope-examples.mjs"
+    "check:contract": "node scripts/check-envelope-examples.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/*.test.ts\" \"packages/*/test/*.test.ts\"",
+    "lint": "eslint .",
+    "depcruise": "depcruise src packages scripts --output-type err-long"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "dependency-cruiser": "18.7.2",
+    "eslint": "10.15.0",
+    "typescript": "6.0.3"
   }
 }

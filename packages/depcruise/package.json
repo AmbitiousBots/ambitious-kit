@@ -1,0 +1,15 @@
+{
+  "name": "@ambitious/depcruise",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": "24.x"
+  },
+  "exports": "./src/config.ts",
+  "peerDependencies": {
+    "dependency-cruiser": "18.7.2",
+    "typescript": "6.0.3"
+  }
+}
