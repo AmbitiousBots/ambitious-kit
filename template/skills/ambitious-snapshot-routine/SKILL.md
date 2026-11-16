@@ -1,20 +1,23 @@
 ---
 name: ambitious-snapshot-routine
-description: For the Ambitious Bot only. Run ambitious-audit on a schedule, show the result for review, and send a report only after the customer has approved that tool. Use in the Ambitious Bot's ambitious-snapshot routine.
+description: For the Ambitious Bot only. Run ambitious-audit on a schedule, show the result for review, and send a report only under a platform-confirmed owner pre-approval. Use in the Ambitious Bot's ambitious-snapshot routine.
 ---
 
-Template version: 0.2.7
+Template version: 0.3.0
 
 # Snapshot routine
 
-Run once a day for the first seven days, then once a week.
+Run daily. Create the snapshot active only when this bot's instructions allow an active snapshot; under older instructions create it paused and let the owner turn it on. The owner can pause it at any time. Until the owner has chosen monitoring and the required modules, matching skills and authenticated connection are ready, do nothing and end with an empty reply.
 
-1. Collect a document with the audit collector skill and run `snapshot`.
-2. On the first run, run `baseline set`. Later, run `diff` against the latest baseline.
-3. Run `findings` and `recommend`. Write the review page with the audit page skill.
-4. Run `report build` with `reviewRequired` true. Read `data.next`.
-5. When `next.kind` is `waitForReview`, stop until a person has looked at the page, then `report mark` with state `reviewed`.
-6. When `next.kind` is `send`, call the service's `send_report` tool with `data.payload`. That call needs the customer's approval for this run. Do not approve it ahead of time, and do not send a payload other than the one `report build` returned.
-7. If the service accepts the report, `report mark` with state `sent` and then `acked`. If the call fails or times out, `report mark` with state `failed` and follow `next` again. Use the same `reportId` on every retry. Stop when `next.kind` is `gaveUp` or `delivered`.
+This workflow uses audit 0.3.0's `send_report.v3` interface. Check `ambitious-audit schema report build` and the installed version before collecting: if the installed audit lacks the `announcements` input or priority output, this routine is not ready and ends with an empty reply. In chat, explain that the audit module pin needs the operator's update. Never edit a pin or invent priorities to bridge an older module.
 
-`at` on each mark is the UTC time of that step.
+1. Run the `ambitious-module-installer` sync command and the `ambitious-capability-probe` skill. If a required module or the authenticated connection is no longer ready, end with an empty reply; retain existing review Pages and report no success.
+2. Collect a document with the `ambitious-audit-collector` skill and run `snapshot`.
+3. On the first run, run `baseline set`. Later, run `diff` against the latest baseline. Run `findings` and `recommend`.
+4. Read the successful authenticated `check_updates` result saved in `template/check-updates.json` under `AMBITIOUS_HOME`, never under `/home/box/agent-data`. Pass its `announcements` to `report build`, copying only each item's `id`, `priority` and `title`, with those values unchanged. Pass `[]` when there is no saved result or no announcements. Never write your own announcements, turn observations or release notes into announcements, or pass `publishedAt`, `body` or `url` to the audit. This is report input, not part of the collector document.
+5. Run `report build` with `snapshotId`, `reviewRequired` true and `announcements`. Require a successful envelope and `data.payload.schemaVersion` 3. The module produces `priority` `high` or `low` on findings and recommendations and the `announcements` list. Use its returned priorities unchanged: the default rule maps high severity to high priority and other severities to low unless the rule specifies otherwise. Write or update the review Page with the `ambitious-audit-page` skill, including the exact payload and retained evidence.
+6. Read `data.next`. When `next.kind` is `waitForReview`, stop until a person has looked at the Page, then `report mark` with state `reviewed`. A Page draft is not a completed human review. Keep reviewRequired true on later runs too.
+7. When `next.kind` is `send`, call `send_report` with the exact `data.payload` only when the platform confirms an owner-granted pre-approval covers this call. The owner grants it once: after reviewing a sample payload Page, approve the `send_report` tool of the Ambitious connection for this bot, for example by choosing "always allow". The bot cannot grant it. Without confirmed pre-approval, retain the review Page, send nothing and say what is waiting in this bot's own chat; do not ask for a per-run approval from the routine or send by another channel. A monitoring choice, subscription, schedule, human review or earlier successful send is not that confirmation.
+8. If the service accepts the report, `report mark` with state `sent` and then `acked` using the actual acknowledgement. If the call fails or times out, `report mark` with state `failed` and follow `next` again. A timeout is not proof of receipt. Use the same `reportId` on every retry and require confirmed pre-approval each time. Stop when `next.kind` is `gaveUp` or `delivered`.
+
+`at` on each mark is the UTC time of that step. Reply only when something changed or needs the owner, with the review Page link when relevant; otherwise use an empty reply. Feedback follows the `ambitious-send-feedback` skill and always needs its own per-call approval.

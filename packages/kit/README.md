@@ -84,7 +84,7 @@ There are two installers. `ambitious-install` puts one named module release in p
 `src/cli/install-main.ts` is bundled to `ambitious-install-<version>.mjs` in a kit release:
 
 ```text
-node ambitious-install-0.2.7.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz]
+node ambitious-install-0.3.0.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz]
 ```
 
 It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then moves the file into `$AMBITIOUS_HOME/bin` by a rename, records the checksum and switches the link `ambitious-<module>`. Running it again for an installed version downloads and writes nothing. The checksum shows the file is the one the release lists; it does not show who published the release. Its own error codes are `E_INSTALL_DOWNLOAD` and `E_INSTALL_CHECKSUM`, both exit code 1. `spec/` holds a TLA+ model of these steps.
@@ -92,10 +92,12 @@ It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then mov
 `src/cli/modules-main.ts` is bundled to `ambitious-modules-<version>.mjs`, with the pins in `template/modules.lock.json` embedded:
 
 ```text
-node ambitious-modules-0.2.7.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>] [--instructions <file>] [--routines <file>]
-node ambitious-modules-0.2.7.mjs skill-files [--json]
-node ambitious-modules-0.2.7.mjs skills [--json] [--in <file>]
-node ambitious-modules-0.2.7.mjs connection [--json] [--in <file>]
+node ambitious-modules-0.3.0.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>] [--instructions <file>] [--routines <file>]
+node ambitious-modules-0.3.0.mjs skill-files [--json]
+node ambitious-modules-0.3.0.mjs skills [--json] [--in <file>]
+node ambitious-modules-0.3.0.mjs connection [--json] [--in <file>]
+node ambitious-modules-0.3.0.mjs self-update --version <version> --sha256 <hex> [--json]
+node ambitious-modules-0.3.0.mjs instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json]
 ```
 
 For every pinned module, `sync` runs the same install steps with one more check: the asset's SHA-256 must match the pin as well as the release's `SHA256SUMS`, so a release that was changed after it was pinned is refused. It then runs the module's `selfcheck --json` through the link in `$AMBITIOUS_HOME/bin`, with Node for an `.mjs` module and Python 3.13 for a `.pyz` one. It prints one envelope:
@@ -114,7 +116,7 @@ A module that fails does not stop the others, and `ok` stays `true`: the command
 
 Each file is fetched from the HTTPS release address in the pin. When that is refused and the address is a GitHub release, an installed and signed-in [GitHub CLI](https://cli.github.com) (`gh release download`) is tried; the installer never reads, stores or prints a token itself. `--from <directory>`, or the environment variable `AMBITIOUS_MODULE_MIRROR`, replaces both with a local mirror: a directory that holds each release's files in a directory named after its tag, such as `tasks-v0.1.0/ambitious-tasks-0.1.0.mjs` beside that release's `SHA256SUMS`. Files from a mirror pass the same two checksum checks.
 
-`sync` also looks up whether a newer kit release exists: the tag of the latest release of this repository, or the highest `kit-v<version>` directory name in a mirror. It only reports the answer, in `data.template` and as one entry of `data.notes`. It never downloads, installs or runs anything from a newer release: that release's `SHA256SUMS` is published by the same hand as its files, so it cannot show that the files are the ones to trust. The installer is replaced only from outside, by the fetch lines of the `ambitious-module-installer` skill of an updated template, which pin the new installer's SHA-256. If the lookup cannot be made, that is a note, not a problem, and the embedded pins are used. `--lock <file>` uses the pins in a file instead of the embedded ones and skips the lookup; it is for tests and for an operator trying a pin, and a bot never uses it.
+`sync` also looks up whether a newer kit release exists: the tag of the latest release of this repository, or the highest `kit-v<version>` directory name in a mirror. It only reports the answer, in `data.template` and as one entry of `data.notes`. It never downloads, installs or runs anything from a newer release: that release's `SHA256SUMS` is published by the same hand as its files, so it cannot show that the files are the ones to trust. An installer upgrade needs either the stored skill's pin or, under instructions version 6, the authenticated service checksum and the release checksum through `self-update`. A latest-release lookup alone never authorizes it. If the lookup cannot be made, that is a note, not a problem, and the embedded pins are used. `--lock <file>` uses the pins in a file instead of the embedded ones and skips the lookup; it is for tests and for an operator trying a pin, and a bot never uses it.
 
 `sync` writes the template's fixture files, embedded at build time from `template/fixtures`, to `$AMBITIOUS_HOME/template/fixtures`, the template's instructions text to `$AMBITIOUS_HOME/template/instructions.md` and each template routine's prompt to `$AMBITIOUS_HOME/template/routines/<name>.md`, and puts back one that was altered.
 
@@ -131,3 +133,13 @@ Each file is fetched from the HTTPS release address in the pin. When that is ref
 An error envelope names the command that was given: `"command": "frobnicate"` for an unknown command, and `""`, the envelope's value for no command, when none was given or the word is not a command name.
 
 The checksums show that each module file is the one that was pinned, and the pin in the skill shows the same for the installer. Neither shows who published a release.
+
+`self-update` downloads only the named stable kit release's installer and `SHA256SUMS` from `AmbitiousBots/ambitious-kit` on GitHub. It accepts no address, lock override or mirror. The supplied service checksum, the unique release checksum line and downloaded bytes must all match before the link changes. It compares the requested version with both the running version and the installed link, keeps old files, and serializes self-updates with a lock. A failed check leaves the working link untouched. The caller obtains the service checksum only from `check_updates` over the authenticated, identity-confirmed connection; the command itself cannot attest how a caller obtained its arguments.
+
+| Code | Exit | Meaning | Typical hint |
+|---|---|---|---|
+| `E_INSTALL_DOWNGRADE` | 1 | The requested installer is older than the running or linked one. | Use the current or a newer service-published version. |
+| `E_INSTALL_VERSION` | 1 | The installed link does not name a versioned installer. | Restore it from the stored installer skill. |
+| `E_INSTALL_BUSY` | 1 | Another self-update holds the lock. | Wait for it; after an interrupted update the owner checks no update is running before removing the lock. |
+
+`instructions-merge` verifies the published file against the supplied SHA-256, then merges lines against the embedded published text the current copy came from. An exact or whitespace match identifies that base; otherwise its `Instructions version` line may identify it, without granting any authority. `data.merged` preserves independent local changes, `localChangesKept` lists them, and `conflicts` shows both versions for overlapping edits. An unknown base shows both whole texts. `permissions` uses the existing permission comparison and `permissionsStatement` explicitly marks any uncertainty from custom text or conflicts. The command writes neither input file and never applies instructions. The pure line merge has a Python mirror; installers continue to be the same Node binaries for modules in both languages.

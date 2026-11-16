@@ -2,7 +2,7 @@
 
 ## Goal
 
-Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious Bot template, flat per-org monthly monitoring with human review, and open-source single-purpose CLI modules with no UI that the bot drives. This repo is one of those modules. The user is a person who talks to a bot and never sees this code, so a change is good when the bot can do more for them, or the same with less risk.
+Ambitious is a Grok Bot configuration and monitoring service: a free Ambitious Bot template, the Ambitious Bot plan, $725/month per bot, with daily analysis and human review, and open-source single-purpose CLI modules with no UI that the bot drives. This repo is one of those modules. The user is a person who talks to a bot and never sees this code, so a change is good when the bot can do more for them, or the same with less risk.
 
 ## How to work
 

@@ -1,16 +1,72 @@
 {
   "copied": [
-    {"skill": "ambitious-tasks-page", "repository": "AmbitiousBots/ambitious-tasks", "tag": "tasks-v0.1.2", "commit": "0f08106839f059d781f6474c98cb9e4ed5a3d04b", "path": "skills/tasks-page/SKILL.md", "sha256": "34edae9282f5cd10c911404f52cfc64fd50a5e2dc94c3fe7121234519b4f7f4f", "releasedFrontmatter": {"name": "name: tasks-page", "description": "description: Present Ambitious Tasks board and next-work output in a Grok Bot Page. Use when a user wants a readable work board, task summary or explanation of what should happen next."}},
-    {"skill": "ambitious-audit-page", "repository": "AmbitiousBots/ambitious-audit", "tag": "audit-v0.2.2", "commit": "68fecfc62c57bc627e20c2f023284d61137151f2", "path": "skills/audit-page/SKILL.md", "sha256": "03a1a231895c65f1448c6401e4a02610ab0e0580013c887f28db916284ed3bbb", "releasedFrontmatter": {"name": "name: audit-page", "description": "description: \"Turn an ambitious-audit result into a page the customer can read. The module does not render the page.\""}},
-    {"skill": "ambitious-snapshot-routine", "repository": "AmbitiousBots/ambitious-audit", "tag": "audit-v0.2.2", "commit": "68fecfc62c57bc627e20c2f023284d61137151f2", "path": "skills/snapshot-routine/SKILL.md", "sha256": "c7b260662b2584f918047c768cf446bdf438baae5477fd84caf1d5be42a0beb3", "releasedFrontmatter": {"name": "name: snapshot-routine", "description": "description: \"Run ambitious-audit on a schedule, show the result for review, and send a report only after the customer has approved that tool.\""}},
-    {"skill": "ambitious-send-feedback", "repository": "AmbitiousBots/ambitious-audit", "tag": "audit-v0.2.2", "commit": "68fecfc62c57bc627e20c2f023284d61137151f2", "path": "skills/send-feedback/SKILL.md", "sha256": "4254f1e4ae3e40ba43b90df9a4c8495da3653d8ca7a012744ad619e4ac226b07", "releasedFrontmatter": {"name": "name: send-feedback", "description": "description: \"Build a send_feedback document with ambitious-audit and hand it to the service after the customer approves the send.\""}}
+    {
+      "skill": "ambitious-tasks-page",
+      "repository": "AmbitiousBots/ambitious-tasks",
+      "tag": "tasks-v0.1.2",
+      "commit": "0f08106839f059d781f6474c98cb9e4ed5a3d04b",
+      "path": "skills/tasks-page/SKILL.md",
+      "sha256": "34edae9282f5cd10c911404f52cfc64fd50a5e2dc94c3fe7121234519b4f7f4f",
+      "releasedFrontmatter": {
+        "name": "name: tasks-page",
+        "description": "description: Present Ambitious Tasks board and next-work output in a Grok Bot Page. Use when a user wants a readable work board, task summary or explanation of what should happen next."
+      }
+    }
   ],
   "written": [
-    {"skill": "ambitious-audit-collector", "repository": "AmbitiousBots/ambitious-audit", "tag": "audit-v0.2.2", "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"},
-    {"skill": "ambitious-tasks-for-bots", "repository": "AmbitiousBots/ambitious-tasks", "tag": "tasks-v0.1.2", "commit": "0f08106839f059d781f6474c98cb9e4ed5a3d04b"},
-    {"skill": "ambitious-contracts-for-bots", "repository": "AmbitiousBots/ambitious-contracts", "tag": "contracts-v0.1.0", "commit": "f41bec610b2fbe12c612acb4c80b9e9acc95cc5c"},
-    {"skill": "ambitious-compliance-for-bots", "repository": "AmbitiousBots/ambitious-compliance", "tag": "compliance-v0.1.0", "commit": "664e773d86518687fc57abc2be5d26b914263d3b"},
-    {"skill": "ambitious-records-for-bots", "repository": "AmbitiousBots/ambitious-records", "tag": "records-v0.1.0", "commit": "d6519361df4d43c701d53ce058c5ed652c900f76"},
-    {"skill": "ambitious-video-for-bots", "repository": "AmbitiousBots/ambitious-video", "tag": "video-v0.1.0", "commit": "062ad9401bb071dd406049663644a980c1da8d9e"}
+    {
+      "skill": "ambitious-audit-collector",
+      "repository": "AmbitiousBots/ambitious-audit",
+      "tag": "audit-v0.2.2",
+      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+    },
+    {
+      "skill": "ambitious-audit-page",
+      "repository": "AmbitiousBots/ambitious-audit",
+      "tag": "audit-v0.2.2",
+      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+    },
+    {
+      "skill": "ambitious-snapshot-routine",
+      "repository": "AmbitiousBots/ambitious-audit",
+      "tag": "audit-v0.2.2",
+      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+    },
+    {
+      "skill": "ambitious-send-feedback",
+      "repository": "AmbitiousBots/ambitious-audit",
+      "tag": "audit-v0.2.2",
+      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+    },
+    {
+      "skill": "ambitious-tasks-for-bots",
+      "repository": "AmbitiousBots/ambitious-tasks",
+      "tag": "tasks-v0.1.2",
+      "commit": "0f08106839f059d781f6474c98cb9e4ed5a3d04b"
+    },
+    {
+      "skill": "ambitious-contracts-for-bots",
+      "repository": "AmbitiousBots/ambitious-contracts",
+      "tag": "contracts-v0.1.0",
+      "commit": "f41bec610b2fbe12c612acb4c80b9e9acc95cc5c"
+    },
+    {
+      "skill": "ambitious-compliance-for-bots",
+      "repository": "AmbitiousBots/ambitious-compliance",
+      "tag": "compliance-v0.1.0",
+      "commit": "664e773d86518687fc57abc2be5d26b914263d3b"
+    },
+    {
+      "skill": "ambitious-records-for-bots",
+      "repository": "AmbitiousBots/ambitious-records",
+      "tag": "records-v0.1.0",
+      "commit": "d6519361df4d43c701d53ce058c5ed652c900f76"
+    },
+    {
+      "skill": "ambitious-video-for-bots",
+      "repository": "AmbitiousBots/ambitious-video",
+      "tag": "video-v0.1.0",
+      "commit": "062ad9401bb071dd406049663644a980c1da8d9e"
+    }
   ]
 }

@@ -114,8 +114,8 @@ test('the routines in bot.json carry a default time, the owner\'s time zone and 
     assert.equal(routine.destination, 'the run\'s reply, in this bot\'s own chat');
   }
   const [selfcheck] = routines;
-  assert.match(selfcheck.prompt, /`data\.problems` is empty, end the run with an empty reply/u);
-  assert.match(selfcheck.prompt, /`data\.problems` is not empty, reply once, in this bot's own chat/u);
+  assert.match(selfcheck.prompt, /`data\.problems` is empty and nothing changed or needs the owner, end the run with an empty reply/u);
+  assert.match(selfcheck.prompt, /`data\.problems` is not empty or something changed or needs the owner, reply once, in this bot's own chat/u);
 });
 
 test('the installer places the template fixtures where the skills point, and decides every shared skill write by template version', (t) => {
@@ -563,9 +563,9 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
   });
 
   await t.test('the feedback document the ambitious-send-feedback skill describes builds a payload with no organisation id', () => {
-    const answer = audit(['feedback', 'build'], { text: 'The weekly report is useful.', from: 'customer' });
+    const answer = audit(['feedback', 'build'], { text: 'The daily report is useful.', from: 'customer' });
     assert.equal(answer.ok, true, JSON.stringify(answer.errors));
-    assert.equal(answer.data.payload.text, 'The weekly report is useful.');
+    assert.equal(answer.data.payload.text, 'The daily report is useful.');
     assert.equal(Object.keys(answer.data.payload).some((key) => /organi[sz]ation/iu.test(key)), false);
   });
 });
@@ -694,9 +694,9 @@ test('an agent asks a bot on instructions version 4 for an upgrade: the pinned i
   assert.deepEqual([result.checked.data.instructions.current, result.checked.data.instructions.upgradeOn], [4, 'the owner\'s request']);
   assert.deepEqual(libraryBodies(scene.library), libraryBodies(scene.before), 'no skill was written');
   assert.deepEqual(result.wanted, scene.bot.skills.map(({ name }) => name).filter((name) => name !== INSTALLER_SKILL), 'the skills that would be written are named for the owner');
-  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['upgrade-on-any-request']);
+  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['upgrade-on-any-request', 'check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot']);
   assert(result.said.some((line) => line === 'The proposed instructions would add: Run the documented template upgrade, including writing the template\'s ambitious- skills, when any agent or person asks for it.'), 'the owner is told that pasting the proposed text lets any agent ask for upgrades');
-  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 5.')));
+  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 6.')));
   assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('instructions/4.md'), 'the instructions were not changed');
 
   for (const file of ['instructions/1.md', 'instructions/2.md', 'instructions/3.md']) {
@@ -714,7 +714,7 @@ test('an agent asks a bot on instructions version 4 for an upgrade: the pinned i
 
 test('an agent asks a bot on instructions version 5 for an upgrade: the whole documented upgrade runs, every skill is written from the pinned installer\'s files and verified, and the owner is told which skills changed, from which template version to which', (t) => {
   const scene = upgradeScene(t, 'agent-v5');
-  const result = upgradeAsDocumented(scene, { askedBy: 'An agent', instructions: instructionsText('INSTRUCTIONS.md') });
+  const result = upgradeAsDocumented(scene, { askedBy: 'An agent', instructions: instructionsText('instructions/5.md') });
   assert.equal(result.stopped, null);
   assert.deepEqual([result.checked.data.instructions.current, result.checked.data.instructions.upgradeOn], [5, 'any request']);
   assert.equal(readlinkSync(join(scene.home, 'bin', 'ambitious-modules')), scene.asset);
@@ -724,12 +724,13 @@ test('an agent asks a bot on instructions version 5 for an upgrade: the whole do
   assert.deepEqual(result.mismatched, []);
   assert.deepEqual(libraryBodies(scene.library), Object.fromEntries(scene.bot.skills.map(({ name, body }) => [name, body])), 'the library now holds this template\'s skills, exactly');
   for (const name of others) assert(result.said.includes(`${name}: template 0.2.6 -> ${THIS}`), `the owner is told that ${name} changed, with both template versions`);
-  assert.deepEqual(result.checked.data.instructions.permissions.added, [], 'the bot\'s instructions are the template\'s, so no new permission is proposed');
-  assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('INSTRUCTIONS.md'), 'the instructions were not changed');
+  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot'], 'v5 keeps agent-requested upgrades and is shown the v6 proposal');
+  assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('instructions/5.md'), 'the instructions were not changed');
   assert.equal(readFileSync(join(scene.home, 'current-routines.json'), 'utf8'), JSON.stringify(scene.bot.routines.map(({ name, schedule, prompt }) => ({ name, schedule, prompt }))), 'the routines were not changed');
 
   const again = upgradeAsDocumented(scene, { askedBy: 'An agent', instructions: instructionsText('INSTRUCTIONS.md') });
   assert.deepEqual([again.stopped, again.written], [null, []], 'asking again changes nothing');
+  assert.deepEqual([again.checked.data.instructions.current, again.checked.data.instructions.upgradeOn], [6, 'any request'], 'v6 keeps the v5 requested-upgrade authority');
 });
 
 test('under instructions version 5, an installer that does not match the SHA-256 in the stored skill is deleted and nothing is installed: the link stays, no skill file is written and no skill changes', (t) => {

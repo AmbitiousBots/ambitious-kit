@@ -57,7 +57,8 @@
         "feedback-tool"
       ],
       "optional": [
-        "server-info-tool"
+        "server-info-tool",
+        "active-snapshot"
       ],
       "rulesOut": [
         "other-connection-tools"
@@ -72,7 +73,11 @@
         "owner-requested-skills"
       ],
       "optional": [
-        "upgrade-on-any-request"
+        "upgrade-on-any-request",
+        "server-info-tool",
+        "check-updates-tool",
+        "service-verified-downloads",
+        "daily-upgrades"
       ],
       "rulesOut": []
     },
@@ -97,7 +102,9 @@
         "pages",
         "report-tool"
       ],
-      "optional": [],
+      "optional": [
+        "active-snapshot"
+      ],
       "rulesOut": []
     },
     "ambitious-tasks-for-bots": {
@@ -133,9 +140,15 @@
       "requires": [
         "owner-chat",
         "modules",
-        "pinned-downloads"
+        "pinned-downloads",
+        "pages"
       ],
-      "optional": [],
+      "optional": [
+        "server-info-tool",
+        "check-updates-tool",
+        "service-verified-downloads",
+        "daily-upgrades"
+      ],
       "rulesOut": [
         "report-tool",
         "feedback-tool"
@@ -151,7 +164,9 @@
         "report-tool",
         "feedback-tool"
       ],
-      "optional": [],
+      "optional": [
+        "active-snapshot"
+      ],
       "rulesOut": []
     },
     "Routines from packs": {

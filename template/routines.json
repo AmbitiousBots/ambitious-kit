@@ -1,12 +1,12 @@
 {
   "ambitious-selfcheck": {
     "current": {
-      "firstTemplate": "0.2.5",
-      "whitespaceSha256": "e5bf4622cb0690fc6a97354ff51c414c4d3f0ec02650685d0530b0ae1eb21d92",
+      "firstTemplate": "0.3.0",
+      "whitespaceSha256": "d9a4ed27d57794e4421af1d5421eb4bfe64399f3cea2cb4a03bce68c59d0684d",
       "variants": [
         {
-          "template": "0.2.5",
-          "whitespaceSha256": "562af209db72a7e005b1698850043926a697e6d87754ba222f8f5f9755608c85",
+          "template": "0.3.0",
+          "whitespaceSha256": "d6ee1cde73bc64470ee2bbd4afb167f10d34cc7e51ee2b128f2387bfcf038b8f",
           "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
         }
       ]
@@ -32,17 +32,28 @@
             "difference": "Ends with the added line \"Destination: the owner's chat with this bot\"."
           }
         ]
+      },
+      {
+        "firstTemplate": "0.2.5",
+        "whitespaceSha256": "e5bf4622cb0690fc6a97354ff51c414c4d3f0ec02650685d0530b0ae1eb21d92",
+        "variants": [
+          {
+            "template": "0.2.5",
+            "whitespaceSha256": "562af209db72a7e005b1698850043926a697e6d87754ba222f8f5f9755608c85",
+            "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
+          }
+        ]
       }
     ]
   },
   "ambitious-snapshot": {
     "current": {
-      "firstTemplate": "0.2.5",
-      "whitespaceSha256": "7cc08f853ffe46a606c678dc9fd86c9f7ddf9328608f5d246768683872d59ea3",
+      "firstTemplate": "0.3.0",
+      "whitespaceSha256": "fc9411eebacc4db707f5f7cfb9bab5d630791f56eec7b5f6ba54d59a31d959f5",
       "variants": [
         {
-          "template": "0.2.5",
-          "whitespaceSha256": "f30602c5073c776b3cf1017b1e94201810654aceb82257ac970ae7e003027410",
+          "template": "0.3.0",
+          "whitespaceSha256": "b3ea86c28277236f48be150121f5a73011cd1d5e31bbf304b32c1d07e7f2136f",
           "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
         }
       ]
@@ -66,6 +77,17 @@
             "template": "0.2.2",
             "whitespaceSha256": "276d2a254ee305ab171f17a35f2f259eab6d413d783d21443d9e620ffcf4cfb7",
             "difference": "Ends with the added line \"Destination: the owner's chat with this bot\"."
+          }
+        ]
+      },
+      {
+        "firstTemplate": "0.2.5",
+        "whitespaceSha256": "7cc08f853ffe46a606c678dc9fd86c9f7ddf9328608f5d246768683872d59ea3",
+        "variants": [
+          {
+            "template": "0.2.5",
+            "whitespaceSha256": "f30602c5073c776b3cf1017b1e94201810654aceb82257ac970ae7e003027410",
+            "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
           }
         ]
       }
