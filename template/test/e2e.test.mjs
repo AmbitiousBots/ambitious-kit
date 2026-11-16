@@ -382,7 +382,10 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
     assert(feedback.includes('ambitious-audit feedback build --in'));
     const build = inputSchema('report', 'build');
     assert.deepEqual(build.required, ['snapshotId', 'reviewRequired']);
-    named(routine, ['reviewRequired'], 'ambitious-snapshot-routine');
+    assert.deepEqual(Object.keys(build.properties), ['snapshotId', 'reviewRequired', 'announcements']);
+    assert.deepEqual(build.properties.announcements.items.required, ['id', 'priority', 'title']);
+    assert.deepEqual(build.properties.announcements.items.properties.priority.enum, ['high', 'low']);
+    named(routine, ['reviewRequired', 'announcements', 'id', 'priority', 'title'], 'ambitious-snapshot-routine');
     const mark = inputSchema('report', 'mark');
     assert.deepEqual(mark.required, ['reportId', 'state', 'at']);
     named(routine, [...mark.properties.state.enum, 'reportId', 'at'], 'ambitious-snapshot-routine');
@@ -489,7 +492,8 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
       assert.equal(advice.data.mode, mode);
       assert(advice.data.recommendations.length >= 1 && advice.data.recommendations.length <= 3);
       for (const recommendation of advice.data.recommendations) {
-        assert.deepEqual(Object.keys(recommendation).sort(), ['effort', 'evidenceIds', 'id', 'title', 'why']);
+        assert.deepEqual(Object.keys(recommendation).sort(), ['effort', 'evidenceIds', 'id', 'priority', 'title', 'why']);
+        assert(['high', 'low'].includes(recommendation.priority));
         assert(recommendation.evidenceIds.length > 0);
       }
       assert.deepEqual(advice.data.withheld, withheld.map(({ ruleId }) => ruleId));
@@ -501,6 +505,8 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
       assert.equal(report.ok, true, JSON.stringify(report.errors));
       assert.deepEqual(report.data.next, { kind: 'waitForReview', reportId: report.data.reportId });
       const { payload } = report.data;
+      assert.equal(payload.schemaVersion, 3);
+      assert.deepEqual(payload.announcements, []);
       assert.equal(payload.accountKind, document.account.kind);
       assert.deepEqual(payload.moduleVersions, { audit: rows.find((row) => row.module === 'audit').version });
       assert.deepEqual(payload.counts.pages, document.pages);
@@ -512,6 +518,62 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
       assert.equal(reviewed.data.next.kind, 'send');
     });
   }
+
+  await t.test('a snapshot becomes a v3 report with rule priorities and unchanged announcements from the saved check_updates result, and still waits for review', () => {
+    const savedFile = join(home, 'template', 'check-updates.json');
+    const instructions = readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8');
+    const savedResult = {
+      ok: true,
+      schemaVersion: 1,
+      kit: {
+        version: '0.3.0',
+        releaseUrl: 'https://github.com/AmbitiousBots/ambitious-kit/releases/tag/kit-v0.3.0',
+        installer: { url: 'https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.3.0/ambitious-modules-0.3.0.mjs', sha256: sha256(readFileSync(installer)) },
+      },
+      instructions: { version: 6, sha256: sha256(Buffer.from(instructions)), text: instructions },
+      tools: [
+        { name: 'server_info', title: 'Server information', description: 'Returns the server identity.', readOnly: true },
+        { name: 'check_updates', title: 'Check updates', description: 'Returns published versions and announcements.', readOnly: true },
+        { name: 'send_report', title: 'Send report', description: 'Receives the approved report.', readOnly: false },
+        { name: 'send_feedback', title: 'Send feedback', description: 'Receives approved feedback.', readOnly: false },
+      ],
+      announcements: [
+        { id: 'daily-reports', publishedAt: '2026-01-08T00:00:00Z', priority: 'low', title: 'Daily reports are available', body: 'Read the report in the review Page.', url: null },
+        { id: 'connection-update', publishedAt: '2026-01-08T00:00:00Z', priority: 'high', title: 'Review your connection', body: 'Details stay outside the report payload.', url: 'https://ambitiousbots.com' },
+      ],
+    };
+    writeFileSync(savedFile, JSON.stringify(savedResult));
+    const savedBytes = readFileSync(savedFile);
+    const announcements = readJson(savedFile).announcements.map(({ id, priority, title }) => ({ id, priority, title }));
+    const document = { ...collected('owner'), connectors: [{ name: 'documents', status: 'needsAuth' }] };
+    const snapshot = audit(['snapshot'], document);
+    assert.equal(snapshot.ok, true, JSON.stringify(snapshot.errors));
+    assert.equal(Object.hasOwn(snapshot.data.normalized, 'announcements'), false, 'announcements are report input, not collected observations');
+    const id = { snapshotId: snapshot.data.snapshotId };
+    const findings = audit(['findings'], id);
+    const advice = audit(['recommend'], id);
+    assert.equal(findings.ok, true, JSON.stringify(findings.errors));
+    assert.equal(advice.ok, true, JSON.stringify(advice.errors));
+    const report = audit(['report', 'build'], { ...id, reviewRequired: true, announcements });
+    assert.equal(report.ok, true, JSON.stringify(report.errors));
+    const { payload, reportId } = report.data;
+    assert.equal(payload.schemaVersion, 3);
+    assert.deepEqual(payload.moduleVersions, { audit: '0.3.0' });
+    assert.deepEqual(payload.findings, findings.data.findings);
+    assert.deepEqual(payload.recommendations, advice.data.recommendations);
+    assert.deepEqual([...new Set(payload.findings.map(({ priority }) => priority))].sort(), ['high', 'low']);
+    assert.deepEqual([...new Set(payload.recommendations.map(({ priority }) => priority))].sort(), ['high', 'low']);
+    for (const finding of payload.findings) assert.equal(finding.priority, finding.severity === 'high' ? 'high' : 'low');
+    for (const recommendation of payload.recommendations) assert.equal(recommendation.priority, payload.findings.find(({ ruleId }) => ruleId === recommendation.id).priority);
+    assert.deepEqual(payload.announcements, [announcements[1], announcements[0]], 'the audit groups high before low and retains exactly the saved id, priority and title');
+    assert.deepEqual(readFileSync(savedFile), savedBytes, 'building the report leaves the saved service result unchanged');
+    assert.deepEqual(report.data.next, { kind: 'waitForReview', reportId });
+    const reviewed = audit(['report', 'mark'], { reportId, state: 'reviewed', at: '2026-01-08T00:05:00Z' });
+    assert.equal(reviewed.ok, true, JSON.stringify(reviewed.errors));
+    assert.equal(reviewed.data.next.kind, 'send');
+    assert.equal(reviewed.data.report.reviewRequired, true);
+    assert.equal(reviewed.data.report.payloadSha256, sha256(Buffer.from(JSON.stringify(payload))), 'review retains the exact canonical v3 payload for tool approval');
+  });
 
   await t.test('the pinned audit module refuses what the skills rule out: the four signals of an earlier version, an unseen value marked as seen, a guessed role and evidence without a source', () => {
     const refusal = (document) => {

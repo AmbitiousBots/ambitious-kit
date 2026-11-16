@@ -12,6 +12,7 @@
     "ambitious-audit-page": {
       "requires": [
         "modules",
+        "account-read-tools",
         "pages"
       ],
       "optional": [],
@@ -68,6 +69,7 @@
       "requires": [
         "owner-chat",
         "modules",
+        "account-read-tools",
         "pinned-downloads",
         "pages",
         "owner-requested-skills"
@@ -99,6 +101,7 @@
     "ambitious-snapshot-routine": {
       "requires": [
         "modules",
+        "account-read-tools",
         "pages",
         "report-tool"
       ],
@@ -140,6 +143,7 @@
       "requires": [
         "owner-chat",
         "modules",
+        "account-read-tools",
         "pinned-downloads",
         "pages"
       ],

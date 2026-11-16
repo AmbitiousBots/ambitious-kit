@@ -2,7 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { isRecord } from "../domain/json.ts";
 import { refuseAgentData } from "../paths/refuse-agent-data.ts";
-import { placeByRename } from "./install.ts";
+import { placeByRename, refuseNonRegularFile } from "./install.ts";
 
 export type TemplateFiles = ReadonlyMap<string, string>;
 
@@ -34,9 +34,10 @@ export const placeTemplateFiles = (home: string, files: TemplateFiles): string =
   const root = templateDirectory(refuseAgentData(home));
   for (const [name, text] of files) {
     const path = join(root, name);
+    refuseNonRegularFile(path);
     if (textIfPresent(path) === text) continue;
     mkdirSync(dirname(path), { recursive: true });
-    placeByRename(dirname(path), name.slice(name.lastIndexOf("/") + 1), (temporary) => writeFileSync(temporary, text));
+    placeByRename(dirname(path), name.slice(name.lastIndexOf("/") + 1), (descriptor) => writeFileSync(descriptor, text));
   }
   return root;
 };

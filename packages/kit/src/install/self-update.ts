@@ -2,7 +2,7 @@ import { lstatSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { failure } from "../domain/failure.ts";
 import { refuseAgentData } from "../paths/refuse-agent-data.ts";
-import { currentLink, install, SUMS_FILE, type InstallOutcome } from "./install.ts";
+import { currentLink, install, refuseNonRegularFile, SUMS_FILE, type InstallOutcome } from "./install.ts";
 import { INSTALLER_MODULE, KIT_REPOSITORY, networkFetchers, releaseDownload, type Fetchers } from "./release.ts";
 import { sha256Of } from "./text-file.ts";
 
@@ -73,13 +73,15 @@ export const selfUpdate = async ({ home, runningVersion, version, sha256 }: Self
   if (!VERSION.test(version) || !VERSION.test(runningVersion)) {
     throw failure("E_USAGE", "A self-update needs an exact stable kit version, such as 0.3.0.", "Use the numeric kit.version from check_updates; never use latest, an address, or a prerelease.");
   }
-  if (!HASH.test(sha256)) throw failure("E_USAGE", "The service checksum must be 64 lowercase hexadecimal characters.", "Pass kit.installer.sha256 from check_updates over the authenticated, identity-confirmed Ambitious connection.");
+  if (!HASH.test(sha256)) throw failure("E_USAGE", "The service checksum must be 64 lowercase hexadecimal characters.", "Pass kit.installer.sha256 from check_updates over the Ambitious connection whose exact endpoint was independently confirmed from the platform connection details.");
   const root = refuseAgentData(home);
   const bin = refuseAgentData(join(root, "bin"));
   const asset = `ambitious-${INSTALLER_MODULE}-${version}.mjs`;
   const path = refuseAgentData(join(bin, asset));
   const link = refuseAgentData(join(bin, `ambitious-${INSTALLER_MODULE}`));
   refuseAgentData(join(bin, SUMS_FILE));
+  refuseNonRegularFile(path);
+  refuseNonRegularFile(join(bin, SUMS_FILE));
   preventDowngrade(version, link, runningVersion);
   mkdirSync(bin, { recursive: true });
   const lock = refuseAgentData(join(bin, ".ambitious-modules-update.lock"));
@@ -96,6 +98,8 @@ export const selfUpdate = async ({ home, runningVersion, version, sha256 }: Self
     const bytes = await releaseBytes(download, asset);
     if (sha256Of(bytes) !== sha256) checksumFailure(`The downloaded ${asset} does not match the service checksum.`);
     preventDowngrade(version, link, runningVersion);
+    refuseNonRegularFile(path);
+    refuseNonRegularFile(join(bin, SUMS_FILE));
     if (lstatSync(path, { throwIfNoEntry: false }) !== undefined && sha256Of(readFileSync(path)) !== sha256) {
       checksumFailure(`The existing ${asset} has different bytes and was kept.`);
     }

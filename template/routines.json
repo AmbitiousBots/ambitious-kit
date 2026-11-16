@@ -2,11 +2,11 @@
   "ambitious-selfcheck": {
     "current": {
       "firstTemplate": "0.3.0",
-      "whitespaceSha256": "d9a4ed27d57794e4421af1d5421eb4bfe64399f3cea2cb4a03bce68c59d0684d",
+      "whitespaceSha256": "104170a3f53fbf39f42dc93884d2ae9a201caad53e765b5923eec572c262c875",
       "variants": [
         {
           "template": "0.3.0",
-          "whitespaceSha256": "d6ee1cde73bc64470ee2bbd4afb167f10d34cc7e51ee2b128f2387bfcf038b8f",
+          "whitespaceSha256": "e88ed112ba710196ecc12adbe82392150d540814bb379c8c2a3ebfb05daef382",
           "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
         }
       ]
@@ -49,11 +49,11 @@
   "ambitious-snapshot": {
     "current": {
       "firstTemplate": "0.3.0",
-      "whitespaceSha256": "fc9411eebacc4db707f5f7cfb9bab5d630791f56eec7b5f6ba54d59a31d959f5",
+      "whitespaceSha256": "1f6d13862eb1515775fd9db6d4208c2874abba0b37dd0ebd01dbffdeebd473e1",
       "variants": [
         {
           "template": "0.3.0",
-          "whitespaceSha256": "b3ea86c28277236f48be150121f5a73011cd1d5e31bbf304b32c1d07e7f2136f",
+          "whitespaceSha256": "ba09536535466ed89c2b6e5ef79622f5d5f529ebb72d8b2e6d652393d2d8c0c5",
           "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
         }
       ]

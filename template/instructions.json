@@ -18,9 +18,9 @@
     "private-reference-files": "Read the platform's own reference files that the platform documents inside the bot's private data directory.",
     "shared-skills": "Write or replace an ambitious- skill in the shared skill library without the owner asking for it.",
     "provider-call": "Let a module call an outside provider with a key the owner supplied.",
-    "check-updates-tool": "Call the Ambitious connection's read-only check_updates tool with no arguments after server_info confirms the authenticated connection.",
-    "service-verified-downloads": "Download a newer installer only when its SHA-256 matches both the authenticated service's checksum and the release's SHA256SUMS, without downgrading.",
-    "daily-upgrades": "Let the daily selfcheck apply module and skill upgrades through the verified installer chain without a new request.",
+    "check-updates-tool": "Call the Ambitious connection's read-only check_updates tool with no arguments only after independently confirming its exact endpoint from the platform's own connector or connection details, never from a connection tool result.",
+    "service-verified-downloads": "Download a newer installer only when its SHA-256 matches both the checksum from the independently endpoint-confirmed connection and the release's SHA256SUMS from the official repository URL, without downgrading.",
+    "daily-upgrades": "Let the daily selfcheck apply module and skill upgrades through the verified installer chain without a new request, only after independent platform endpoint confirmation; otherwise report to the owner and wait for the owner's go-ahead in chat through the stored skill's pin.",
     "active-snapshot": "Create the daily snapshot active, doing nothing until monitoring is chosen and its modules, skills and authenticated connection are ready."
   },
   "versions": [
@@ -176,8 +176,8 @@
       "version": 6,
       "firstTemplate": "0.3.0",
       "file": "INSTRUCTIONS.md",
-      "sha256": "dbf5da2cdaf670a67fcb0c4be55a46f81a9a5c8d686057a43837bc11b1aa0de6",
-      "whitespaceSha256": "03173ab180b6dc89adc6458612eb61d04bafb4b008b81714c920c5b8758cd4b8",
+      "sha256": "cb97e1eec34495c8774f1754272ef659d64979e2b295bb5497734c569a3f4d06",
+      "whitespaceSha256": "3bf8e9df120fbef956ad335a19c3ecef1dc0b46c4ffd3bd987ba5dca5ff70ec5",
       "variants": [],
       "grants": [
         "owner-chat",
@@ -199,9 +199,9 @@
       "reasons": {
         "server-info-tool": "Lets the bot confirm that the connector it found answers as the Ambitious monitoring service before a report is prepared for it. The call takes no arguments.",
         "upgrade-on-any-request": "Lets a bot or an agent that looks after the owner's bots bring this bot up to the template its stored installer skill pins. The request supplies nothing: every file is checked against that pin, and the owner is told what changed.",
-        "check-updates-tool": "Lets the daily check learn the published kit, instructions, tools and announcements without sending account or business data.",
-        "service-verified-downloads": "Lets a newer installer be trusted through the authenticated service checksum and the release checksum list, rather than requiring an updated stored skill first.",
-        "daily-upgrades": "Keeps modules and skills current each day through verified files; the owner still applies instructions and decides routine changes.",
+        "check-updates-tool": "Lets the daily check learn versions, tools and announcements without sending account data, only after platform connection details confirm the exact endpoint. A matching server_info identity is not proof.",
+        "service-verified-downloads": "Trusts a newer installer only through the independently endpoint-confirmed checksum and official release SHA256SUMS. Without endpoint confirmation, no self-update or announcements; wait for the owner to use the stored skill's pin.",
+        "daily-upgrades": "Keeps modules and skills current each day through verified files after independent platform endpoint confirmation; the owner still applies instructions and decides routine changes.",
         "active-snapshot": "Enables daily analysis once monitoring is ready, while the readiness check prevents work before the owner chooses monitoring and the owner can pause it."
       }
     }

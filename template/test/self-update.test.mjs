@@ -227,3 +227,67 @@ syncBuiltinESMExports();
   assert.equal(run(required).code, "E_INSTALL_DOWNGRADE", "the active link prevents a stale installer from downgrading it");
   assert.equal(run(["--version", "0.0.0", "--sha256", sha256Of(NEW)]).code, "E_INSTALL_DOWNGRADE");
 });
+
+
+test("self-update ignores planted predictable temporary symlinks and activates only a regular file", async (t) => {
+  const home = installed(t);
+  const bin = join(home, "bin");
+  const outside = join(home, "outside");
+  writeFileSync(outside, "outside bytes");
+  const plantedAsset = join(bin, `.${asset("0.3.0")}.${process.pid}.partial`);
+  const plantedSums = join(bin, `.SHA256SUMS.${process.pid}.partial`);
+  symlinkSync(asset("0.2.7"), plantedAsset);
+  symlinkSync(outside, plantedSums);
+  const result = await selfUpdate(request(home), release().fetchers);
+  assert.equal(readFileSync(join(bin, asset("0.2.7")), "utf8"), OLD);
+  assert.equal(readFileSync(outside, "utf8"), "outside bytes");
+  assert.equal(readlinkSync(plantedAsset), asset("0.2.7"));
+  assert.equal(readlinkSync(plantedSums), outside);
+  assert.equal(lstatSync(result.path).isFile(), true);
+  assert.equal(lstatSync(join(bin, "SHA256SUMS")).isFile(), true);
+});
+
+test("self-update refuses symlinked or non-regular versioned assets and checksum targets and preserves old and outside bytes", async (t) => {
+  for (const name of [asset("0.3.0"), "SHA256SUMS"]) {
+    for (const kind of ["symlink", "directory"]) {
+      const home = installed(t);
+      const bin = join(home, "bin");
+      const outside = join(home, "outside");
+      const outsideBytes = name === "SHA256SUMS" ? readFileSync(join(bin, "SHA256SUMS"), "utf8") : NEW;
+      writeFileSync(outside, outsideBytes);
+      const path = join(bin, name);
+      rmSync(path, { force: true });
+      if (kind === "symlink") symlinkSync(outside, path);
+      else mkdirSync(path);
+      const fake = release();
+      await assert.rejects(selfUpdate(request(home), fake.fetchers), hasCode("E_INSTALL_PATH"));
+      assert.deepEqual(fake.calls, []);
+      assert.equal(readFileSync(join(bin, asset("0.2.7")), "utf8"), OLD);
+      assert.equal(readFileSync(outside, "utf8"), outsideBytes);
+      assert.equal(readlinkSync(join(bin, "ambitious-modules")), asset("0.2.7"));
+      assert.equal(kind === "symlink" ? readlinkSync(path) === outside : lstatSync(path).isDirectory(), true);
+    }
+  }
+});
+
+test("self-update rechecks asset and checksum file types after downloading and retains the old installer", async (t) => {
+  for (const name of [asset("0.3.0"), "SHA256SUMS"]) {
+    const home = installed(t);
+    const bin = join(home, "bin");
+    const outside = join(home, "outside");
+    writeFileSync(outside, NEW);
+    const fake = release();
+    const fetchers = { ...fake.fetchers, web: async (url) => {
+      const result = await fake.fetchers.web(url);
+      if (url.endsWith(".mjs")) {
+        rmSync(join(bin, name), { force: true });
+        symlinkSync(outside, join(bin, name));
+      }
+      return result;
+    } };
+    await assert.rejects(selfUpdate(request(home), fetchers), hasCode("E_INSTALL_PATH"));
+    assert.equal(readFileSync(join(bin, asset("0.2.7")), "utf8"), OLD);
+    assert.equal(readFileSync(outside, "utf8"), NEW);
+    assert.equal(readlinkSync(join(bin, "ambitious-modules")), asset("0.2.7"));
+  }
+});

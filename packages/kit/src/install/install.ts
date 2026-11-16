@@ -1,5 +1,5 @@
-import { createHash } from "node:crypto";
-import { chmodSync, lstatSync, mkdirSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import { closeSync, constants, fchmodSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readlinkSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isModuleName, isSemver } from "../domain/envelope.ts";
 import { failure } from "../domain/failure.ts";
@@ -48,23 +48,47 @@ const formatSums = (sums: ReadonlyMap<string, string>): string =>
     .map(([name, hash]) => `${hash}  ${name}\n`)
     .join("");
 
+const unsafeFile = (path: string): never => {
+  throw failure("E_INSTALL_PATH", `The install target ${path} is not a regular file.`, "Remove the symlink or non-regular target after checking it with the owner, then retry. No link was activated through it.");
+};
+
+export const refuseNonRegularFile = (path: string): void => {
+  const present = lstatSync(path, { throwIfNoEntry: false });
+  if (present !== undefined && !present.isFile()) unsafeFile(path);
+};
+
 const readIfPresent = (path: string): Buffer | null => {
+  refuseNonRegularFile(path);
+  if (lstatSync(path, { throwIfNoEntry: false }) === undefined) return null;
+  const descriptor = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   try {
-    return readFileSync(path);
-  } catch {
-    return null;
+    if (!fstatSync(descriptor).isFile()) unsafeFile(path);
+    return readFileSync(descriptor);
+  } finally {
+    closeSync(descriptor);
   }
 };
 
 export const currentLink = (path: string): string | null =>
   lstatSync(path, { throwIfNoEntry: false })?.isSymbolicLink() === true ? readlinkSync(path) : null;
 
-export const placeByRename = (directory: string, name: string, write: (temporary: string) => void): void => {
-  const temporary = join(directory, `.${name}.${process.pid}.partial`);
+const temporaryPath = (directory: string, name: string): string => join(directory, `.${name}.${randomBytes(16).toString("hex")}.partial`);
+
+export const placeByRename = (directory: string, name: string, write: (descriptor: number) => void): void => {
+  const target = join(directory, name);
+  refuseNonRegularFile(target);
+  const temporary = temporaryPath(directory, name);
+  const descriptor = openSync(temporary, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
   try {
-    write(temporary);
-    renameSync(temporary, join(directory, name));
+    write(descriptor);
+    fsyncSync(descriptor);
+    const written = fstatSync(descriptor);
+    const staged = lstatSync(temporary);
+    if (!staged.isFile() || staged.dev !== written.dev || staged.ino !== written.ino) unsafeFile(temporary);
+    refuseNonRegularFile(target);
+    renameSync(temporary, target);
   } finally {
+    closeSync(descriptor);
     rmSync(temporary, { force: true });
   }
 };
@@ -81,8 +105,18 @@ const fetched = async (download: Download, fileName: string): Promise<Uint8Array
   }
 };
 
-export const pointLink = (bin: string, linkName: string, asset: string): void =>
-  placeByRename(bin, linkName, (temporary) => symlinkSync(asset, temporary));
+export const pointLink = (bin: string, linkName: string, asset: string): void => {
+  const path = join(bin, asset);
+  if (lstatSync(path, { throwIfNoEntry: false })?.isFile() !== true) unsafeFile(path);
+  const temporary = temporaryPath(bin, linkName);
+  symlinkSync(asset, temporary);
+  try {
+    if (lstatSync(path, { throwIfNoEntry: false })?.isFile() !== true) unsafeFile(path);
+    renameSync(temporary, join(bin, linkName));
+  } finally {
+    rmSync(temporary, { force: true });
+  }
+};
 
 export const install = async ({ module, version, kind, home, download, pinned }: InstallRequest): Promise<InstallOutcome> => {
   if (!isModuleName(module)) throw failure("E_USAGE", `"${module}" is not a module name.`, "Use the lower-case name after ambitious-, for example tasks.");
@@ -131,11 +165,13 @@ export const install = async ({ module, version, kind, home, download, pinned }:
     );
   }
   mkdirSync(bin, { recursive: true });
-  placeByRename(bin, asset, (temporary) => {
-    writeFileSync(temporary, bytes);
-    chmodSync(temporary, 0o755);
+  refuseNonRegularFile(path);
+  refuseNonRegularFile(join(bin, SUMS_FILE));
+  placeByRename(bin, asset, (descriptor) => {
+    writeFileSync(descriptor, bytes);
+    fchmodSync(descriptor, 0o755);
   });
-  placeByRename(bin, SUMS_FILE, (temporary) => writeFileSync(temporary, formatSums(new Map([...installedSums, [asset, expected]]))));
+  placeByRename(bin, SUMS_FILE, (descriptor) => writeFileSync(descriptor, formatSums(new Map([...installedSums, [asset, expected]]))));
   switchLink();
   return outcome(present === null ? "installed" : "replaced", expected);
 };

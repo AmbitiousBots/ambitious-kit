@@ -17,26 +17,26 @@
     {
       "skill": "ambitious-audit-collector",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.2.2",
-      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+      "tag": "audit-v0.3.0",
+      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
     },
     {
       "skill": "ambitious-audit-page",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.2.2",
-      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+      "tag": "audit-v0.3.0",
+      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
     },
     {
       "skill": "ambitious-snapshot-routine",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.2.2",
-      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+      "tag": "audit-v0.3.0",
+      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
     },
     {
       "skill": "ambitious-send-feedback",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.2.2",
-      "commit": "68fecfc62c57bc627e20c2f023284d61137151f2"
+      "tag": "audit-v0.3.0",
+      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
     },
     {
       "skill": "ambitious-tasks-for-bots",
