@@ -12,6 +12,7 @@
     "ambitious-audit-page": {
       "requires": [
         "modules",
+        "account-read-tools",
         "pages"
       ],
       "optional": [],
@@ -57,7 +58,8 @@
         "feedback-tool"
       ],
       "optional": [
-        "server-info-tool"
+        "server-info-tool",
+        "active-snapshot"
       ],
       "rulesOut": [
         "other-connection-tools"
@@ -67,12 +69,17 @@
       "requires": [
         "owner-chat",
         "modules",
+        "account-read-tools",
         "pinned-downloads",
         "pages",
         "owner-requested-skills"
       ],
       "optional": [
-        "upgrade-on-any-request"
+        "upgrade-on-any-request",
+        "server-info-tool",
+        "check-updates-tool",
+        "service-verified-downloads",
+        "daily-upgrades"
       ],
       "rulesOut": []
     },
@@ -94,10 +101,13 @@
     "ambitious-snapshot-routine": {
       "requires": [
         "modules",
+        "account-read-tools",
         "pages",
         "report-tool"
       ],
-      "optional": [],
+      "optional": [
+        "active-snapshot"
+      ],
       "rulesOut": []
     },
     "ambitious-tasks-for-bots": {
@@ -133,9 +143,16 @@
       "requires": [
         "owner-chat",
         "modules",
-        "pinned-downloads"
+        "account-read-tools",
+        "pinned-downloads",
+        "pages"
       ],
-      "optional": [],
+      "optional": [
+        "server-info-tool",
+        "check-updates-tool",
+        "service-verified-downloads",
+        "daily-upgrades"
+      ],
       "rulesOut": [
         "report-tool",
         "feedback-tool"
@@ -151,7 +168,9 @@
         "report-tool",
         "feedback-tool"
       ],
-      "optional": [],
+      "optional": [
+        "active-snapshot"
+      ],
       "rulesOut": []
     },
     "Routines from packs": {

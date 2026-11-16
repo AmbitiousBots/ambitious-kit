@@ -35,6 +35,21 @@
     "check": "node --test packages/kit/test/sync.test.ts"
   },
   {
+    "id": "self-update",
+    "userVisible": "Under instructions version 6 the daily selfcheck can upgrade the installer only when the authenticated service checksum, the public release checksum and the downloaded bytes agree. Downgrades are refused, old files are kept, and the link changes only after verification.",
+    "check": "node --test template/test/self-update.test.mjs"
+  },
+  {
+    "id": "instructions-merge",
+    "userVisible": "An instructions proposal merges the published update with local changes, lists the local changes kept, shows both sides of conflicts or an unknown base, and states which permissions can be compared. The owner alone pastes it; neither input file is changed.",
+    "check": "node --test template/test/instructions-merge.test.mjs"
+  },
+  {
+    "id": "daily-template",
+    "userVisible": "Daily update checks retain service announcements and announce tool changes once. Daily analysis starts active, waits silently for monitoring readiness, groups high priority items before low, and sends reports only with platform-confirmed pre-approval; feedback still needs approval for each call.",
+    "check": "node --test --test-name-pattern='daily|pre-approval|announcements|snapshot|selfcheck routine' template/test/check.test.mjs"
+  },
+  {
     "id": "instructions",
     "userVisible": "A bot whose instructions come from an earlier template is told so, with the newer text, the lines that differ, and in plain words which permissions the newer text would add or take away. A careful copy by hand that differs only in whitespace is still recognised. A text the owner wrote is recognised as theirs and left alone. When the installer is itself behind a newer template, the bot says so and recommends updating the template first. Only the owner ever changes a bot's instructions, and the skills keep working with the earlier ones.",
     "check": "node --test --test-name-pattern='instructions|whitespace|pasting' packages/kit/test/sync.test.ts"

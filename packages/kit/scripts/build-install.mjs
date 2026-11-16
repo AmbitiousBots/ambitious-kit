@@ -28,7 +28,11 @@ const instructions = {
   text: instructionsText,
   known: published.versions.flatMap(({ version, sha256, whitespaceSha256, variants }) => [{ sha256, whitespaceSha256 }, ...variants].map((text) => ({ version, sha256: text.sha256, whitespaceSha256: text.whitespaceSha256 }))),
   grants: published.grants,
-  versions: published.versions.map(({ version, grants, reasons }) => ({ version, grants, reasons })),
+  versions: published.versions.map(({ version, grants, reasons, file, sha256 }) => {
+    const text = readFileSync(join(template, file), "utf8");
+    if (createHash("sha256").update(text).digest("hex") !== sha256) throw new Error(`The published instructions version ${version} does not match its recorded SHA-256.`);
+    return { version, grants, reasons, text };
+  }),
 };
 const recorded = published.versions.find(({ version }) => version === published.current)?.sha256;
 if (recorded !== createHash("sha256").update(instructionsText).digest("hex")) {

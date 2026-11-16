@@ -3,7 +3,7 @@ name: ambitious-video-for-bots
 description: For the Ambitious Bot only. Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the owner asks the Ambitious Bot for a video made from screen recordings, title cards, stills, captions or voiceover, or asks what such a video would cost.
 ---
 
-Template version: 0.2.7
+Template version: 0.3.0
 
 # Make a video with Ambitious Video
 

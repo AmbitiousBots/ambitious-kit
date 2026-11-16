@@ -3,7 +3,7 @@ import { matchOf, type Fingerprint, type TextMatch } from "./whitespace.ts";
 
 export type KnownInstructions = Fingerprint & { readonly version: number };
 
-export type PublishedGrants = { readonly version: number; readonly grants: readonly string[]; readonly reasons: Readonly<Record<string, string>> };
+export type PublishedGrants = { readonly version: number; readonly grants: readonly string[]; readonly reasons: Readonly<Record<string, string>>; readonly text?: string };
 
 export type InstructionsCatalogue = {
   readonly version: number;
@@ -181,7 +181,8 @@ export const parseInstructionsCatalogue = (value: unknown): InstructionsCatalogu
   const published = versions.map((entry: unknown): PublishedGrants => {
     if (!isRecord(entry) || !isVersion(entry.version, version)) return wrong("lists grants for a version that is not between 1 and the current one");
     if (!isNames(entry.grants) || entry.grants.some((grant) => described[grant] === undefined)) return wrong(`lists a grant for version ${entry.version} that it does not describe`);
-    return { version: entry.version, grants: entry.grants, reasons: texts(entry.reasons, `the reasons of version ${entry.version}`) };
+    if (entry.text !== undefined && typeof entry.text !== "string") return wrong(`needs the published text of version ${entry.version} to be a string`);
+    return { version: entry.version, grants: entry.grants, reasons: texts(entry.reasons, `the reasons of version ${entry.version}`), ...(typeof entry.text === "string" ? { text: entry.text } : {}) };
   });
   for (const needed of [version, oldestSupported]) if (!published.some((entry) => entry.version === needed)) return wrong(`needs the grants of version ${needed}`);
   return { version, oldestSupported, text, known: entries, grants: described, versions: published };

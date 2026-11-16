@@ -114,8 +114,8 @@ test('the routines in bot.json carry a default time, the owner\'s time zone and 
     assert.equal(routine.destination, 'the run\'s reply, in this bot\'s own chat');
   }
   const [selfcheck] = routines;
-  assert.match(selfcheck.prompt, /`data\.problems` is empty, end the run with an empty reply/u);
-  assert.match(selfcheck.prompt, /`data\.problems` is not empty, reply once, in this bot's own chat/u);
+  assert.match(selfcheck.prompt, /`data\.problems` is empty and nothing changed or needs the owner, end the run with an empty reply/u);
+  assert.match(selfcheck.prompt, /`data\.problems` is not empty or something changed or needs the owner, reply once, in this bot's own chat/u);
 });
 
 test('the installer places the template fixtures where the skills point, and decides every shared skill write by template version', (t) => {
@@ -382,7 +382,10 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
     assert(feedback.includes('ambitious-audit feedback build --in'));
     const build = inputSchema('report', 'build');
     assert.deepEqual(build.required, ['snapshotId', 'reviewRequired']);
-    named(routine, ['reviewRequired'], 'ambitious-snapshot-routine');
+    assert.deepEqual(Object.keys(build.properties), ['snapshotId', 'reviewRequired', 'announcements']);
+    assert.deepEqual(build.properties.announcements.items.required, ['id', 'priority', 'title']);
+    assert.deepEqual(build.properties.announcements.items.properties.priority.enum, ['high', 'low']);
+    named(routine, ['reviewRequired', 'announcements', 'id', 'priority', 'title'], 'ambitious-snapshot-routine');
     const mark = inputSchema('report', 'mark');
     assert.deepEqual(mark.required, ['reportId', 'state', 'at']);
     named(routine, [...mark.properties.state.enum, 'reportId', 'at'], 'ambitious-snapshot-routine');
@@ -489,7 +492,8 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
       assert.equal(advice.data.mode, mode);
       assert(advice.data.recommendations.length >= 1 && advice.data.recommendations.length <= 3);
       for (const recommendation of advice.data.recommendations) {
-        assert.deepEqual(Object.keys(recommendation).sort(), ['effort', 'evidenceIds', 'id', 'title', 'why']);
+        assert.deepEqual(Object.keys(recommendation).sort(), ['effort', 'evidenceIds', 'id', 'priority', 'title', 'why']);
+        assert(['high', 'low'].includes(recommendation.priority));
         assert(recommendation.evidenceIds.length > 0);
       }
       assert.deepEqual(advice.data.withheld, withheld.map(({ ruleId }) => ruleId));
@@ -501,6 +505,8 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
       assert.equal(report.ok, true, JSON.stringify(report.errors));
       assert.deepEqual(report.data.next, { kind: 'waitForReview', reportId: report.data.reportId });
       const { payload } = report.data;
+      assert.equal(payload.schemaVersion, 3);
+      assert.deepEqual(payload.announcements, []);
       assert.equal(payload.accountKind, document.account.kind);
       assert.deepEqual(payload.moduleVersions, { audit: rows.find((row) => row.module === 'audit').version });
       assert.deepEqual(payload.counts.pages, document.pages);
@@ -512,6 +518,62 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
       assert.equal(reviewed.data.next.kind, 'send');
     });
   }
+
+  await t.test('a snapshot becomes a v3 report with rule priorities and unchanged announcements from the saved check_updates result, and still waits for review', () => {
+    const savedFile = join(home, 'template', 'check-updates.json');
+    const instructions = readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8');
+    const savedResult = {
+      ok: true,
+      schemaVersion: 1,
+      kit: {
+        version: '0.3.0',
+        releaseUrl: 'https://github.com/AmbitiousBots/ambitious-kit/releases/tag/kit-v0.3.0',
+        installer: { url: 'https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.3.0/ambitious-modules-0.3.0.mjs', sha256: sha256(readFileSync(installer)) },
+      },
+      instructions: { version: 6, sha256: sha256(Buffer.from(instructions)), text: instructions },
+      tools: [
+        { name: 'server_info', title: 'Server information', description: 'Returns the server identity.', readOnly: true },
+        { name: 'check_updates', title: 'Check updates', description: 'Returns published versions and announcements.', readOnly: true },
+        { name: 'send_report', title: 'Send report', description: 'Receives the approved report.', readOnly: false },
+        { name: 'send_feedback', title: 'Send feedback', description: 'Receives approved feedback.', readOnly: false },
+      ],
+      announcements: [
+        { id: 'daily-reports', publishedAt: '2026-01-08T00:00:00Z', priority: 'low', title: 'Daily reports are available', body: 'Read the report in the review Page.', url: null },
+        { id: 'connection-update', publishedAt: '2026-01-08T00:00:00Z', priority: 'high', title: 'Review your connection', body: 'Details stay outside the report payload.', url: 'https://ambitiousbots.com' },
+      ],
+    };
+    writeFileSync(savedFile, JSON.stringify(savedResult));
+    const savedBytes = readFileSync(savedFile);
+    const announcements = readJson(savedFile).announcements.map(({ id, priority, title }) => ({ id, priority, title }));
+    const document = { ...collected('owner'), connectors: [{ name: 'documents', status: 'needsAuth' }] };
+    const snapshot = audit(['snapshot'], document);
+    assert.equal(snapshot.ok, true, JSON.stringify(snapshot.errors));
+    assert.equal(Object.hasOwn(snapshot.data.normalized, 'announcements'), false, 'announcements are report input, not collected observations');
+    const id = { snapshotId: snapshot.data.snapshotId };
+    const findings = audit(['findings'], id);
+    const advice = audit(['recommend'], id);
+    assert.equal(findings.ok, true, JSON.stringify(findings.errors));
+    assert.equal(advice.ok, true, JSON.stringify(advice.errors));
+    const report = audit(['report', 'build'], { ...id, reviewRequired: true, announcements });
+    assert.equal(report.ok, true, JSON.stringify(report.errors));
+    const { payload, reportId } = report.data;
+    assert.equal(payload.schemaVersion, 3);
+    assert.deepEqual(payload.moduleVersions, { audit: '0.3.0' });
+    assert.deepEqual(payload.findings, findings.data.findings);
+    assert.deepEqual(payload.recommendations, advice.data.recommendations);
+    assert.deepEqual([...new Set(payload.findings.map(({ priority }) => priority))].sort(), ['high', 'low']);
+    assert.deepEqual([...new Set(payload.recommendations.map(({ priority }) => priority))].sort(), ['high', 'low']);
+    for (const finding of payload.findings) assert.equal(finding.priority, finding.severity === 'high' ? 'high' : 'low');
+    for (const recommendation of payload.recommendations) assert.equal(recommendation.priority, payload.findings.find(({ ruleId }) => ruleId === recommendation.id).priority);
+    assert.deepEqual(payload.announcements, [announcements[1], announcements[0]], 'the audit groups high before low and retains exactly the saved id, priority and title');
+    assert.deepEqual(readFileSync(savedFile), savedBytes, 'building the report leaves the saved service result unchanged');
+    assert.deepEqual(report.data.next, { kind: 'waitForReview', reportId });
+    const reviewed = audit(['report', 'mark'], { reportId, state: 'reviewed', at: '2026-01-08T00:05:00Z' });
+    assert.equal(reviewed.ok, true, JSON.stringify(reviewed.errors));
+    assert.equal(reviewed.data.next.kind, 'send');
+    assert.equal(reviewed.data.report.reviewRequired, true);
+    assert.equal(reviewed.data.report.payloadSha256, sha256(Buffer.from(JSON.stringify(payload))), 'review retains the exact canonical v3 payload for tool approval');
+  });
 
   await t.test('the pinned audit module refuses what the skills rule out: the four signals of an earlier version, an unseen value marked as seen, a guessed role and evidence without a source', () => {
     const refusal = (document) => {
@@ -563,9 +625,9 @@ test('the six released modules install, repair, upgrade and selfcheck in a fresh
   });
 
   await t.test('the feedback document the ambitious-send-feedback skill describes builds a payload with no organisation id', () => {
-    const answer = audit(['feedback', 'build'], { text: 'The weekly report is useful.', from: 'customer' });
+    const answer = audit(['feedback', 'build'], { text: 'The daily report is useful.', from: 'customer' });
     assert.equal(answer.ok, true, JSON.stringify(answer.errors));
-    assert.equal(answer.data.payload.text, 'The weekly report is useful.');
+    assert.equal(answer.data.payload.text, 'The daily report is useful.');
     assert.equal(Object.keys(answer.data.payload).some((key) => /organi[sz]ation/iu.test(key)), false);
   });
 });
@@ -694,9 +756,9 @@ test('an agent asks a bot on instructions version 4 for an upgrade: the pinned i
   assert.deepEqual([result.checked.data.instructions.current, result.checked.data.instructions.upgradeOn], [4, 'the owner\'s request']);
   assert.deepEqual(libraryBodies(scene.library), libraryBodies(scene.before), 'no skill was written');
   assert.deepEqual(result.wanted, scene.bot.skills.map(({ name }) => name).filter((name) => name !== INSTALLER_SKILL), 'the skills that would be written are named for the owner');
-  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['upgrade-on-any-request']);
+  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['upgrade-on-any-request', 'check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot']);
   assert(result.said.some((line) => line === 'The proposed instructions would add: Run the documented template upgrade, including writing the template\'s ambitious- skills, when any agent or person asks for it.'), 'the owner is told that pasting the proposed text lets any agent ask for upgrades');
-  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 5.')));
+  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 6.')));
   assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('instructions/4.md'), 'the instructions were not changed');
 
   for (const file of ['instructions/1.md', 'instructions/2.md', 'instructions/3.md']) {
@@ -714,7 +776,7 @@ test('an agent asks a bot on instructions version 4 for an upgrade: the pinned i
 
 test('an agent asks a bot on instructions version 5 for an upgrade: the whole documented upgrade runs, every skill is written from the pinned installer\'s files and verified, and the owner is told which skills changed, from which template version to which', (t) => {
   const scene = upgradeScene(t, 'agent-v5');
-  const result = upgradeAsDocumented(scene, { askedBy: 'An agent', instructions: instructionsText('INSTRUCTIONS.md') });
+  const result = upgradeAsDocumented(scene, { askedBy: 'An agent', instructions: instructionsText('instructions/5.md') });
   assert.equal(result.stopped, null);
   assert.deepEqual([result.checked.data.instructions.current, result.checked.data.instructions.upgradeOn], [5, 'any request']);
   assert.equal(readlinkSync(join(scene.home, 'bin', 'ambitious-modules')), scene.asset);
@@ -724,12 +786,13 @@ test('an agent asks a bot on instructions version 5 for an upgrade: the whole do
   assert.deepEqual(result.mismatched, []);
   assert.deepEqual(libraryBodies(scene.library), Object.fromEntries(scene.bot.skills.map(({ name, body }) => [name, body])), 'the library now holds this template\'s skills, exactly');
   for (const name of others) assert(result.said.includes(`${name}: template 0.2.6 -> ${THIS}`), `the owner is told that ${name} changed, with both template versions`);
-  assert.deepEqual(result.checked.data.instructions.permissions.added, [], 'the bot\'s instructions are the template\'s, so no new permission is proposed');
-  assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('INSTRUCTIONS.md'), 'the instructions were not changed');
+  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot'], 'v5 keeps agent-requested upgrades and is shown the v6 proposal');
+  assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('instructions/5.md'), 'the instructions were not changed');
   assert.equal(readFileSync(join(scene.home, 'current-routines.json'), 'utf8'), JSON.stringify(scene.bot.routines.map(({ name, schedule, prompt }) => ({ name, schedule, prompt }))), 'the routines were not changed');
 
   const again = upgradeAsDocumented(scene, { askedBy: 'An agent', instructions: instructionsText('INSTRUCTIONS.md') });
   assert.deepEqual([again.stopped, again.written], [null, []], 'asking again changes nothing');
+  assert.deepEqual([again.checked.data.instructions.current, again.checked.data.instructions.upgradeOn], [6, 'any request'], 'v6 keeps the v5 requested-upgrade authority');
 });
 
 test('under instructions version 5, an installer that does not match the SHA-256 in the stored skill is deleted and nothing is installed: the link stays, no skill file is written and no skill changes', (t) => {

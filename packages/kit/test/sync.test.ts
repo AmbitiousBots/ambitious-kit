@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
@@ -323,6 +323,21 @@ test("the template's files are written under template in the home, the fixtures 
   assert.throws(() => placeTemplateFiles("/home/box/agent-data/ambitious", files), Failure);
   for (const bad of [{ "../escape.json": "x" }, { "/absolute.json": "x" }, { "a/../../b.json": "x" }, { "ok.json": 7 }, []]) {
     assert.throws(() => parseTemplateFiles(bad), JSON.stringify(bad));
+  }
+});
+
+test("template file writes refuse symlinked targets even when their content already matches", (t) => {
+  for (const outsideBytes of ["published text", "outside bytes"]) {
+    const home = scratch(t);
+    const files = parseTemplateFiles({ "notes.txt": "published text" });
+    const root = placeTemplateFiles(home, files);
+    const outside = join(home, "outside");
+    writeFileSync(outside, outsideBytes);
+    rmSync(join(root, "notes.txt"));
+    symlinkSync(outside, join(root, "notes.txt"));
+    assert.throws(() => placeTemplateFiles(home, files), (error) => error instanceof Failure && error.errors[0].code === "E_INSTALL_PATH");
+    assert.equal(readFileSync(outside, "utf8"), outsideBytes);
+    assert.equal(readlinkSync(join(root, "notes.txt")), outside);
   }
 });
 
