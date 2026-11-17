@@ -49,11 +49,11 @@
   "ambitious-snapshot": {
     "current": {
       "firstTemplate": "0.3.0",
-      "whitespaceSha256": "1f6d13862eb1515775fd9db6d4208c2874abba0b37dd0ebd01dbffdeebd473e1",
+      "whitespaceSha256": "75a62d64fa440296a65d0539e1d99c3fc51c3857956965e2f7b0150bf2049277",
       "variants": [
         {
           "template": "0.3.0",
-          "whitespaceSha256": "ba09536535466ed89c2b6e5ef79622f5d5f529ebb72d8b2e6d652393d2d8c0c5",
+          "whitespaceSha256": "6d38b4ef4ede9b3dcc1f18fa50b2c88d87d3fd24c6c2a3a52a5608330f90db85",
           "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
         }
       ]

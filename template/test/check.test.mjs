@@ -243,7 +243,8 @@ test('version 6 adds only the four daily-update and active-snapshot grants, keep
     'The daily `ambitious-selfcheck` may apply module and skill upgrades through that verified installer chain',
     'Announcements shown to the owner or included in reports come only from `check_updates`; never write your own.',
     'Create `ambitious-selfcheck` and `ambitious-snapshot` active, running daily; the owner can pause either.',
-    'The snapshot does nothing, with an empty reply, until the owner has chosen monitoring and the modules, skills and authenticated connection are ready.',
+    'The snapshot does nothing, with an empty reply, until the owner has chosen monitoring and the modules and skills are ready.',
+    'It then writes its review Page, and builds and sends a report only when the owner has asked for reports to be sent and the authenticated connection is ready.',
     'Create every other routine paused; the owner turns it on.',
   ]) assert(instructions.includes(required), required);
   const earlier = readFileSync(join(root, 'instructions/5.md'), 'utf8');
@@ -815,6 +816,41 @@ test('daily routines are quiet unless something changed or needs the owner, use 
   const routines = readFileSync(join(root, 'routines.md'), 'utf8');
   assert(routines.includes('It has no destination field: where a run reports is decided by the words of the prompt alone.'));
   assert(started.includes('It has no separate setting for where a run reports'));
+});
+
+test('monitoring needs no connection and no subscription: the snapshot then writes its review Page and sends nothing, a report is built only when the owner asked for reports to be sent, and every owner is encouraged to connect', () => {
+  const [, snapshot] = readJson(join(root, 'bot.json')).routines;
+  assert.match(snapshot.prompt, /The analysis and its review Page need no connection and no subscription\./u);
+  assert.match(snapshot.prompt, /Build and send a report only when the owner has asked for reports to be sent, which is the Ambitious Bot plan, and the authenticated Ambitious connection is ready\./u);
+  assert.match(snapshot.prompt, /Otherwise do steps 1, 2 and 4 only: build no report and send nothing\./u);
+  assert.match(snapshot.prompt, /^3\. When a report is to be sent, build the report/mu);
+  assert.match(snapshot.prompt, /With no report, stop here\./u);
+  const routine = skillText('ambitious-snapshot-routine');
+  for (const required of [
+    'The analysis and its review Page need no connection and no subscription: they stay in this account.',
+    'A report is built and sent only when the owner has asked for reports to be sent, which is the Ambitious Bot plan, and the authenticated Ambitious connection is ready.',
+    'from the `findings` and `recommend` output, which carry the same priorities as a report, and stop: run no `report build`, relay no announcements and send nothing.',
+    'When there is no authenticated connection, end that Page with one line saying that an account at https://ambitiousbots.com is free and one bot connects without a subscription',
+  ]) assert(routine.includes(required), `ambitious-snapshot-routine must say: ${required}`);
+  const started = skillText('ambitious-getting-started');
+  for (const required of [
+    'Monitoring is free: the daily analysis runs on this bot\'s computer and its review Page stays in this account.',
+    'The optional Ambitious Bot plan is $725/month per bot and adds a person\'s review of each report; the template remains free.',
+    'Record separately whether the owner has asked for reports to be sent for that review. A yes to monitoring alone is not that.',
+    'For yes, monitoring starts once the required modules and matching skills are ready, with or without a connection: the daily snapshot writes its review Page in this account and sends nothing.',
+    'Whatever the answer, encourage the owner once to create an account at https://ambitiousbots.com and add the Ambitious connection for this bot.',
+    'An account is free, and one bot connects without a subscription.',
+    'No account or business data goes through it without the owner\'s tool approval.',
+    'Do not repeat the encouragement in routine replies.',
+    'Monitoring carries on meanwhile: the review Page is written and nothing is sent.',
+    'the service accepts `send_report` only with an active subscription. `send_feedback` works without one.',
+  ]) assert(started.includes(required), `ambitious-getting-started must say: ${required}`);
+  const prose = [readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8'), readFileSync(join(root, 'routines.md'), 'utf8'), ...expectedSkills.map(skillText)];
+  for (const text of prose) {
+    assert.doesNotMatch(text, /chosen (?:monitoring|it)[^.\n]*authenticated connection[^.\n]*ready/u, 'monitoring starts without the connection: only sending a report needs it');
+    assert.doesNotMatch(text, /with daily analysis and human review/u, 'the daily analysis is free: the plan adds a person\'s review');
+  }
+  assert.equal(published.grants['active-snapshot'], 'Create the daily snapshot active, doing nothing until monitoring is chosen and its modules and skills are ready, then writing its review Page and sending a report only when the owner has asked for reports to be sent and the authenticated connection is ready.');
 });
 
 test('daily update checks stage authenticated data, preserve notice state, reconcile interrupted skills and propose instructions only after verified installation', () => {
