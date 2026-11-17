@@ -3,8 +3,9 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { BUDGET_NOTE, budgetTable, TEMPLATE_BUDGET, templateBudgetFailure, templateSizes } from "../packages/kit/scripts/template-budget.mjs";
 import { routinesOf } from "../packages/kit/scripts/template-routines.mjs";
-import { skillFile, skillNames, skillsOf, skillText } from "../packages/kit/scripts/template-skills.mjs";
+import { INSTALLER_PIN_TOKEN, skillFile, skillNames, skillsOf, skillText } from "../packages/kit/scripts/template-skills.mjs";
 
 const USAGE = `Usage: node scripts/template-generate.mjs [--check]
 
@@ -27,6 +28,15 @@ The installer carries the skill bodies so that a bot can write them from a file 
 checksum is pinned. Its own SHA-256 cannot be inside it, so the installer skill is
 embedded with that one value left blank, and the installer fills it in from the file
 it runs from. The pin in the skill therefore never changes what the installer is.
+
+The installer also carries the guides under template/guides, the reference text that
+"ambitious-modules guide" prints, so a skill can stay a short job description.
+
+Every skill body with its description, and every routine prompt, is typed by a bot when
+the template is staged, so their size is held to a budget: ${TEMPLATE_BUDGET.perSkillBytes} bytes for one skill and
+${TEMPLATE_BUDGET.totalBytes} bytes for all skills and routine prompts together, counted as UTF-8.
+${BUDGET_NOTE} Over the budget, nothing is
+written and the exit code is 1, with and without --check.
 
 INSTRUCTIONS.md is never rewritten here. It carries an "Instructions version: N" line
 that is raised by hand, and only when its text has to change.
@@ -53,13 +63,18 @@ const builtInstallerSha256 = () => {
 };
 
 const generate = (check) => {
+  const { version } = JSON.parse(read(join(repoRoot, "package.json")));
+  const overBudget = templateBudgetFailure(skillsOf(template, version, INSTALLER_PIN_TOKEN), routines());
+  if (overBudget !== null) {
+    process.stdout.write(`${overBudget}\n`);
+    return 1;
+  }
   const stale = [];
   const settle = (path, wanted) => {
     if (read(path) === wanted) return;
     if (check) stale.push(path);
     else writeFileSync(path, wanted);
   };
-  const { version } = JSON.parse(read(join(repoRoot, "package.json")));
   const instructions = join(template, "INSTRUCTIONS.md");
   const installerSha256 = builtInstallerSha256();
   for (const name of skillNames(template)) settle(skillFile(template, name), skillText(template, name, version, installerSha256));
@@ -76,6 +91,8 @@ const generate = (check) => {
     process.stdout.write(`template: out of date: ${stale.join(", ")}.\nRun "npm run template:generate" and commit the result.\n`);
     return 1;
   }
+  const sizes = templateSizes(bot.skills, bot.routines);
+  process.stdout.write(`template: sizes in UTF-8 bytes, skill body and description, against the size budget. ${BUDGET_NOTE}\n${budgetTable(sizes)}\n`);
   process.stdout.write(check ? "template: the version lines, the installer pin and bot.json are up to date.\n" : "template: wrote the version lines, the installer pin and bot.json.\n");
   return 0;
 };

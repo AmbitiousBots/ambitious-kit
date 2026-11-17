@@ -3,22 +3,24 @@ name: ambitious-tasks-for-bots
 description: For the Ambitious Bot only. Track shared work, dependencies and status with the Ambitious Tasks CLI. Use when the Ambitious Bot is asked to remember work, change a task, finish work, find what to do next, inspect a process or plan assignments.
 ---
 
-Template version: 0.3.0
+Template version: 0.3.1
 
 # Track work with Ambitious Tasks
 
-Use the installed `ambitious-tasks` binary. Run `selfcheck` at routine start and read `data.problems`; resolve a reported problem before writing tasks. `commands` lists the available operations. Every input shape and the meaning of estimates and schedules are documented at https://github.com/AmbitiousBots/ambitious-tasks#readme; that documentation is not a file on this computer.
+Use the installed `ambitious-tasks` binary. `commands` lists the operations. Run `selfcheck` at routine start and resolve what `data.problems` reports before writing tasks.
 
-Create a task with `add` when there is a concrete outcome to track. Include a useful title and `done_when`. Link prerequisites with `depends_on` or `dep add`; never describe an unrecorded dependency as enforced. Use `get` or `list` before editing existing work. Change details with `update`, state with `status`, and prerequisites with `dep add` or `dep rm`.
+Read how to add, change, finish, rank, count and schedule tasks:
 
-Always pass an `idem_key` for a write. Choose one stable key per intended action and keep both the key and input unchanged for a retry. Use a new key for a new action. If a call fails with `E_IDEMPOTENCY`, inspect the original action instead of changing its payload under the same key. Do not repeat a timed-out write with a new key before checking whether the original succeeded.
+```sh
+node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide tasks --json
+```
 
-Finish a task only after its acceptance evidence is available. Record a short status note with that evidence. A done task reopens only with `status` and `reopen:true`, targeting `todo`; do not try to bypass that rule through update or import. Reopening is a deliberate user-visible action.
+If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
-Ask `next` when choosing work. Relay its reasons, including any `needs approval` reason and approval label. Being ranked does not grant approval. A task is ready only when all its prerequisites are done. If a prerequisite was canceled, resolve the dependency explicitly.
+Hard rules:
 
-Never compute task counts, ranking, critical paths, workload totals, dates or process metrics by hand. Use `counts` for how many tasks are open, stale for 7 or more days, blocked, waiting or finished in the last 7 days, and report its `asOf` time and its `list` with the numbers. Pass the list name; without one, `counts` reports the list named `default`, where tasks added without a list go. Check `exists` before reporting: when it is `false` no task has ever been in that list and the counts are `null`, so do not report zero or an empty board. Relay the `note`, which names the lists that do exist, and ask which one was meant. Use `graph`, `process metrics`, `process simulate`, `schedule suggest` and `schedule check` for the rest. Copy the time and seed from `meta` when reproducing a result. State that simulation and schedule dates are estimates under their documented assumptions.
-
-Schedule suggestions are read-only. Pass the same people to the independent schedule checker. Explain any violations before proposing assignment changes, then use `update` for task assignees when authorized. Do not present a suggestion as a committed schedule.
-
-Read the envelope and exit code after every command. An `ok:false` response contains a code, message and next-action hint; relay the useful information without inventing a successful result. The module works without network access or provider keys. Never place credentials or private bot files in task inputs.
+- Always pass an `idem_key` for a write, unchanged with the same input on a retry. Do not repeat a timed-out write with a new key before checking whether it succeeded.
+- Never compute task counts, ranking, critical paths, workload totals, dates or process metrics by hand: use `counts`, `next`, `graph` and the process and schedule commands.
+- Check `exists` in the `counts` output before reporting: when it is `false` the list does not exist and its counts are `null`, so do not report zero.
+- Being ranked by `next` does not grant approval. Finish a task only after its acceptance evidence is available; reopen one only with `status` and `reopen:true`.
+- Read the envelope after every command; never invent a result. Never place credentials or private bot files in task inputs.

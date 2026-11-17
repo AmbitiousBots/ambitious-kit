@@ -84,7 +84,7 @@ There are two installers. `ambitious-install` puts one named module release in p
 `src/cli/install-main.ts` is bundled to `ambitious-install-<version>.mjs` in a kit release:
 
 ```text
-node ambitious-install-0.3.0.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz]
+node ambitious-install-0.3.1.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz]
 ```
 
 It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then moves the file into `$AMBITIOUS_HOME/bin` by a rename, records the checksum and switches the link `ambitious-<module>`. Running it again for an installed version downloads and writes nothing. The checksum shows the file is the one the release lists; it does not show who published the release. Its own error codes are `E_INSTALL_DOWNLOAD` and `E_INSTALL_CHECKSUM`, both exit code 1. `spec/` holds a TLA+ model of these steps.
@@ -92,12 +92,14 @@ It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then mov
 `src/cli/modules-main.ts` is bundled to `ambitious-modules-<version>.mjs`, with the pins in `template/modules.lock.json` embedded:
 
 ```text
-node ambitious-modules-0.3.0.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>] [--instructions <file>] [--routines <file>]
-node ambitious-modules-0.3.0.mjs skill-files [--json]
-node ambitious-modules-0.3.0.mjs skills [--json] [--in <file>]
-node ambitious-modules-0.3.0.mjs connection [--json] [--in <file>]
-node ambitious-modules-0.3.0.mjs self-update --version <version> --sha256 <hex> [--json]
-node ambitious-modules-0.3.0.mjs instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json]
+node ambitious-modules-0.3.1.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>] [--instructions <file>] [--routines <file>]
+node ambitious-modules-0.3.1.mjs skill-files [--json]
+node ambitious-modules-0.3.1.mjs skills [--json] [--in <file>]
+node ambitious-modules-0.3.1.mjs connection [--json] [--in <file>]
+node ambitious-modules-0.3.1.mjs self-update --version <version> --sha256 <hex> [--json]
+node ambitious-modules-0.3.1.mjs instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json]
+node ambitious-modules-0.3.1.mjs guide [<topic>] [--json]
+node ambitious-modules-0.3.1.mjs review-page [--built] [--in <file>] [--json]
 ```
 
 For every pinned module, `sync` runs the same install steps with one more check: the asset's SHA-256 must match the pin as well as the release's `SHA256SUMS`, so a release that was changed after it was pinned is refused. It then runs the module's `selfcheck --json` through the link in `$AMBITIOUS_HOME/bin`, with Node for an `.mjs` module and Python 3.13 for a `.pyz` one. It prints one envelope:
@@ -129,6 +131,10 @@ Each file is fetched from the HTTPS release address in the pin. When that is ref
 `skill-files` writes the body of every skill of the template to `$AMBITIOUS_HOME/template/skills/<name>.md` and prints `data.skills[]`: each skill's `name`, `description`, `path`, `sha256` and `bytes`. The bodies are embedded at build time from `template/skills`, so they are covered by the same pin as the installer, and the command takes no input. One value cannot be embedded: the installer's own SHA-256, which the `ambitious-module-installer` skill carries as its pin. The build leaves that value blank and the command fills it in from the file it runs from, so the skill it writes pins exactly the installer that wrote it. A bot writes a skill from the file's exact content and then checks the stored body's SHA-256 against the printed one.
 
 `skills` decides whether a skill may be written to a skill library that several bots share. Its input, on stdin or `--in`, is a list of `{ name, stored }`: a skill name starting with `ambitious-` and the body now stored (or `null`). The body it is compared with is the installer's own for that name; an entry may carry `candidate`, a body whose first line is `Template version: x.y.z`, only for a skill the installer does not carry. A `candidate` that differs from the installer's own body for that name is refused with `E_INPUT_SCHEMA`, so a body from anywhere else is never the one a bot is told to write. For each it answers `data.skills[].action`: `create` (nothing stored), `update` (the stored body is from an older template, or has no version line), `unchanged` (identical text) or `keep` (the stored body is from a newer template, or has the same version and different text). Each answer carries `storedSha256` and `candidateSha256`, `data.changes` has one line for each skill answered `create` or `update` with the template version it had and the one it gets, and `data.tellOwner` has one sentence for each `keep`. The command reads and writes no skill itself.
+
+`guide` prints the reference text that the template's skills point at. The guides are embedded at build time from `template/guides`, one file per topic, so they are covered by the same pin as the installer. With no topic it lists `data.guides[]`: each guide's `topic`, `title` and `bytes`. With a topic it prints `data.topic`, `data.title`, `data.text` and `data.path`, the file `$AMBITIOUS_HOME/template/guides/<topic>.md` that it wrote the same text to. A topic it does not carry is `E_USAGE`, with the topics in the hint. The pin and the fetch lines of the installer are in no guide: they stay in the `ambitious-module-installer` skill, since a guide cannot be read before the installer is fetched.
+
+`review-page` decides when the snapshot routine builds its review Page, which is once a week although the routine runs daily. It keeps `{ builtAt, highPriority }` in `$AMBITIOUS_HOME/template/review-page.json`. `data.due` is `true` when no build is recorded, when the recorded time cannot be read or is in the future, and when the last build was 7 or more days ago; the days are counted to the nearest whole day, so a run that starts a few minutes earlier in the day than last week's is still the weekly one. `data.why` says the same in one sentence, with `data.builtAt` and `data.daysSinceBuilt`. `--built` records the present time as the build time. `--in <file>` names a JSON list of the ids of the findings that have high priority now, outside the private data directory: `data.newHighPriority` lists the ids that were not in the list of the call before, and the list is kept for the next call. Without `--built` and `--in` nothing is written. The command reads no standard input.
 
 An error envelope names the command that was given: `"command": "frobnicate"` for an unknown command, and `""`, the envelope's value for no command, when none was given or the word is not a command name.
 

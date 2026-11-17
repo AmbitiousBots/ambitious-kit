@@ -63,3 +63,12 @@ export const embeddedSkills = (): unknown => {
   }
   return AMBITIOUS_SKILLS;
 };
+
+declare const AMBITIOUS_GUIDES: unknown;
+
+export const embeddedGuides = (): unknown => {
+  if (typeof AMBITIOUS_GUIDES === "undefined") {
+    throw new Error("The template's guides are embedded when the installer is bundled. Run the file in dist/.");
+  }
+  return AMBITIOUS_GUIDES;
+};

@@ -46,7 +46,7 @@
   },
   {
     "id": "daily-template",
-    "userVisible": "Daily update checks retain service announcements and announce tool changes once. Daily analysis starts active, waits silently for monitoring readiness, groups high priority items before low, and sends reports only with platform-confirmed pre-approval; feedback still needs approval for each call.",
+    "userVisible": "Daily update checks retain service announcements and announce tool changes once. The daily snapshot starts active, waits silently for monitoring readiness, builds its review Page once a week with high priority items before low, and sends reports only with platform-confirmed pre-approval; feedback still needs approval for each call.",
     "check": "node --test --test-name-pattern='daily|pre-approval|announcements|snapshot|selfcheck routine' template/test/check.test.mjs"
   },
   {
@@ -68,6 +68,21 @@
     "id": "skill-files",
     "userVisible": "A bot writes a shared skill from a file the installer wrote and checks what was stored against the checksum the installer printed, so a skill is never retyped and never taken from anywhere but the pinned installer.",
     "check": "node --test --test-name-pattern='skill bodies|shared skill' packages/kit/test/sync.test.ts"
+  },
+  {
+    "id": "guides",
+    "userVisible": "A bot reads the long procedures and field tables from the pinned installer when it needs them, so its skills stay short. The checksum pin and the fetch lines stay in the installer skill itself, and every skill says to fetch the pinned installer first when a guide cannot be read.",
+    "check": "node --test --test-name-pattern='guide|hard rules stay' template/test/check.test.mjs"
+  },
+  {
+    "id": "template-size-budget",
+    "userVisible": "The bot template stays small enough to be typed into the platform: every skill and both routine prompts are held to one size budget, a conservative one and not a measured platform limit, and a release over it cannot be built.",
+    "check": "node scripts/template-generate.mjs --check && node --test --test-name-pattern='budget' template/test/check.test.mjs"
+  },
+  {
+    "id": "weekly-review-page",
+    "userVisible": "The snapshot routine runs every day and keeps its evidence current, but builds the review Page, and any report, once a week: on its first run and when the last Page was built 7 or more days ago. On the other days it stays silent unless a module command failed or a new high-priority finding appeared.",
+    "check": "node --test --test-name-pattern='once a week|weekly' template/test/check.test.mjs packages/kit/test/review-page.test.ts"
   },
   {
     "id": "upgrade-requests",

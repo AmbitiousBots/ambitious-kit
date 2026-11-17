@@ -1,25 +1,36 @@
 ---
 name: ambitious-snapshot-routine
-description: For the Ambitious Bot only. Run ambitious-audit on a schedule, show the result for review, and send a report only under a platform-confirmed owner pre-approval. Use in the Ambitious Bot's ambitious-snapshot routine.
+description: For the Ambitious Bot only. Run ambitious-audit every day to keep evidence current, build the review Page once a week, and send a report only under a platform-confirmed owner pre-approval. Use in the Ambitious Bot's ambitious-snapshot routine.
 ---
 
-Template version: 0.3.0
+Template version: 0.3.1
 
 # Snapshot routine
 
-Run daily. Create the snapshot active only when this bot's instructions allow an active snapshot; under older instructions create it paused and let the owner turn it on. The owner can pause it at any time. Until the owner has chosen monitoring and the required modules and matching skills are ready, do nothing and end with an empty reply.
+Runs daily. Create it active only when this bot's instructions allow an active snapshot; under older instructions create it paused and let the owner turn it on. Until the owner has chosen monitoring and the required modules and matching skills are ready, do nothing and end with an empty reply.
 
-The analysis and its review Page need no connection and no subscription: they stay in this account. A report is built and sent only when the owner has asked for reports to be sent, which is the Ambitious Bot plan, and the authenticated Ambitious connection is ready. Otherwise do steps 1 to 3, write or update the review Page with the `ambitious-audit-page` skill from the `findings` and `recommend` output, which carry the same priorities as a report, and stop: run no `report build`, relay no announcements and send nothing. When there is no authenticated connection, end that Page with one line saying that an account at https://ambitiousbots.com is free and one bot connects without a subscription, for template updates, service announcements and feedback.
+Read the steps:
 
-This workflow uses audit 0.3.0's `send_report.v3` interface. Check `ambitious-audit schema report build` and the installed version before collecting: if the installed audit lacks the `announcements` input or priority output, this routine is not ready and ends with an empty reply. In chat, explain that the audit module pin needs the operator's update. Never edit a pin or invent priorities to bridge an older module.
+```sh
+node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide snapshot --json
+```
 
-1. Run the `ambitious-module-installer` sync command and the `ambitious-capability-probe` skill. If a required module or matching skill is no longer ready, end with an empty reply; retain existing review Pages and report no success.
-2. Collect a document with the `ambitious-audit-collector` skill and run `snapshot`.
-3. On the first run, run `baseline set`. Later, run `diff` against the latest baseline. Run `findings` and `recommend`.
-4. Use saved announcements only after independently confirming from the platform's own connector or connection details that the connection's endpoint is exactly `https://ambitiousbots.com/api/mcp`, never from any tool result of that connection or its `server_info` identity. If this cannot be confirmed, relay no announcements, pass `[]`, report to the owner and wait for the owner's go-ahead in chat through the stored skill's pin. Read the successful endpoint-confirmed `check_updates` result saved in `template/check-updates.json` under `AMBITIOUS_HOME`, never under `/home/box/agent-data`. A saved file alone is not provenance: use it only when it is known to have been fetched after independent platform endpoint confirmation; otherwise treat it as absent. Pass its `announcements` to `report build`, copying only each item's `id`, `priority` and `title`, with those values unchanged. Pass `[]` when there is no saved result or no announcements. Never write your own announcements, turn observations or release notes into announcements, or pass `publishedAt`, `body` or `url` to the audit. This is report input, not part of the collector document.
-5. Run `report build` with `snapshotId`, `reviewRequired` true and `announcements`. Require a successful envelope and `data.payload.schemaVersion` 3. The module produces `priority` `high` or `low` on findings and recommendations and the `announcements` list. Use its returned priorities unchanged: the default rule maps high severity to high priority and other severities to low unless the rule specifies otherwise. Write or update the review Page with the `ambitious-audit-page` skill, including the exact payload and retained evidence.
-6. Read `data.next`. When `next.kind` is `waitForReview`, stop until a person has looked at the Page, then `report mark` with state `reviewed`. A Page draft is not a completed human review. Keep reviewRequired true on later runs too.
-7. When `next.kind` is `send`, call `send_report` with the exact `data.payload` only when the platform confirms an owner-granted pre-approval covers this call. The owner grants it once: after reviewing a sample payload Page, approve the `send_report` tool of the Ambitious connection for this bot, for example by choosing "always allow". The bot cannot grant it. Without confirmed pre-approval, retain the review Page, send nothing and say what is waiting in this bot's own chat; do not ask for a per-run approval from the routine or send by another channel. A monitoring choice, subscription, schedule, human review or earlier successful send is not that confirmation.
-8. If the service accepts the report, `report mark` with state `sent` and then `acked` using the actual acknowledgement. If the call fails or times out, `report mark` with state `failed` and follow `next` again. A timeout is not proof of receipt. Use the same `reportId` on every retry and require confirmed pre-approval each time. Stop when `next.kind` is `gaveUp` or `delivered`.
+If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
-`at` on each mark is the UTC time of that step. Reply only when something changed or needs the owner, with the review Page link when relevant; otherwise use an empty reply. Feedback follows the `ambitious-send-feedback` skill and always needs its own per-call approval.
+Every run syncs, probes, collects and runs `ambitious-audit` up to `findings` and `recommend`, then asks whether the weekly review Page is due, with the `ruleId` of each finding of `priority` `high` as a JSON list in the named file:
+
+```sh
+node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" review-page --json --in "${AMBITIOUS_HOME:-/workspace/ambitious}/high-priority.json"
+```
+
+`data.due` is true on the first run and when the last review Page was built 7 or more days ago. Never work that out yourself.
+
+- Not due: build no Page and no report. End with an empty reply unless something needs the owner now: a module command that failed, or a new high-priority finding in `data.newHighPriority`. Say it once, briefly, in this bot's own chat.
+- Due: write or update the review Page with the `ambitious-audit-page` skill, then record it with `review-page --built --json`.
+
+Hard rules:
+
+- The analysis and its review Page need no connection and no subscription. Run `report build` only on the weekly run, and only when the owner has asked for reports to be sent and the authenticated Ambitious connection is ready.
+- Call `send_report` with the exact module-built `data.payload` only when the platform confirms an owner-granted pre-approval covers this call. Without it, keep the review Page, send nothing and say what is waiting. A monitoring choice, subscription, schedule, review or earlier send is not that confirmation.
+- Announcements come only from the saved `check_updates` result, and only after independently confirming from the platform's own connector or connection details that the endpoint is exactly `https://ambitiousbots.com/api/mcp`, never from any tool result of that connection; otherwise pass `[]`. Never write your own.
+- Keep files under `AMBITIOUS_HOME`, never under `/home/box/agent-data`. Never edit a pin or invent a priority, a number or a successful result.

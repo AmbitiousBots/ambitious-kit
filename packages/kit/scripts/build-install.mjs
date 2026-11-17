@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { build } from "esbuild";
 import { foldWhitespace } from "../src/domain/whitespace.ts";
+import { guidesOf } from "./template-guides.mjs";
 import { routinesOf } from "./template-routines.mjs";
 import { INSTALLER_PIN_TOKEN, skillsOf } from "./template-skills.mjs";
 
@@ -69,6 +70,7 @@ const routines = routinesOf(readFileSync(join(template, "routines.md"), "utf8"))
 });
 
 const skills = skillsOf(template, version, INSTALLER_PIN_TOKEN);
+const guides = guidesOf(template);
 
 const shared = {
   bundle: true,
@@ -96,5 +98,5 @@ await build({
   ...shared,
   entryPoints: [join(root, "src", "cli", "modules-main.ts")],
   outfile: join(root, "dist", "ambitious-modules.mjs"),
-  define: { ...defineFor("modules"), AMBITIOUS_LOCK: JSON.stringify(JSON.parse(lock)), AMBITIOUS_TEMPLATE_FILES: JSON.stringify(templateFiles), AMBITIOUS_INSTRUCTIONS: JSON.stringify(instructions), AMBITIOUS_ROUTINES: JSON.stringify(routines), AMBITIOUS_SKILLS: JSON.stringify(skills) },
+  define: { ...defineFor("modules"), AMBITIOUS_LOCK: JSON.stringify(JSON.parse(lock)), AMBITIOUS_TEMPLATE_FILES: JSON.stringify(templateFiles), AMBITIOUS_INSTRUCTIONS: JSON.stringify(instructions), AMBITIOUS_ROUTINES: JSON.stringify(routines), AMBITIOUS_SKILLS: JSON.stringify(skills), AMBITIOUS_GUIDES: JSON.stringify(guides) },
 });
