@@ -19,6 +19,7 @@ import { mergeInstructions } from "../install/instructions-merge.ts";
 import { templateNote, templateStatus, type TemplateStatus } from "../install/newer-template.ts";
 import { INSTALLER_MODULE, releaseDownload } from "../install/release.ts";
 import { reviewPage } from "../install/review-page.ts";
+import { systemTool } from "../install/runtime.ts";
 import { checkRoutines, proposedRoutineFile } from "../install/routines.ts";
 import { placeSkillFiles, skillsDirectory } from "../install/skill-files.ts";
 import { selfUpdate } from "../install/self-update.ts";
@@ -29,7 +30,7 @@ import { ambitiousHome, refuseAgentData } from "../paths/refuse-agent-data.ts";
 import { embedded, embeddedGuides, embeddedInstructions, embeddedLock, embeddedRoutines, embeddedSkills, embeddedTemplateFiles } from "./embedded.ts";
 
 const USAGE =
-  "ambitious-modules sync [--json] [--from <mirror directory>] [--lock <lock file>] [--instructions <file holding the bot's current instructions>] [--routines <file listing the bot's current routines>], ambitious-modules skill-files [--json], ambitious-modules skills [--json] [--in <file>], ambitious-modules connection [--json] [--in <file>], ambitious-modules self-update --version <version> --sha256 <hex> [--json], ambitious-modules instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json], ambitious-modules guide [<topic>] [--json], or ambitious-modules review-page [--built] [--in <file listing the ids of the high-priority findings>] [--json]";
+  "ambitious-modules sync [--json] [--from <mirror directory>] [--lock <lock file>] [--runtime <module whose pinned runtime to build>] [--instructions <file holding the bot's current instructions>] [--routines <file listing the bot's current routines>], ambitious-modules skill-files [--json], ambitious-modules skills [--json] [--in <file>], ambitious-modules connection [--json] [--in <file>], ambitious-modules self-update --version <version> --sha256 <hex> [--json], ambitious-modules instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json], ambitious-modules guide [<topic>] [--json], or ambitious-modules review-page [--built] [--in <file listing the ids of the high-priority findings>] [--json]";
 
 const COMMANDS = ["sync", "skill-files", "skills", "connection", "self-update", "instructions-merge", "guide", "review-page"] as const;
 
@@ -39,6 +40,7 @@ const OPTIONS = {
   in: { type: "string" },
   instructions: { type: "string" },
   routines: { type: "string" },
+  runtime: { type: "string" },
   version: { type: "string" },
   sha256: { type: "string" },
   current: { type: "string" },
@@ -57,6 +59,7 @@ type Wanted = {
   readonly inFile: string | null;
   readonly instructionsFile: string | null;
   readonly routinesFile: string | null;
+  readonly runtimeModule: string | null;
   readonly version: string;
   readonly sha256: string;
   readonly currentFile: string;
@@ -92,7 +95,7 @@ const wanted = (argv: readonly string[], environment: Environment): Wanted => {
   const command = COMMANDS.find((name) => name === positionals[0]);
   if (command === undefined || positionals.length > (command === "guide" ? 2 : 1)) throw wrong(`The commands are ${COMMANDS.join(", ")}.`);
   const allowed: Record<Command, readonly string[]> = {
-    sync: ["from", "lock", "instructions", "routines"],
+    sync: ["from", "lock", "instructions", "routines", "runtime"],
     "skill-files": [],
     skills: ["in"],
     connection: ["in"],
@@ -110,7 +113,7 @@ const wanted = (argv: readonly string[], environment: Environment): Wanted => {
     }
   }
   const mirror = values.from ?? environment.AMBITIOUS_MODULE_MIRROR ?? "";
-  return { command, mirror: mirror === "" ? null : mirror, lockFile: values.lock ?? null, inFile: values.in ?? null, instructionsFile: values.instructions ?? null, routinesFile: values.routines ?? null, version: values.version ?? "", sha256: values.sha256 ?? "", currentFile: values.current ?? "", publishedFile: values.published ?? "", publishedSha256: values["published-sha256"] ?? "", topic: positionals[1] ?? null, built: values.built === true };
+  return { command, mirror: mirror === "" ? null : mirror, lockFile: values.lock ?? null, inFile: values.in ?? null, instructionsFile: values.instructions ?? null, routinesFile: values.routines ?? null, runtimeModule: values.runtime ?? null, version: values.version ?? "", sha256: values.sha256 ?? "", currentFile: values.current ?? "", publishedFile: values.published ?? "", publishedSha256: values["published-sha256"] ?? "", topic: positionals[1] ?? null, built: values.built === true };
 };
 
 const jsonFrom = (file: string | number, what: string, hint: string): unknown => {
@@ -125,9 +128,13 @@ const jsonFrom = (file: string | number, what: string, hint: string): unknown =>
 const lockFrom = (file: string): readonly LockRow[] =>
   parseLock(jsonFrom(file, `The lock file ${file}`, "Name a JSON lock file, or leave --lock out to use the pins that came with this installer."));
 
-const syncData = async ({ mirror, lockFile, instructionsFile, routinesFile }: Wanted, version: string, environment: Environment): Promise<JsonObject> => {
+const syncData = async ({ mirror, lockFile, instructionsFile, routinesFile, runtimeModule }: Wanted, version: string, environment: Environment): Promise<JsonObject> => {
   const home = ambitiousHome(environment);
   const rows = lockFile === null ? parseLock(embeddedLock()) : lockFrom(lockFile);
+  if (runtimeModule !== null && !rows.some((row) => row.module === runtimeModule && row.runtimeSha256 !== undefined)) {
+    const withRuntime = rows.filter((row) => row.runtimeSha256 !== undefined).map((row) => row.module);
+    throw wrong(`The lock pins no runtime for "${runtimeModule}". ${withRuntime.length === 0 ? "No pinned module releases a runtime." : `The modules that pin one are ${withRuntime.join(", ")}.`}`);
+  }
   const catalogue = parseInstructionsCatalogue(embeddedInstructions());
   const instructions = checkInstructions(instructionsFile, home, catalogue);
   const templateRoutines = parseTemplateRoutines(embeddedRoutines());
@@ -153,6 +160,7 @@ const syncData = async ({ mirror, lockFile, instructionsFile, routinesFile }: Wa
     sourceFor: (row) => releaseDownload(row, mirror),
     runtimes: { node: process.execPath, python: findPython },
     environment: { ...environment, AMBITIOUS_HOME: home },
+    ...(runtimeModule === null ? {} : { pinnedRuntime: { module: runtimeModule, runTool: systemTool } }),
   });
   return {
     home,

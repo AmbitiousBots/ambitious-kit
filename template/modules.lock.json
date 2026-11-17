@@ -34,5 +34,18 @@
     "version": "0.1.0",
     "url": "https://github.com/AmbitiousBots/ambitious-video/releases/download/video-v0.1.0/ambitious-video-0.1.0.pyz",
     "sha256": "77d12ec834d492ab75c855ea445803ccbeafa00de55b2610c89bb5563eb32d62"
+  },
+  {
+    "module": "scheduling",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-scheduling/releases/download/scheduling-v0.1.0/ambitious-scheduling-0.1.0.mjs",
+    "sha256": "45a0626793f3cfb2a2e4af84738c691d927d4e399c7702cf7742f0c0c91eede6"
+  },
+  {
+    "module": "constraints",
+    "version": "0.1.0",
+    "url": "https://github.com/AmbitiousBots/ambitious-constraints/releases/download/constraints-v0.1.0/ambitious-constraints-0.1.0.pyz",
+    "sha256": "ee739745882ce837e33bb1b5abfe9daf6367dedde786d2c747f0b02346cfc0c1",
+    "runtimeSha256": "4c836ddf3d703f7dbc6a551182599942f002c491b8121e34c8f6c6531f27f11b"
   }
 ]

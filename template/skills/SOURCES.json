@@ -67,6 +67,12 @@
       "repository": "AmbitiousBots/ambitious-video",
       "tag": "video-v0.1.0",
       "commit": "062ad9401bb071dd406049663644a980c1da8d9e"
+    },
+    {
+      "skill": "ambitious-scheduling-for-bots",
+      "repository": "AmbitiousBots/ambitious-scheduling",
+      "tag": "scheduling-v0.1.0",
+      "commit": "0ce946b11dcfb95ba0d58ac741e89ca4a4b21a5e"
     }
   ]
 }

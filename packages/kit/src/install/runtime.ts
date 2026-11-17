@@ -17,6 +17,7 @@ export type RuntimeRequest = {
   readonly download: Download;
   readonly runTool: RunTool;
   readonly python?: string;
+  readonly pinned?: string;
 };
 
 export type RuntimeAction = "installed" | "unchanged";
@@ -79,7 +80,7 @@ export const systemTool: RunTool = (program, args) =>
     });
   });
 
-export const installRuntime = async ({ module, version, home, download, runTool, python = "python3" }: RuntimeRequest): Promise<RuntimeOutcome> => {
+export const installRuntime = async ({ module, version, home, download, runTool, python = "python3", pinned }: RuntimeRequest): Promise<RuntimeOutcome> => {
   if (!isModuleName(module)) throw failure("E_USAGE", `"${module}" is not a module name.`, "Use the lower-case name after ambitious-, for example tasks.");
   if (!isSemver(version)) throw failure("E_USAGE", `"${version}" is not an exact version.`, "Name one exact semantic version, for example 0.3.1.");
   const root = refuseAgentData(home);
@@ -91,7 +92,7 @@ export const installRuntime = async ({ module, version, home, download, runTool,
   refuseNonRegularFile(join(bin, SUMS_FILE));
   const installedSums = parseSums(existsSync(join(bin, SUMS_FILE)) ? readFileSync(join(bin, SUMS_FILE), "utf8") : "");
   const recorded = installedSums.get(lock);
-  if (recorded !== undefined && markerMatches(join(runtimes, recorded), recorded)) return outcome("unchanged", recorded);
+  if (recorded !== undefined && (pinned === undefined || pinned === recorded) && markerMatches(join(runtimes, recorded), recorded)) return outcome("unchanged", recorded);
 
   const expected = parseSums(new TextDecoder().decode(await fetched(download, SUMS_FILE))).get(lock);
   if (expected === undefined) {
@@ -99,6 +100,13 @@ export const installRuntime = async ({ module, version, home, download, runTool,
       "E_INSTALL_CHECKSUM",
       `The release's ${SUMS_FILE} has no line for ${lock}.`,
       "This release declares no pinned runtime, or the module name or version is wrong. Run the installer without --runtime, or check the release.",
+    );
+  }
+  if (pinned !== undefined && expected !== pinned) {
+    throw failure(
+      "E_INSTALL_CHECKSUM",
+      `The release's ${SUMS_FILE} lists SHA-256 ${expected} for ${lock}, but the pinned checksum is ${pinned}.`,
+      "The release and the pin disagree, so no runtime was built. Report it; do not edit the pin. Any existing runtime was left as it was.",
     );
   }
   const bytes = await fetched(download, lock);

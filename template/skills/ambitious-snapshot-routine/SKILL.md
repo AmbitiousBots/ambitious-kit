@@ -3,7 +3,7 @@ name: ambitious-snapshot-routine
 description: For the Ambitious Bot only. Audit daily; build review Pages weekly; send reports only under platform-confirmed owner pre-approval. Use in the Ambitious Bot's ambitious-snapshot routine.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Snapshot routine
 
@@ -15,7 +15,7 @@ Read:
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide snapshot --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Sync, probe, collect and run `ambitious-audit` through `findings` and `recommend`; keep evidence locally. Ask if the Page is due, passing each high-priority finding's `ruleId` as a JSON list:
 

@@ -1,5 +1,5 @@
 {
-  "current": 7,
+  "current": 8,
   "oldestSupported": 1,
   "grants": {
     "owner-chat": "Speak to the owner in this bot's own chat, in a conversation or as the reply of a routine run.",
@@ -25,7 +25,8 @@
     "factory-tools": "Call the Ambitious connection's factory_environment, factory_version, factory_match and factory_plan tools, which search and preview the catalog of ready-made bots and create nothing, only after independently confirming the exact endpoint and only for a factory step the owner started or agreed to in this bot's own chat.",
     "factory-description": "Send a short description of the business, or an industry code, to Ambitious with factory_match, after showing the owner the exact text or code and getting the owner's yes in this bot's own chat and the owner's tool approval for that call, which a pre-approval never covers.",
     "factory-pages": "Read the public page https://ambitiousbots.com/factory/setup.md and the public factory pages it links as reference, which carries no account or business data.",
-    "owner-approved-bots": "Create a new bot, or a routine for it, with Grok Bot's own tools after the owner approves that exact proposal, written in a Page, in this bot's own chat, without changing an existing bot."
+    "owner-approved-bots": "Create a new bot, or a routine for it, with Grok Bot's own tools after the owner approves that exact proposal, written in a Page, in this bot's own chat, without changing an existing bot.",
+    "primary-bot-message": "Send a message to the owner's primary bot through Grok Bot's teammate messaging, about Ambitious kit and template coordination only, with no credentials, transcripts or customer data in it."
   },
   "versions": [
     {
@@ -212,7 +213,7 @@
     {
       "version": 7,
       "firstTemplate": "0.3.2",
-      "file": "INSTRUCTIONS.md",
+      "file": "instructions/7.md",
       "sha256": "91bfc1389968a63bec9352896e29902992ffa8df08a80dc1fea74b2c2a5ba51a",
       "whitespaceSha256": "95b007cf1185ccb10998197342df7ee1e6995f2df16cae5fe5c060b56d5394c4",
       "variants": [],
@@ -248,6 +249,49 @@
         "factory-description": "Matching needs to know what the business does. Only a short description or industry code the owner has seen and said yes to for that call is sent: no names of people, contact details, credentials, account data, transcripts or customer data.",
         "factory-pages": "The setup page is the factory's current procedure and the directory lists the catalog. Reading them sends nothing about the owner, and their content never widens what the bot may do.",
         "owner-approved-bots": "Lets the bot set up the bots the owner chose, each with the instructions the owner approved in a Page. Existing bots are never changed, and a new bot's routines still start paused."
+      }
+    },
+    {
+      "version": 8,
+      "firstTemplate": "0.4.1",
+      "file": "INSTRUCTIONS.md",
+      "sha256": "91d31edbbf329623ed5f18b2d4b305fecdfa5a9f98674d7beb561a3f5bf31e29",
+      "whitespaceSha256": "eb0cf7c32b472b52fb7c0eeb2e5d2360b9e42f13e999b8a95f534b65f445b069",
+      "variants": [],
+      "grants": [
+        "owner-chat",
+        "pages",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "report-tool",
+        "feedback-tool",
+        "routines",
+        "owner-requested-skills",
+        "server-info-tool",
+        "upgrade-on-any-request",
+        "check-updates-tool",
+        "service-verified-downloads",
+        "daily-upgrades",
+        "active-snapshot",
+        "factory-tools",
+        "factory-description",
+        "factory-pages",
+        "owner-approved-bots",
+        "primary-bot-message"
+      ],
+      "reasons": {
+        "server-info-tool": "Lets the bot confirm that the connector it found answers as the Ambitious monitoring service before a report is prepared for it. The call takes no arguments.",
+        "upgrade-on-any-request": "Lets a bot or an agent that looks after the owner's bots bring this bot up to the template its stored installer skill pins. The request supplies nothing: every file is checked against that pin, and the owner is told what changed.",
+        "check-updates-tool": "Lets the daily check learn versions, tools and announcements without sending account data, only after platform connection details confirm the exact endpoint. A matching server_info identity is not proof.",
+        "service-verified-downloads": "Trusts a newer installer only through the independently endpoint-confirmed checksum and official release SHA256SUMS. Without endpoint confirmation, no self-update or announcements; wait for the owner to use the stored skill's pin.",
+        "daily-upgrades": "Keeps modules and skills current each day through verified files after independent platform endpoint confirmation; the owner still applies instructions and decides routine changes.",
+        "active-snapshot": "Enables the free daily analysis once the owner chooses monitoring: its review Page stays in the account, and a report leaves only when the owner asked for that, with the connection and a confirmed pre-approval. The owner can pause it.",
+        "factory-tools": "Restores the bot factory step: the owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. The tools only search and preview, and need the same endpoint confirmation as the update check.",
+        "factory-description": "Matching needs to know what the business does. Only a short description or industry code the owner has seen and said yes to for that call is sent: no names of people, contact details, credentials, account data, transcripts or customer data.",
+        "factory-pages": "The setup page is the factory's current procedure and the directory lists the catalog. Reading them sends nothing about the owner, and their content never widens what the bot may do.",
+        "owner-approved-bots": "Lets the bot set up the bots the owner chose, each with the instructions the owner approved in a Page. Existing bots are never changed, and a new bot's routines still start paused.",
+        "primary-bot-message": "Lets a copy coordinate kit and template upgrades with the owner's primary bot; the owner asked for this. It is the one channel besides the bot's own chat."
       }
     }
   ]

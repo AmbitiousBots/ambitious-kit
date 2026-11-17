@@ -3,22 +3,21 @@ name: ambitious-capability-probe
 description: For the Ambitious Bot only. Return observed audit visibility. Use before an Ambitious Bot audit or snapshot, and after an account, role, connector or computer change.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Capability probe
 
-Run before the first audit and each snapshot, and repeat after an account, role, connector, or computer change.
 Use available read-only Grok Bot tools. Never read Grok internals or private backing files, and never ask a module to discover account access.
 Do not read `/home/box/agent-data`, the bot's private data directory, and put nothing from there into the result or any module input.
 Do not request broader permissions, edit another bot, or send data while probing.
 
-Read what to inventory, when each visibility signal is seen, and the fixtures. `guide connection`, the same command with that topic, says how to find the monitoring connection.
+Read what to inventory and when a signal is seen; `guide connection` finds the monitoring connection.
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide probe --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Keep the inventory locally under `AMBITIOUS_HOME`; a snapshot adds it to the review Page only when `review-page` says due.
 

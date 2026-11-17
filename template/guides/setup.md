@@ -24,6 +24,19 @@ Once the owner has described the business and what they need, offer one optional
 For yes, follow the `ambitious-factory-for-bots` skill after the first audit Page is written. Offering the choice sends nothing, and a yes here is not approval of any tool call or of any bot.
 For no, carry on. The owner can ask for it later.
 
+## What the modules are for
+
+The sync installs every pinned module; each has its own `ambitious-*` skill. When the owner describes what they need, name the ones that fit, and install nothing else.
+
+| The owner needs | Skill | Modules |
+| --- | --- | --- |
+| Shared work, dependencies and status | `ambitious-tasks-for-bots` | `ambitious-tasks` |
+| Calendars, working hours, a schedule, calendar holds, or a decision that must satisfy rules | `ambitious-scheduling-for-bots` | `ambitious-scheduling`, `ambitious-constraints` |
+| Things of one kind moving through stages | `ambitious-records-for-bots` | `ambitious-records` |
+| Obligations from a contract | `ambitious-contracts-for-bots` | `ambitious-contracts` |
+| Controls, evidence and attestations | `ambitious-compliance-for-bots` | `ambitious-compliance` |
+| A video from a script | `ambitious-video-for-bots` | `ambitious-video` |
+
 ## Time zone
 
 Schedule every routine in the owner's time zone.
