@@ -108,7 +108,7 @@
         "modules",
         "owner-chat",
         "pages",
-        "pinned-downloads"
+        "account-read-tools"
       ],
       "optional": [],
       "rulesOut": []

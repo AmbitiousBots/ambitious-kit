@@ -91,8 +91,8 @@
   },
   {
     "id": "scheduling-and-constraints",
-    "userVisible": "A bot can plan work in time and check a decision against its rules: the scheduling and constraints modules are pinned and installed by the one sync command, one skill says when to use each, and a calendar hold stays a proposal until the owner approves that exact change. The large solver runtime is built only when asked for, after its lock matched the pin.",
-    "check": "node --test --test-name-pattern='eight released modules|hard rules stay|point to the scheduling skill|lock validation' template/test/check.test.mjs && node --test --test-name-pattern='runtime' packages/kit/test/sync.test.ts packages/kit/test/runtime.test.ts"
+    "userVisible": "A bot can plan work in time and check a decision against its rules: the scheduling and constraints modules are pinned and installed by the one sync command, one skill says when to use each, and a calendar hold is a proposal in a Page that the owner applies: the bot never writes to a calendar. The large solver runtime is built only when asked for, after its lock matched the pin, and the bot asks for it only when its instructions allow that download.",
+    "check": "node --test --test-name-pattern='eight released modules|hard rules stay|point to the scheduling skill|lock validation|no skill and no routine requires' template/test/check.test.mjs && node --test --test-name-pattern='runtime' packages/kit/test/sync.test.ts packages/kit/test/runtime.test.ts"
   },
   {
     "id": "primary-bot-message",

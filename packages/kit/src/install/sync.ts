@@ -126,7 +126,7 @@ const problemsOf = (error: unknown): readonly string[] => {
 const withPinnedRuntime = async (row: LockRow, report: ModuleReport, { home, sourceFor, runtimes, pinnedRuntime }: SyncRequest): Promise<ModuleReport> => {
   if (pinnedRuntime?.module !== row.module || row.runtimeSha256 === undefined) return report;
   const python = runtimes.python();
-  if (python === null) return report;
+  if (python === null) return { ...report, problems: [...report.problems, `The pinned runtime was not built: Python ${REQUIRED_PYTHON} was not found on this computer, and a runtime is built by the Python that will run the module.`] };
   try {
     const runtime = await installRuntime({ module: row.module, version: row.version, home, download: sourceFor(row), runTool: pinnedRuntime.runTool, python, pinned: row.runtimeSha256 });
     return { ...report, runtime };

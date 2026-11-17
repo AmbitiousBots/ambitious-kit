@@ -21,7 +21,7 @@ A module never starts, imports or reads another module. The bot carries each doc
 | `schedule-plan.v1` | `ambitious-scheduling plan propose` (`data.plan`, status `proposed`) and `plan get` (status `committed`) | `plan commit`, and the Page the owner reads |
 | `constraint-model.v1` | `ambitious-scheduling plan model` (`data.model`), or the bot with the owner for any other decision | `ambitious-constraints model validate`, `model propose`, `solve`, `explain`, `whatif`, `sweep` |
 | `constraint-solution.v1` | `ambitious-constraints solve` (`data.solution`) | `ambitious-scheduling plan propose` as `solution`, with the unchanged `mapping` from `plan model` |
-| `calendar-holds.v1` | `ambitious-scheduling plan holds` (`data.holds`) | The Page the owner reads; after approval, the bot's own calendar tools |
+| `calendar-holds.v1` | `ambitious-scheduling plan holds` (`data.holds`) | The Page the owner reads; the owner applies it in their own calendar |
 
 `plan task-updates` returns `suggestedUpdates`: each entry is the exact input of `ambitious-tasks update`. Forward each one unchanged, with its `idem_key`. Never change a due date yourself.
 
@@ -34,14 +34,14 @@ A module never starts, imports or reads another module. The bot carries each doc
 | `busy import` | `{"calendar_id":"desk-1","source":"calendar","window":{"start":"...","end":"..."},"taken_at":"...","blocks":[{"start":"...","end":"..."}],"idem_key":"busy-desk-1-week-19"}`. One call per calendar. Import intervals only; leave titles out unless the owner asked for them. |
 | `free` | `{"calendar_ids":["desk-1"],"from":"...","to":"...","min_minutes":30}`. Free time is working hours minus busy time. |
 
-Busy time is what this bot read through its own calendar tools, when the owner has connected a calendar and those tools are available to this bot. The module never contacts a calendar service.
+Busy time is what this bot read through its own read-only calendar tools, when the owner has connected a calendar and such a tool is available to this bot; otherwise ask the owner for the busy intervals. The module never contacts a calendar service.
 
 ## Plan, approve, commit
 
 Follow this order every time.
 
 1. Read the tasks with `ambitious-tasks list` and wrap the rows as a `tasks-snapshot.v1`.
-2. When a calendar is connected, read busy time for the planning window and store it with `busy import`.
+2. When a calendar is connected and this bot has a read-only tool for it, read busy time for the planning window and store it with `busy import`.
 3. Run `plan propose` with `{"tasks": snapshot, "horizon":{"start":"...","end":"..."}, "policy":{"block_minutes":120,"due":"soft"}}`. It stores nothing. `--now` is the earliest moment a plan may start.
 4. Show the owner the proposed blocks, every entry of `violations` and `unscheduled`, and any `notes`, in a Grok Bot Page. State at the top "Proposed, not stored". Group blocks by calendar and local date, with times as returned. Say plainly which tasks did not fit and why, in the messages returned.
 5. Commit only after the owner approves that exact plan in this bot's own chat: `plan commit` with `{"plan_id":"...","base_version":0,"digest":plan.digest,"tasks_digest":plan.tasks_digest,"plan":plan,"tasks":snapshot,"idem_key":"...","actor":"..."}`. `base_version` is 0 for a new plan id, otherwise the version read with `plan get`. Pass `allow_violations` only when the owner accepted the listed violations.
@@ -66,9 +66,9 @@ Never compute free time, block times, time zone conversions or durations by hand
 | `keep` | An event is recorded as created; `external` names it. |
 | `cancel` | An event is recorded for a hold the plan no longer has; `external` names it. |
 
-A hold is a proposal and nothing more. Show the owner, in a Page, what would be created, kept and canceled. Create, change or cancel a real calendar event only with Grok Bot's own calendar tools, only after the owner approves that exact change in this bot's own chat, one event per hold, with the title and times given. When this bot has no calendar tool, say so and leave the Page for the owner. Never invent an event the proposal does not list.
+A hold is a proposal and nothing more. Show the owner, in a Page, what would be created, kept and canceled, each with its title and times as returned. The owner applies it in their own calendar. This bot never creates, changes or cancels a real calendar event, whatever tools it has: its instructions grant no write to a calendar. Never list a hold the proposal does not have.
 
-Right after each batch, report what happened with `holds record`: `{"plan_id":"...","records":[{"idempotency_key":"...","status":"created","provider":"...","event_id":"..."}],"idem_key":"..."}`. `status` is `created` with the event id the calendar returned, `canceled`, or `failed` with a `note`. A later `plan holds` then proposes nothing twice. A clone has its own holds: create holds for one plan id only.
+When the owner says in this bot's own chat what they did, record it with `holds record`: `{"plan_id":"...","records":[{"idempotency_key":"...","status":"created","provider":"...","event_id":"..."}],"idem_key":"..."}`. `status` is `created`, with the event id when the owner gave one, `canceled`, or `failed` with a `note`; `provider` names the calendar the owner used. Record only what the owner reported. A later `plan holds` then proposes nothing twice. A clone has its own holds: propose holds for one plan id only.
 
 ## Decisions that must satisfy rules
 
@@ -108,7 +108,7 @@ When the owner asks for a better plan than the proposed one, or why a schedule c
 
 `solve`, `explain`, `whatif` and `sweep` need the constraints module's pinned runtime: a Python environment of about 200 MB holding the solver packages. The sync command never builds it unasked, so a first `selfcheck` is ok and lists the missing runtime under `data.warnings`, and a solving command answers `E_RUNTIME`. Storing, validating and showing models works without it, and so does every scheduling command.
 
-When the owner needs solving, say that the runtime is a download of about 200 MB of packages from the Python package index, each checked against a SHA-256 pinned in the module's release, that it carries no account or business data, and that it stays on this computer. Only after the owner's yes in this bot's own chat, run:
+Building it downloads about 200 MB of packages from the Python package index. Each is checked against a SHA-256 pinned in the module's release, but they are not release files. Run the command below only when both hold: the owner asked for solving in this bot's own chat, and this bot's instructions allow that download. The instructions published up to version 8 allow only the pinned public release files, so under them do not run it: tell the owner that solving needs the solver runtime and that this bot's instructions do not allow that download yet, and use only the constraints commands that need no runtime, with the scheduling module's own `plan propose` for a schedule. When both hold, say what will be downloaded and that it stays on this computer, then run:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" sync --json --runtime constraints

@@ -402,9 +402,19 @@ const MARKERS = {
   'active-snapshot': /active snapshot/u,
 };
 
+const CALENDAR_WRITE_VERB = String.raw`\b(?:(?:creat|chang|updat|delet|mov)(?:e|es|ed|ing)|cancel(?:s|ed|ing|led|ling)?)\b`;
+const NOT_GRANTED = {
+  'a write to a calendar': new RegExp(String.raw`${CALENDAR_WRITE_VERB}[^.\n]*\bcalendar events?\b|\bcalendar events?\b[^.\n]*${CALENDAR_WRITE_VERB}|\b(?:put|add|book)s?\b[^.\n]*\b(?:on|to|in) (?:a|the|their|the owner's) calendar\b`, 'iu'),
+};
+
 const permissionProblems = (name, text, entry, oldestGrants) => {
   const problems = [];
   const lines = text.split('\n');
+  for (const [what, marker] of Object.entries(NOT_GRANTED)) {
+    for (const line of lines.filter((candidate) => marker.test(candidate))) {
+      if (!/\b(?:not|never|no|nothing)\b/iu.test(line)) problems.push(`${name} asks for ${what} ("${line.slice(0, 80)}"), which no instructions version grants. Say that the bot never does it and that the owner does, or add a grant to instructions.json in a new instructions version first.`);
+    }
+  }
   const declared = [...entry.requires, ...entry.optional, ...entry.rulesOut];
   for (const grant of declared) if (!Object.hasOwn(published.grants, grant)) problems.push(`${name} declares the grant ${grant}, which instructions.json does not describe`);
   if (new Set(declared).size !== declared.length) problems.push(`${name} declares a grant twice`);
@@ -472,6 +482,12 @@ test('no skill and no routine requires a permission that the oldest supported in
   assert.match(caught('Write the skills at the request of any agent or person.', { requires: ['owner-requested-skills'], optional: [UPGRADE_GRANT] }), /must say it is done "only when this bot's instructions allow" it/u);
   assert.equal(caught('Write the skills at the request of any agent or person only when this bot\'s instructions say so.', { requires: ['owner-requested-skills'], optional: [UPGRADE_GRANT] }), '');
   assert.match(caught('Post one message to the owner\'s chat with this bot.', {}), /uses message-owner/u);
+  assert.match(caught('Create a calendar event for each hold after the owner approves.', { requires: ['account-read-tools'] }), /asks for a write to a calendar .*which no instructions version grants/u);
+  assert.match(caught('After approval, cancel the calendar events that left the plan.', {}), /asks for a write to a calendar/u);
+  assert.match(caught('Put each block on the owner\'s calendar with the calendar tool.', {}), /asks for a write to a calendar/u);
+  assert.equal(caught('Never create, change or cancel a real calendar event.', {}), '');
+  assert.equal(caught('Read busy time with a read-only calendar tool.', {}), '');
+  assert(permissions.skills['ambitious-scheduling-for-bots'].requires.includes('account-read-tools'), 'reading busy time is an account read');
   assert.match(caught('Tell the owner\'s primary bot that the upgrade is done.', {}), /uses primary-bot-message .* but permissions\.json does not list it/u);
   assert.match(caught('Tell the owner\'s primary bot that the upgrade is done.', { requires: [PRIMARY_BOT_GRANT] }), /requires primary-bot-message, which instructions version 1 does not grant/u);
   assert.equal(caught('Use teammate messaging only when this bot\'s instructions allow it.', { optional: [PRIMARY_BOT_GRANT] }), '');
@@ -1594,12 +1610,12 @@ const IN_THE_SKILL_ITSELF = {
     'Without that approval, send nothing and say what is waiting in this bot\'s own chat.',
   ],
   'ambitious-scheduling-for-bots': [
-    'Use `ambitious-scheduling` for calendars, working hours, busy time, schedule plans and calendar-hold proposals, and `ambitious-constraints` when a schedule or other decision must satisfy rules: `solve`, `explain` conflicts, `whatif`.',
-    'Modules never call each other: carry data between them unchanged, only as `schedule-plan.v1`, `constraint-model.v1`, `constraint-solution.v1` and `calendar-holds.v1`.',
-    'Commit a plan or a model only after the owner approves that exact proposal in this bot\'s own chat.',
+    'Use `ambitious-scheduling` for calendars, working hours, busy time, schedule plans and calendar-hold proposals, and `ambitious-constraints` when a schedule or other decision must satisfy rules: `solve`, `explain` conflicts, `whatif`:',
+    'Modules never call each other: carry data between them unchanged, only as `tasks-snapshot.v1`, `schedule-plan.v1`, `constraint-model.v1`, `constraint-solution.v1` and `calendar-holds.v1`.',
+    'Commit a plan or model only after the owner approves that exact proposal in this bot\'s own chat.',
     'Never work out times or totals yourself.',
-    'A calendar hold is only a proposal shown in a Page. Create or change a real calendar event only with Grok Bot\'s own calendar tools, after the owner approves that exact change in this bot\'s own chat.',
-    'Solving needs a pinned runtime the sync does not build: build it only on the owner\'s yes, as the guide says.',
+    'A calendar hold is only a proposal shown in a Page; the owner applies it. Never create, change or cancel a real calendar event.',
+    'Solving needs a pinned runtime the sync does not build. Build it only when the owner asks for solving in this bot\'s own chat and this bot\'s instructions allow that download; else say so.',
     'Never place credentials in module input.',
   ],
   'ambitious-tasks-for-bots': ['Never compute task counts, ranking, critical paths, workload totals, dates or process metrics by hand', 'so do not report zero', 'Never place credentials or private bot files in task inputs.'],
@@ -1646,12 +1662,15 @@ test('getting started and the bot factory point to the scheduling skill and its 
   for (const required of [
     'A module never starts, imports or reads another module.',
     'A hold is a proposal and nothing more.',
-    'only with Grok Bot\'s own calendar tools, only after the owner approves that exact change in this bot\'s own chat',
+    'The owner applies it in their own calendar.',
+    'This bot never creates, changes or cancels a real calendar event, whatever tools it has: its instructions grant no write to a calendar.',
+    'through its own read-only calendar tools',
     'The sync command never builds it unasked',
-    'Only after the owner\'s yes in this bot\'s own chat, run:',
+    'Run the command below only when both hold: the owner asked for solving in this bot\'s own chat, and this bot\'s instructions allow that download.',
+    'The instructions published up to version 8 allow only the pinned public release files, so under them do not run it: tell the owner that solving needs the solver runtime and that this bot\'s instructions do not allow that download yet, and use only the constraints commands that need no runtime',
     'ambitious-modules" sync --json --runtime constraints',
   ]) assert(guide.includes(required), `the scheduling guide must say: ${required}`);
-  assert.deepEqual(permissions.skills[skill], { requires: ['modules', 'owner-chat', 'pages', 'pinned-downloads'], optional: [], rulesOut: [] }, 'the skill needs only what the oldest supported instructions grant');
+  assert.deepEqual(permissions.skills[skill], { requires: ['modules', 'owner-chat', 'pages', 'account-read-tools'], optional: [], rulesOut: [] }, 'the skill needs only what the oldest supported instructions grant');
   const { skills, routines } = readJson(join(root, 'bot.json'));
   const sizes = templateSizes(skills, routines);
   const item = sizes.items.find(({ name }) => name === skill);

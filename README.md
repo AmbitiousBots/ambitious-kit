@@ -191,8 +191,8 @@ The reference text, with each tool's arguments, is the `factory` guide.
 Template 0.4.1 pins two more modules, `ambitious-scheduling` and `ambitious-constraints`, and one skill for both, `ambitious-scheduling-for-bots`, with the `scheduling` guide as its reference text. The scheduling module owns calendars, working hours, busy time, schedule plans and calendar-hold proposals; the constraints module answers whether a schedule or another decision can satisfy its rules, explains conflicts and compares scenarios.
 
 - The two modules never call each other. The bot carries data between them only as the interchange documents `schedule-plan.v1`, `constraint-model.v1`, `constraint-solution.v1` and `calendar-holds.v1`, with task rows as `tasks-snapshot.v1`.
-- A calendar hold is a proposal shown in a Page. The bot creates or changes a real calendar event only with the platform's own calendar tools, after the owner approves that exact change in the bot's own chat.
-- The constraints release also has a runtime lock, a hash-pinned list of solver packages. Its pin is the optional `runtimeSha256` of that module's row in `template/modules.lock.json`. A plain `sync` never builds a runtime: the module is installed, its `selfcheck` is ok and lists the missing runtime under `data.warnings`, and a solving command answers `E_RUNTIME`. `ambitious-modules sync --runtime <module>` builds it, for that one module and only where the lock pins a runtime lock, after the release's `SHA256SUMS` and the pin agree; the skill has the bot run it only after the owner's yes in chat, because it is a download of about 200 MB.
+- A calendar hold is a proposal shown in a Page, and the owner applies it in their own calendar. The bot never creates, changes or cancels a real calendar event: no instructions version grants a write to a calendar. It may read busy time with a read-only calendar tool, which `account-read-tools` covers.
+- The constraints release also has a runtime lock, a hash-pinned list of solver packages. Its pin is the optional `runtimeSha256` of that module's row in `template/modules.lock.json`. A plain `sync` never builds a runtime: the module is installed, its `selfcheck` is ok and lists the missing runtime under `data.warnings`, and a solving command answers `E_RUNTIME`. `ambitious-modules sync --runtime <module>` builds it, for that one module and only where the lock pins a runtime lock, after the release's `SHA256SUMS` and the pin agree. The build downloads about 200 MB of hash-pinned packages from the Python package index, which are not release files, so the skill has the bot run it only when the owner asks for solving in chat and the bot's instructions allow that download. The instructions up to version 8 do not, so under them the bot says so and uses the commands that need no runtime; an owner can run the same command themselves.
 
 Version 8 is version 7 with one line changed, and adds one grant, `primary-bot-message`: besides the bot's own chat, the bot may send a message to the owner's primary bot, through the platform's teammate messaging, about Ambitious kit and template coordination, with no credentials, transcripts or customer data in it. No skill or routine of the template uses it.
 
@@ -239,7 +239,7 @@ jobs:
 ### 0.4.1
 
 - Adds the scheduling and constraints modules: calendars, working hours, schedule plans and calendar-hold proposals, and decisions checked against rules.
-- New skill `ambitious-scheduling-for-bots`, with its guide; a calendar hold stays a proposal until the owner approves the exact change.
+- New skill `ambitious-scheduling-for-bots`, with its guide; a calendar hold is a proposal in a Page that the owner applies.
 - Instructions version 8 lets a copy message the owner's primary bot about kit and template coordination; the owner applies it from the "Proposed instructions" Page.
 
 ### 0.4.0

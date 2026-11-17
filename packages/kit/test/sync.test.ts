@@ -269,6 +269,11 @@ test("a .pyz pin may add the checksum of its runtime lock, and the runtime is bu
   assert.equal(calls[0]?.[0], process.execPath, "the runtime is built by the same Python the module will run with");
   assert(calls[1]?.includes("--require-hashes") === true && calls[1].includes("--no-deps"));
 
+  const withoutPython = await sync({ ...requestFor(scratch(t), rows, mirror, null), pinnedRuntime: { module: "solver", runTool } });
+  assert.deepEqual([withoutPython[0]?.state, withoutPython[0]?.selfcheck, Object.hasOwn(withoutPython[0] ?? {}, "runtime"), calls.length], ["installed", "not run", false, 2], "without Python no runtime is built");
+  assert.equal(withoutPython[0]?.problems.filter((problem) => /^The pinned runtime was not built: Python 3\.13 was not found/.test(problem)).length, 1, "and the run says so as a problem of its own, beside the module's");
+  assert.equal(withoutPython[0]?.problems.length, 2);
+
   const again = await sync({ ...requestFor(home, rows, null), pinnedRuntime: { module: "solver", runTool } });
   assert.deepEqual([again[0]?.runtime?.action, calls.length], ["unchanged", 2], "asking again downloads and builds nothing");
 });
