@@ -3,7 +3,7 @@ name: ambitious-video-for-bots
 description: For the Ambitious Bot only. Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the owner asks the Ambitious Bot for a video made from screen recordings, title cards, stills, captions or voiceover, or asks what such a video would cost.
 ---
 
-Template version: 0.3.1
+Template version: 0.3.2
 
 # Make a video with Ambitious Video
 
@@ -21,6 +21,4 @@ Hard rules:
 
 - Always run `estimate` and get the owner's go-ahead on the price before `render`. Quote costs only from `estimate` and `ledger`; never work out a price yourself.
 - Leave `voice` unset: voiceover clips are then captions only and nothing leaves the computer. Set `voice`, which sends the voiceover text to the speech provider, only when this bot's instructions allow a module to call an outside provider, the owner asked for spoken voiceover, and the owner supplied the key in the environment. Never write the key to a file, a script or a log.
-- Retry a failed render with its `jobId`, not as a new job. A video is finished only after `verify` passes.
 - Keep scripts and media out of `/home/box/agent-data`. The rendered file stays on this computer: tell the owner where it is, and do not upload or send it anywhere.
-- Relay `errors[].message` and `errors[].hint` on failure.

@@ -3,7 +3,7 @@ name: ambitious-audit-collector
 description: For the Ambitious Bot only. Gather a collector document for ambitious-audit from the account the bot can see, write every unseen value as null, and say honestly what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
-Template version: 0.3.1
+Template version: 0.3.2
 
 # Audit collector
 
@@ -15,7 +15,7 @@ Read the field lists, the allowed values, how to write usage reported as shares,
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide collector --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill). `ambitious-audit schema` prints the full schema too. If `snapshot` refuses the document, fix the fields its errors name.
+If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Hard rules:
 
@@ -23,5 +23,4 @@ Hard rules:
 - `account.kind` is `owner`, `guest` or `team` only when a tool reported the role or the account holder stated it. Otherwise write `unknown`; the audit still runs.
 - Task counts come only from `ambitious-tasks counts`. A list that does not exist was not seen: its counts are `null`, never 0.
 - `visibility` has exactly one entry for each signal, and every `null` needs its signal set to `seen: false`.
-- Every evidence entry has a `source`, and evidence text is at most 280 characters.
 - Write the document to a file outside the bot's private data directory and pass it with `--in`.

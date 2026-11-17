@@ -36,7 +36,7 @@
   },
   {
     "id": "self-update",
-    "userVisible": "Under instructions version 6 the daily selfcheck can upgrade the installer only when the authenticated service checksum, the public release checksum and the downloaded bytes agree. Downgrades are refused, old files are kept, and the link changes only after verification.",
+    "userVisible": "Under instructions version 6 or later the daily selfcheck can upgrade the installer only when the authenticated service checksum, the public release checksum and the downloaded bytes agree. Downgrades are refused, old files are kept, and the link changes only after verification.",
     "check": "node --test template/test/self-update.test.mjs"
   },
   {
@@ -73,6 +73,11 @@
     "id": "guides",
     "userVisible": "A bot reads the long procedures and field tables from the pinned installer when it needs them, so its skills stay short. The checksum pin and the fetch lines stay in the installer skill itself, and every skill says to fetch the pinned installer first when a guide cannot be read.",
     "check": "node --test --test-name-pattern='guide|hard rules stay' template/test/check.test.mjs"
+  },
+  {
+    "id": "bot-factory",
+    "userVisible": "The owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. Under instructions version 7 the bot shows the exact description before it is sent, proposes the bots in a Page and creates one only after the owner approves; under older instructions it calls no factory tool and proposes the version 7 text.",
+    "check": "node --test --test-name-pattern='version 7|hard rules stay|no skill and no routine requires' template/test/check.test.mjs && node --test --test-name-pattern='template 0.3.1' template/test/e2e.test.mjs"
   },
   {
     "id": "template-size-budget",

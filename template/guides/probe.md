@@ -88,3 +88,4 @@ In the guest scenario (`guest.expected.json`), the account tool identifies a gue
 In the unknown-role scenario (`role-unknown.expected.json`), no tool reports the role and the account holder has not stated it. A complete bot inventory is returned, though without a last-active time for one bot. Usage by bot is shown as percentage shares, and usage by routine, transcripts, audit history and the Page list are unavailable. Task counts and routines are read. The role is recorded as `unknown` and the audit still runs.
 
 For a team account, repeat the same evidence tests against its actual shared scope. Do not substitute any fixture as an account default.
+Return the collector's `visibility` array: exactly `signal`, `seen` and `why` for each signal in `ambitious-audit schema`.

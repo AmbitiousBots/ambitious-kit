@@ -3,7 +3,7 @@ name: ambitious-audit-page
 description: For the Ambitious Bot only. Turn an ambitious-audit result into a page the customer can read, showing unseen values as not observed; the module does not render the page. Use after the Ambitious Bot has run an audit's findings and recommendations.
 ---
 
-Template version: 0.3.1
+Template version: 0.3.2
 
 # Audit page
 

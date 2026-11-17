@@ -47,6 +47,19 @@
       "optional": [],
       "rulesOut": []
     },
+    "ambitious-factory-for-bots": {
+      "requires": [
+        "owner-chat",
+        "pages"
+      ],
+      "optional": [
+        "factory-tools",
+        "factory-description",
+        "factory-pages",
+        "owner-approved-bots"
+      ],
+      "rulesOut": []
+    },
     "ambitious-getting-started": {
       "requires": [
         "owner-chat",
