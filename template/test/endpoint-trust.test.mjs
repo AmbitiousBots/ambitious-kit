@@ -6,10 +6,10 @@ import { test } from "node:test";
 import { identifyConnection, parseConnectorOffers } from "../../packages/kit/src/domain/connection.ts";
 import { Failure } from "../../packages/kit/src/domain/failure.ts";
 import { selfUpdate } from "../../packages/kit/src/install/self-update.ts";
-import { sha256, templateRoot } from "./support.mjs";
+import { sha256, skillProse, templateRoot } from "./support.mjs";
 
 const text = (path) => readFileSync(join(templateRoot, path), "utf8");
-const skill = (name) => text(`skills/${name}/SKILL.md`);
+const skill = skillProse;
 const endpoint = "https://ambitiousbots.com/api/mcp";
 
 test("a spoofed server_info identity and endpoint cannot satisfy the daily flow's independent platform confirmation", () => {

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { guideFile, guidesNamedIn, guideTopics } from "../../packages/kit/scripts/template-guides.mjs";
 
 export const templateRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 export const repoRoot = dirname(templateRoot);
@@ -13,6 +14,12 @@ export const sha256 = (bytes) => createHash("sha256").update(bytes).digest("hex"
 export const lock = () => readJson(join(templateRoot, "modules.lock.json"));
 
 export const SKILL_PREFIX = "ambitious-";
+
+export const skillOnly = (name) => readFileSync(join(templateRoot, "skills", name, "SKILL.md"), "utf8");
+export const guideText = (topic) => readFileSync(guideFile(templateRoot, topic), "utf8");
+export const guidesOfSkill = (name) => guidesNamedIn(skillOnly(name));
+export const allGuideTopics = () => guideTopics(templateRoot);
+export const skillProse = (name) => [skillOnly(name), ...guidesOfSkill(name).map(guideText)].join("\n");
 export const VERSION_LINE = /^Template version: [0-9]+\.[0-9]+\.[0-9]+$/;
 
 export const releasedText = (entry) => {

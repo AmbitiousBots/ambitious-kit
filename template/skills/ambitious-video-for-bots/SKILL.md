@@ -3,28 +3,24 @@ name: ambitious-video-for-bots
 description: For the Ambitious Bot only. Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the owner asks the Ambitious Bot for a video made from screen recordings, title cards, stills, captions or voiceover, or asks what such a video would cost.
 ---
 
-Template version: 0.3.0
+Template version: 0.3.1
 
 # Make a video with Ambitious Video
 
-Use the installed `ambitious-video` binary in `/workspace/ambitious/bin`. It needs Python 3.13, with ffmpeg and Pillow for rendering; the `ambitious-module-installer` sync and the module's `selfcheck` report what is missing in `data.problems` and `data.tools`. If something is missing, tell the owner and stop; do not install software unasked.
-A video is described by a script: JSON or YAML naming clips on tracks, such as screen recordings, title cards, still images, captions, voiceover and cuts. Write the script with the owner, save it beside the media files it names, and pass it with `--in`; paths in a script are relative to the script's directory. Keep scripts and media out of `/home/box/agent-data`.
+Use the installed `ambitious-video` binary in `/workspace/ambitious/bin`. If its `selfcheck` reports something missing, tell the owner and stop; do not install software unasked.
 
-Work in this order, and show the owner each result before the next step.
+Read how to write a script and the order of `validate`, `plan`, `estimate`, `render` and `verify`:
 
-| Step | Command | What it returns |
-| --- | --- | --- |
-| 1 | `validate` | Whether the script is usable, its duration, and any problems. |
-| 2 | `plan` | The ordered steps and the media files the script names. |
-| 3 | `estimate` | A dry-run price. No provider is called. |
-| 4 | `render` | Renders the script and records a job. With only `jobId`, retries that failed or abandoned job. |
-| 5 | `verify` | Checks the rendered job's duration, resolution, audio, and title and cut frames. |
-| Any time | `jobs`, `ledger` | The jobs so far, and the recorded cost lines. |
+```sh
+node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide video --json
+```
 
-Always run `estimate` and get the owner's go-ahead on the price before `render`. Quote costs only from `estimate` and `ledger`; never work out a price yourself.
-Leave `voice` unset: voiceover clips are then captions only and nothing leaves the computer.
-A script with `voice` set makes a keyed speech call during `render`, which sends the voiceover text to the speech provider. That is optional and no step of this skill needs it. Set `voice` only when this bot's instructions allow a module to call an outside provider, the owner asked for spoken voiceover, and the owner has supplied `XAI_API_KEY` in the environment for that call. Under instructions that let nothing leave the computer except through the Ambitious connection, render captions only and tell the owner why. Never write the key to a file, a script, a Page or a log. `E_NO_KEY` means a voice was set without a key.
-Retry a failed render with its `jobId`, not as a new job, so the cost is not recorded twice. `E_JOB_STATE` means the job cannot be retried: read `jobs`. Call a video finished only after `verify` passes; `E_VERIFY` lists the failed checks in `data.checks`.
+If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
-Script problems name their fix: `E_UNKNOWN_STEP` for an unknown clip type, `E_OVERLAP` for two clips overlapping on one track, `E_MEDIA` for a missing file or a time outside it, `E_RANGE` for a cut off a clip boundary or a video longer than 1800 seconds, `E_TOOL` for missing ffmpeg or Pillow, and `E_SPEECH` when the speech service refused the call.
-The rendered file stays on this computer. Tell the owner where it is; do not upload or send it anywhere. Read the envelope and exit code after every command, and relay `errors[].message` and `errors[].hint` on failure.
+Hard rules:
+
+- Always run `estimate` and get the owner's go-ahead on the price before `render`. Quote costs only from `estimate` and `ledger`; never work out a price yourself.
+- Leave `voice` unset: voiceover clips are then captions only and nothing leaves the computer. Set `voice`, which sends the voiceover text to the speech provider, only when this bot's instructions allow a module to call an outside provider, the owner asked for spoken voiceover, and the owner supplied the key in the environment. Never write the key to a file, a script or a log.
+- Retry a failed render with its `jobId`, not as a new job. A video is finished only after `verify` passes.
+- Keep scripts and media out of `/home/box/agent-data`. The rendered file stays on this computer: tell the owner where it is, and do not upload or send it anywhere.
+- Relay `errors[].message` and `errors[].hint` on failure.

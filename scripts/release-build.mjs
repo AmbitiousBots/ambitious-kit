@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { templateBudgetFailure } from "../packages/kit/scripts/template-budget.mjs";
 
 const USAGE = `Usage: node scripts/release-build.mjs [output directory]
 
@@ -22,6 +23,11 @@ is, so the build never deletes a file it did not write:
   ambitious-modules-<version>.mjs    the installer a bot runs: every pinned module, one bundled file
   ambitious-template-<version>.tgz   the Ambitious Bot template: the git-tracked files under template/, without its tests
   SHA256SUMS                         the SHA-256 of every file above
+
+Nothing is built when generated template files are stale or the packaged bot.json
+is over its size budget (the skill bodies with their descriptions and the routine
+prompts, which a bot types when the
+template is staged): "npm run template:generate -- --check" prints the sizes.
 
 The version is the "version" in the root package.json, and every package
 must carry the same one. Needs the pinned tools: run "mise trust && mise
@@ -119,8 +125,16 @@ const packTemplate = (version, output) => {
   });
 };
 
+const refuseOverBudget = () => {
+  const { skills, routines } = readJson(join(repoRoot, "template", "bot.json"));
+  const overBudget = templateBudgetFailure(skills, routines);
+  if (overBudget !== null) throw new Error(overBudget);
+};
+
 const build = (output) => {
   const { version } = readJson(join(repoRoot, "package.json"));
+  refuseOverBudget();
+  run(process.execPath, [join(repoRoot, "scripts", "template-generate.mjs"), "--check"], { stdio: "inherit" });
   emptyOfEarlierRelease(output);
   mkdirSync(output, { recursive: true });
   const scratch = mkdtempSync(join(tmpdir(), "ambitious-release-"));
