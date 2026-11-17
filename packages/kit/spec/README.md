@@ -7,3 +7,5 @@ A TLA+ model of the installer in `../src/install/install.ts`, checked by TLC wit
 `broken/InstallNoVerify` skips the checksum comparison and `broken/InstallLinkFirst` switches the link before the file is placed. TLC must catch each one breaking the invariant listed in `broken/EXPECTED.json`.
 
 `verify/formal/SKILL.md` at the repository root maps every model step to the code, states the bounds, and says what to do when the installer changes.
+
+`Runtime.tla` models `../src/install/runtime.ts`, the opt-in pinned runtime of a Python module: the lock is verified, the environment is built in a staging directory, marked, and renamed into place. It checks that the directory a module loads from is never half-built and that only a verified lock is ever built. `broken/RuntimeBuiltInPlace` builds in the final directory and `broken/RuntimeNoVerify` skips the lock's checksum comparison.

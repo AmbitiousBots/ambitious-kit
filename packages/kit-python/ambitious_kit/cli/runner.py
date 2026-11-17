@@ -34,6 +34,7 @@ from ambitious_kit.domain.envelope import (
 )
 from ambitious_kit.domain.migrations import Migration
 from ambitious_kit.paths import ambitious_home, refuse_agent_data
+from ambitious_kit.runtime import pinned_runtime
 
 BUILT_IN = ("selfcheck", "commands")
 
@@ -45,6 +46,7 @@ class ModuleSpec:
     schema_version: int
     migrations: Sequence[Migration]
     commands: Mapping[str, Command]
+    runtime_lock: str | None = None
 
 
 @dataclass(frozen=True)
@@ -195,7 +197,15 @@ def cli_envelope(spec: ModuleSpec, io: Io) -> Envelope:
         if name == "selfcheck":
             return ok(
                 identity(name),
-                selfcheck(module=spec.module, db_path=db_path, binary_path=io.binary_path, migrations=spec.migrations),
+                selfcheck(
+                    module=spec.module,
+                    db_path=db_path,
+                    binary_path=io.binary_path,
+                    migrations=spec.migrations,
+                    runtime=None
+                    if spec.runtime_lock is None
+                    else pinned_runtime(io.env, spec.module, spec.runtime_lock),
+                ),
             )
         readonly = command.access == "read"
 

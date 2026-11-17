@@ -1,0 +1,37 @@
+{
+  "schema": "tasks-snapshot.v1",
+  "taken_at": "2026-01-05T09:00:00Z",
+  "list": "launch",
+  "tasks": [
+    {
+      "id": "T-1",
+      "list": "launch",
+      "title": "Draft the announcement",
+      "status": "todo",
+      "priority": 1,
+      "estimate_days": 0.5,
+      "due": "2026-01-09",
+      "assignee": "sam",
+      "labels": [
+        "writing"
+      ],
+      "depends_on": [],
+      "updated_at": "2026-01-04T10:00:00.000Z"
+    },
+    {
+      "id": "T-2",
+      "list": "launch",
+      "title": "Review the announcement",
+      "status": "todo",
+      "priority": 2,
+      "estimate_days": null,
+      "due": null,
+      "assignee": null,
+      "labels": [],
+      "depends_on": [
+        "T-1"
+      ],
+      "updated_at": "2026-01-04T10:05:00.000Z"
+    }
+  ]
+}

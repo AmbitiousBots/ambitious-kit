@@ -6,5 +6,13 @@
   "InstallLinkFirst": {
     "invariant": "LinkNeverDangles",
     "because": "the installer switches the link before the asset is in place, so a crash between the two steps leaves the link pointing at a file that is not there"
+  },
+  "RuntimeBuiltInPlace": {
+    "invariant": "InPlaceMeansComplete",
+    "because": "the installer builds the pinned runtime in its final directory instead of a staging directory, so a crash or a failed package install leaves a half-built runtime where the module looks for it"
+  },
+  "RuntimeNoVerify": {
+    "invariant": "OnlyVerifiedLockIsBuilt",
+    "because": "the installer builds from a runtime lock without comparing its SHA-256 with SHA256SUMS, so a damaged or swapped lock decides which packages are installed"
   }
 }

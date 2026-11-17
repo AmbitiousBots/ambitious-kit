@@ -1,0 +1,32 @@
+{
+  "schema": "constraint-solution.v1",
+  "model": {
+    "name": "two-offers",
+    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "scenario": "more_hours",
+  "status": "optimal",
+  "objective": 3,
+  "bound": 3,
+  "values": {
+    "offer_basic": false,
+    "offer_full": true,
+    "hours": 30,
+    "tier": "full"
+  },
+  "soft_violated": [],
+  "checked": {
+    "violations": []
+  },
+  "rests_on_assumptions": [
+    "hours_fit"
+  ],
+  "solver": {
+    "name": "cp-sat",
+    "version": "9.15.6755",
+    "seed": 7,
+    "workers": 1,
+    "deterministic_time_limit": 10,
+    "runtime_lock_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  }
+}

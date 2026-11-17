@@ -3,7 +3,7 @@ name: ambitious-getting-started
 description: For the Ambitious Bot only. Ask three setup questions, set the routines to the owner's time zone, check observable capabilities, write the first audit as a Grok Bot Page, and find the monitoring connection by its tools. Use on the Ambitious Bot's first chat, after the module sync, and when the owner asks about setup or monitoring.
 ---
 
-Template version: 0.3.2
+Template version: 0.4.0
 
 # Getting started
 

@@ -1,0 +1,14 @@
+{
+  "param-with-a-fraction.json": {
+    "pointer": "/params/0/value",
+    "keyword": "type"
+  },
+  "strength-unknown.json": {
+    "pointer": "/constraints/0/strength",
+    "keyword": "enum"
+  },
+  "top-level-field-unknown.json": {
+    "pointer": "/solver",
+    "keyword": "additionalProperties"
+  }
+}

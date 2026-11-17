@@ -1,0 +1,10 @@
+{
+  "status-unknown.json": {
+    "pointer": "/status",
+    "keyword": "enum"
+  },
+  "two-workers.json": {
+    "pointer": "/solver/workers",
+    "keyword": "const"
+  }
+}

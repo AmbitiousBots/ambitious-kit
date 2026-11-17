@@ -1,0 +1,35 @@
+{
+  "schema": "calendar-holds.v1",
+  "plan": {
+    "plan_id": "launch-week",
+    "version": 1,
+    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "holds": [
+    {
+      "action": "create",
+      "title": "Draft the announcement",
+      "start": {
+        "utc": "2026-01-05T17:00:00.000Z",
+        "local": "2026-01-05T09:00:00-08:00",
+        "time_zone": "America/Los_Angeles"
+      },
+      "end": {
+        "utc": "2026-01-05T18:30:00.000Z",
+        "local": "2026-01-05T10:30:00-08:00",
+        "time_zone": "America/Los_Angeles"
+      },
+      "calendar_hint": {
+        "calendar_id": "sam",
+        "name": "Sam",
+        "person_ref": "sam"
+      },
+      "source": {
+        "plan_id": "launch-week",
+        "version": 1,
+        "task_id": "T-1",
+        "seq": 0
+      }
+    }
+  ]
+}

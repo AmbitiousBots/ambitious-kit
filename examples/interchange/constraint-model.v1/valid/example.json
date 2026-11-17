@@ -1,0 +1,136 @@
+{
+  "schema": "constraint-model.v1",
+  "name": "two-offers",
+  "description": "Pick at most one offer and stay inside the hours available.",
+  "variables": [
+    {
+      "name": "offer_basic",
+      "type": "bool"
+    },
+    {
+      "name": "offer_full",
+      "type": "bool"
+    },
+    {
+      "name": "hours",
+      "type": "int",
+      "domain": {
+        "lo": 0,
+        "hi": 40
+      }
+    },
+    {
+      "name": "tier",
+      "type": "enum",
+      "domain": {
+        "values": [
+          "none",
+          "basic",
+          "full"
+        ]
+      }
+    }
+  ],
+  "params": [
+    {
+      "name": "hours_available",
+      "value": 20,
+      "unit": "hours per week"
+    }
+  ],
+  "constraints": [
+    {
+      "id": "one_offer",
+      "kind": "at_most_one",
+      "args": {
+        "lits": [
+          "offer_basic",
+          "offer_full"
+        ]
+      },
+      "strength": "structural",
+      "category": "definition"
+    },
+    {
+      "id": "hours_fit",
+      "kind": "linear",
+      "args": {
+        "terms": [
+          [
+            1,
+            "hours"
+          ]
+        ],
+        "op": "<=",
+        "rhs": "param:hours_available"
+      },
+      "strength": "hard",
+      "category": "assumption",
+      "negotiable": false,
+      "label": "Work fits in the hours available"
+    },
+    {
+      "id": "full_needs_hours",
+      "kind": "linear",
+      "args": {
+        "terms": [
+          [
+            1,
+            "hours"
+          ]
+        ],
+        "op": ">=",
+        "rhs": 30,
+        "if": [
+          "offer_full"
+        ]
+      },
+      "strength": "hard",
+      "category": "fact",
+      "label": "The full offer takes 30 hours"
+    },
+    {
+      "id": "want_full",
+      "kind": "fix",
+      "args": {
+        "lit": "offer_full"
+      },
+      "strength": "hard",
+      "category": "desire",
+      "negotiable": true,
+      "label": "Sell the full offer"
+    }
+  ],
+  "evidence": [
+    {
+      "target": {
+        "param": "hours_available"
+      },
+      "source": "planning note",
+      "confidence": "assumption"
+    }
+  ],
+  "objective": {
+    "sense": "max",
+    "terms": [
+      {
+        "coef": 3,
+        "var": "offer_full"
+      },
+      {
+        "coef": 1,
+        "var": "offer_basic"
+      }
+    ]
+  },
+  "scenarios": [
+    {
+      "name": "more_hours",
+      "overrides": {
+        "params": {
+          "hours_available": 35
+        }
+      }
+    }
+  ]
+}
