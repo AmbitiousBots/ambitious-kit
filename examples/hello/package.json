@@ -16,6 +16,6 @@
     "contract": "ambitious-contract dist/ambitious-hello.mjs"
   },
   "devDependencies": {
-    "@ambitious/kit": "0.3.2"
+    "@ambitious/kit": "0.4.0"
   }
 }
