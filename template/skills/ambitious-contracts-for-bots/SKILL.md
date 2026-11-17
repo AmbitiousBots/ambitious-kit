@@ -1,13 +1,13 @@
 ---
 name: ambitious-contracts-for-bots
-description: For the Ambitious Bot only. Maintain a literal-quote obligation register with the Ambitious Contracts CLI, apply amendments, inspect due work and hand suggested payloads to the tasks module. Use when the Ambitious Bot is asked to track obligations from a contract or an amendment.
+description: For the Ambitious Bot only. Keep a literal-quote obligation register with the Ambitious Contracts CLI: amendments, due work and suggested tasks. Use when the Ambitious Bot is asked to track obligations from a contract or an amendment.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Contracts for bots
 
-Track obligations from a contract or amendment with the installed `ambitious-contracts` binary. Run `selfcheck`, then `commands`, and inspect `ok`, `errors` and `data` of every answer.
+Use the installed `ambitious-contracts` binary. Run `selfcheck`, then `commands`, and inspect `ok`, `errors` and `data` of every answer.
 
 Read how to register obligations, find due work and apply an amendment:
 
@@ -15,7 +15,7 @@ Read how to register obligations, find due work and apply an amendment:
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide contracts --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Hard rules:
 

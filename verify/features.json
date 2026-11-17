@@ -86,8 +86,18 @@
   },
   {
     "id": "bot-factory",
-    "userVisible": "The owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. Under instructions version 7 the bot shows the exact description before it is sent, proposes the bots in a Page and creates one only after the owner approves; under older instructions it calls no factory tool and proposes the version 7 text.",
+    "userVisible": "The owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. Under instructions version 7 or later the bot shows the exact description before it is sent, proposes the bots in a Page and creates one only after the owner approves; under older instructions it calls no factory tool and proposes the version 7 text.",
     "check": "node --test --test-name-pattern='version 7|hard rules stay|no skill and no routine requires' template/test/check.test.mjs && node --test --test-name-pattern='template 0.3.1' template/test/e2e.test.mjs"
+  },
+  {
+    "id": "scheduling-and-constraints",
+    "userVisible": "A bot can plan work in time and check a decision against its rules: the scheduling and constraints modules are pinned and installed by the one sync command, one skill says when to use each, and a calendar hold stays a proposal until the owner approves that exact change. The large solver runtime is built only when asked for, after its lock matched the pin.",
+    "check": "node --test --test-name-pattern='eight released modules|hard rules stay|point to the scheduling skill|lock validation' template/test/check.test.mjs && node --test --test-name-pattern='runtime' packages/kit/test/sync.test.ts packages/kit/test/runtime.test.ts"
+  },
+  {
+    "id": "primary-bot-message",
+    "userVisible": "Under instructions version 8 a copy may send one kind of message besides its own chat: to the owner's primary bot, about kit and template coordination, with no credentials, transcripts or customer data. A bot on version 7 is shown the version 8 text with that one permission listed, and the owner decides.",
+    "check": "node --test --test-name-pattern='version 8|sync compares the bot.s instructions' template/test/check.test.mjs && node --test --test-name-pattern='template 0.4.0' template/test/e2e.test.mjs"
   },
   {
     "id": "template-size-budget",

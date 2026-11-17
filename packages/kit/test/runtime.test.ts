@@ -141,3 +141,15 @@ test("a lock with a package that has no exact version or no hash is refused", as
 test("the bot's private data directory is refused as a home", async () => {
   assert.equal(await failureCode(installRuntime(request("/home/box/agent-data/home", release(RELEASE).download, tools().runTool))), "E_FORBIDDEN_PATH");
 });
+
+test("a runtime lock the release lists under another checksum than the pin is refused before it is downloaded, and a matching pin builds as before", async (t) => {
+  const directory = home(t);
+  const { download, requested } = release(RELEASE);
+  const { runTool, calls } = tools();
+  assert.equal(await failureCode(installRuntime({ ...request(directory, download, runTool), pinned: "d".repeat(64) })), "E_INSTALL_CHECKSUM");
+  assert.deepEqual([requested, calls, runtimeEntries(directory)], [["SHA256SUMS"], [], []]);
+  const built = await installRuntime({ ...request(directory, download, runTool), pinned: sha256(LOCK) });
+  assert.deepEqual([built.action, built.lockSha256], ["installed", sha256(LOCK)]);
+  assert.equal(await failureCode(installRuntime({ ...request(directory, download, runTool), pinned: "d".repeat(64) })), "E_INSTALL_CHECKSUM", "a runtime built for another lock does not satisfy a moved pin");
+  assert.equal((await installRuntime({ ...request(directory, download, runTool), pinned: sha256(LOCK) })).action, "unchanged");
+});

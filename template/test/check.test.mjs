@@ -16,7 +16,7 @@ const schema = readJson(join(root, 'modules.lock.schema.json'));
 const sources = readJson(join(root, 'skills', 'SOURCES.json'));
 const ownSkills = ['ambitious-capability-probe', 'ambitious-factory-for-bots', 'ambitious-getting-started', 'ambitious-module-installer'];
 const expectedSkills = [...ownSkills, ...sources.copied.map(({ skill }) => skill), ...sources.written.map(({ skill }) => skill)].sort();
-const pinnedModules = ['audit', 'compliance', 'contracts', 'records', 'tasks', 'video'];
+const pinnedModules = ['audit', 'compliance', 'constraints', 'contracts', 'records', 'scheduling', 'tasks', 'video'];
 const visibilitySignals = ['transcripts', 'usage', 'otherBots', 'auditLog', 'accountRole', 'tasks', 'pages', 'botActivity', 'routines'];
 const { version: templateVersion } = readJson(join(repoRoot, 'package.json'));
 const connectionScenarios = ['identity-confirmed', 'identity-mismatch', 'no-tool-list', 'same-name-other-tools', 'tool-catalog', 'tool-names-only', 'two-candidates'];
@@ -29,9 +29,13 @@ const MONITORING_IDENTITY = 'ambitiousbots.com/mcp/v1';
 const MONITORING_TOOLS = ['server_info', 'send_report', 'send_feedback'];
 const FACTORY_TOOLS = ['factory_environment', 'factory_version', 'factory_match', 'factory_plan'];
 const whitespaceSha256 = (text) => sha256(foldWhitespace(text));
-const earlierTemplates = ['0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4', '0.2.5', '0.2.6', '0.2.7', '0.3.0', '0.3.1'];
-const TEMPLATES_THAT_KEPT_THE_TEXT_BEFORE = ['0.3.1'];
-const PRESENT_INSTRUCTIONS_FIRST_TEMPLATE = '0.3.2';
+const earlierTemplates = ['0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4', '0.2.5', '0.2.6', '0.2.7', '0.3.0', '0.3.1', '0.3.2', '0.4.0'];
+const TEMPLATES_THAT_KEPT_THE_TEXT_BEFORE = ['0.3.1', '0.4.0'];
+const FACTORY_INSTRUCTIONS_FIRST_TEMPLATE = '0.3.2';
+const PRESENT_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.1';
+const PRIMARY_BOT_GRANT = 'primary-bot-message';
+const OWNER_CHAT_LINE_BEFORE = 'Speak to the owner in this bot\'s own chat. Never send email, and never send a message anywhere else.';
+const OWNER_CHAT_LINE = 'Speak to the owner in this bot\'s own chat. Never send email. The only other message you may send is to the owner\'s primary bot, through Grok Bot\'s teammate messaging, about Ambitious kit and template coordination. Never include credentials, transcripts or customer data in it.';
 const FACTORY_GRANTS = ['factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots'];
 const DAILY_GRANTS = ['check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot'];
 const UPGRADE_GRANT = 'upgrade-on-any-request';
@@ -173,7 +177,7 @@ test('instructions.json records every published instructions text by version, wi
   }
   const [oldest, second, third, fourth, fifth] = published.versions;
   const current = published.versions.at(-1);
-  assert.deepEqual(published.versions.map(({ file, firstTemplate }) => [file, firstTemplate]), [['instructions/1.md', '0.2.1'], ['instructions/2.md', '0.2.4'], ['instructions/3.md', '0.2.5'], ['instructions/4.md', '0.2.6'], ['instructions/5.md', '0.2.7'], ['instructions/6.md', '0.3.0'], ['INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE]]);
+  assert.deepEqual(published.versions.map(({ file, firstTemplate }) => [file, firstTemplate]), [['instructions/1.md', '0.2.1'], ['instructions/2.md', '0.2.4'], ['instructions/3.md', '0.2.5'], ['instructions/4.md', '0.2.6'], ['instructions/5.md', '0.2.7'], ['instructions/6.md', '0.3.0'], ['instructions/7.md', FACTORY_INSTRUCTIONS_FIRST_TEMPLATE], ['INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE]]);
   assert.equal(current.version, published.current);
   assert.equal(fifth.version, 5);
   assert.match(readFileSync(join(root, fourth.file), 'utf8'), /^Instructions version: 4\n/u);
@@ -201,7 +205,7 @@ test('every grant beyond the oldest supported instructions carries a one-line re
   for (const text of Object.values(published.grants)) assert.match(text, /^[A-Z].*\.$/u, 'each grant is a plain sentence, because the owner is shown it word for word');
   const current = published.versions.find(({ version }) => version === 5);
   assert.deepEqual(current.grants.filter((grant) => !oldestGrants.includes(grant)), ['server-info-tool', UPGRADE_GRANT]);
-  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(UPGRADE_GRANT)).map(({ version }) => version), [5, 6, 7], 'versions 5 and later let someone other than the owner ask for an upgrade that writes skills');
+  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(UPGRADE_GRANT)).map(({ version }) => version), [5, 6, 7, 8], 'versions 5 and later let someone other than the owner ask for an upgrade that writes skills');
   const fourth = published.versions.find(({ version }) => version === 4);
   assert.deepEqual([current.grants.filter((grant) => !fourth.grants.includes(grant)), fourth.grants.filter((grant) => !current.grants.includes(grant))], [[UPGRADE_GRANT], []], 'version 5 is version 4 plus that one grant');
   assert.equal(published.grants[UPGRADE_GRANT], 'Run the documented template upgrade, including writing the template\'s ambitious- skills, when any agent or person asks for it.');
@@ -263,13 +267,13 @@ test('version 6 adds only the four daily-update and active-snapshot grants, keep
 
 test('version 7 adds only the four factory grants to version 6, names the four factory tools, and keeps every other line of version 6', () => {
   const before = published.versions.find(({ version }) => version === 6);
-  const current = published.versions.at(-1);
-  assert.deepEqual([current.version, current.file, current.firstTemplate], [7, 'INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE]);
+  const current = published.versions.find(({ version }) => version === 7);
+  assert.deepEqual([current.version, current.file, current.firstTemplate], [7, 'instructions/7.md', FACTORY_INSTRUCTIONS_FIRST_TEMPLATE]);
   assert.deepEqual(current.grants, [...before.grants, ...FACTORY_GRANTS]);
   assert.deepEqual(Object.keys(current.reasons).slice(-FACTORY_GRANTS.length), FACTORY_GRANTS);
   for (const tool of FACTORY_TOOLS) assert(published.grants['factory-tools'].includes(tool), `the factory-tools grant names ${tool}`);
   assert.match(published.grants['factory-description'], /factory_match.*exact text.*owner's tool approval for that call/u);
-  const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
+  const instructions = readFileSync(join(root, current.file), 'utf8');
   for (const required of [
     'Besides the factory tools below, call no other tool of that connection.',
     'After that same independent confirmation, and only for a factory step the owner started or agreed to in this bot\'s own chat, you may also call `factory_environment`, `factory_version`, `factory_match` and `factory_plan` of that connection.',
@@ -294,6 +298,23 @@ test('version 7 adds only the four factory grants to version 6, names the four f
   assert.equal(came.length, 8, 'and puts eight in their place: those four, and four on the factory tools, the description, the public pages and creating bots');
   assert.equal(gone[2].replace('Call no other tool of that connection.', 'Besides the factory tools below, call no other tool of that connection.'), came[2], 'the tools line differs only in naming the factory tools as the exception');
   assert.equal(gone[3].replace('before asking for that approval', 'before asking for tool approval'), came.at(-1), 'the payload review line differs only in naming tool approval');
+});
+
+test('version 8 adds only one message channel, to the owner\'s primary bot through teammate messaging for kit and template coordination, changes that one line of version 7 and keeps every other', () => {
+  const before = published.versions.find(({ version }) => version === 7);
+  const current = published.versions.at(-1);
+  assert.deepEqual([current.version, current.file, current.firstTemplate, published.current], [8, 'INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE, 8]);
+  assert.deepEqual(current.grants, [...before.grants, PRIMARY_BOT_GRANT]);
+  assert.deepEqual(Object.keys(current.reasons), [...Object.keys(before.reasons), PRIMARY_BOT_GRANT]);
+  for (const [grant, reason] of Object.entries(before.reasons)) assert.equal(current.reasons[grant], reason, grant);
+  assert.equal(published.grants[PRIMARY_BOT_GRANT], 'Send a message to the owner\'s primary bot through Grok Bot\'s teammate messaging, about Ambitious kit and template coordination only, with no credentials, transcripts or customer data in it.');
+  assert.match(current.reasons[PRIMARY_BOT_GRANT], /coordinate kit and template upgrades with the owner's primary bot; the owner asked for this/u);
+  assert(!current.grants.includes('message-owner'), 'the new channel is not a way to message the owner outside the bot\'s own chat');
+  const [earlier, instructions] = [readFileSync(join(root, before.file), 'utf8').split('\n'), readFileSync(join(root, current.file), 'utf8').split('\n')];
+  assert.equal(earlier.length, instructions.length);
+  const changed = earlier.flatMap((line, index) => (line === instructions[index] ? [] : [[line, instructions[index]]]));
+  assert.deepEqual(changed, [['Instructions version: 7', 'Instructions version: 8'], [OWNER_CHAT_LINE_BEFORE, OWNER_CHAT_LINE]], 'the version line and the line on where the bot may speak are the only two that differ');
+  for (const kept of ['Never send full transcripts.', 'Never expose credentials in prompts, Pages, module input, files, logs or reports. Never ask for or store an access token.', 'Nothing leaves this computer except through `send_report`, `send_feedback` and the factory calls below.']) assert(instructions.join('\n').includes(kept), kept);
 });
 
 test('each recorded instructions text is the one its template release published', (t) => {
@@ -373,6 +394,7 @@ const MARKERS = {
   'private-reference-files': /reference files/u,
   'owner-requested-skills': /\b[Ww]rit(?:e|ing) (?:a |one |the )?(?:shared )?skill\b|Write the candidate/u,
   'provider-call': /speech provider|outside provider|_API_KEY/u,
+  [PRIMARY_BOT_GRANT]: /teammate messaging|primary bot/u,
   [UPGRADE_GRANT]: /at the request of any agent or person/u,
   'check-updates-tool': /\b[Cc]all(?:ing)? `check_updates`/u,
   'service-verified-downloads': /`self-update`|service-verified downloads/u,
@@ -450,6 +472,10 @@ test('no skill and no routine requires a permission that the oldest supported in
   assert.match(caught('Write the skills at the request of any agent or person.', { requires: ['owner-requested-skills'], optional: [UPGRADE_GRANT] }), /must say it is done "only when this bot's instructions allow" it/u);
   assert.equal(caught('Write the skills at the request of any agent or person only when this bot\'s instructions say so.', { requires: ['owner-requested-skills'], optional: [UPGRADE_GRANT] }), '');
   assert.match(caught('Post one message to the owner\'s chat with this bot.', {}), /uses message-owner/u);
+  assert.match(caught('Tell the owner\'s primary bot that the upgrade is done.', {}), /uses primary-bot-message .* but permissions\.json does not list it/u);
+  assert.match(caught('Tell the owner\'s primary bot that the upgrade is done.', { requires: [PRIMARY_BOT_GRANT] }), /requires primary-bot-message, which instructions version 1 does not grant/u);
+  assert.equal(caught('Use teammate messaging only when this bot\'s instructions allow it.', { optional: [PRIMARY_BOT_GRANT] }), '');
+  for (const [name, , entry] of texts) assert(![...entry.requires, ...entry.optional].includes(PRIMARY_BOT_GRANT), `${name}: no skill or routine of this template sends a message to another bot`);
   assert.match(caught('Read the platform\'s reference files in the private data directory.', {}), /uses private-reference-files/u);
   assert.match(caught('Call `send_report` now.', { rulesOut: ['report-tool'] }), /does not rule it out/u);
   assert.equal(caught('Never call `send_report` here.', { rulesOut: ['report-tool'] }), '');
@@ -642,13 +668,29 @@ test('an upgrade request supplies nothing: the trust starts at the address and S
   ]) assert(writing.includes(required), `the installer skill must say, under "Before writing a shared skill": ${required}`);
 });
 
-test('the module lock pins the six released modules, and the schema and the installer agree on what a pin is', () => {
+test('the module lock pins the eight released modules, scheduling and constraints among them at their released checksums, and the schema and the installer agree on what a pin is', () => {
   validateLock(lock());
   assert.deepEqual(parseLock(lock()).map(({ module }) => module).sort(), pinnedModules);
   for (const row of parseLock(lock())) {
     assert.equal(row.url, `https://github.com/AmbitiousBots/ambitious-${row.module}/releases/download/${row.module}-v${row.version}/${row.asset}`);
-    assert.equal(row.kind, row.module === 'video' ? 'pyz' : 'mjs');
+    assert.equal(row.kind, ['video', 'constraints'].includes(row.module) ? 'pyz' : 'mjs');
   }
+  const pinOf = (module) => lock().find((row) => row.module === module);
+  assert.deepEqual(pinOf('scheduling'), {
+    module: 'scheduling',
+    version: '0.1.0',
+    url: 'https://github.com/AmbitiousBots/ambitious-scheduling/releases/download/scheduling-v0.1.0/ambitious-scheduling-0.1.0.mjs',
+    sha256: '45a0626793f3cfb2a2e4af84738c691d927d4e399c7702cf7742f0c0c91eede6',
+  });
+  assert.deepEqual(pinOf('constraints'), {
+    module: 'constraints',
+    version: '0.1.0',
+    url: 'https://github.com/AmbitiousBots/ambitious-constraints/releases/download/constraints-v0.1.0/ambitious-constraints-0.1.0.pyz',
+    sha256: 'ee739745882ce837e33bb1b5abfe9daf6367dedde786d2c747f0b02346cfc0c1',
+    runtimeSha256: '4c836ddf3d703f7dbc6a551182599942f002c491b8121e34c8f6c6531f27f11b',
+  });
+  assert.deepEqual(parseLock(lock()).filter((row) => row.runtimeSha256 !== undefined).map(({ module }) => module), ['constraints'], 'only the constraints module pins a runtime lock');
+  assert.deepEqual(schema.items.required, ['module', 'version', 'url', 'sha256'], 'the runtime pin is optional');
   for (const [field, pattern] of Object.entries(LOCK_PATTERNS)) assert.equal(schema.items.properties[field].pattern, pattern, field);
 });
 
@@ -689,6 +731,14 @@ test('lock validation accepts exact releases and rejects invalid pins', () => {
     assert.throws(() => parseLock(value));
   }
   assert.equal(parseLock([release]).length, 1);
+  const python = { ...release, module: 'video', url: 'https://example.org/releases/video-v0.1.0/ambitious-video-0.1.0.pyz', runtimeSha256: 'fedcba9876543210'.repeat(4) };
+  validateLock([python]);
+  assert.equal(parseLock([python])[0].runtimeSha256, python.runtimeSha256);
+  for (const value of [[{ ...python, runtimeSha256: 'F'.repeat(64) }], [{ ...python, runtimeSha256: 'f'.repeat(63) }], [{ ...python, runtimeSha256: 7 }]]) {
+    assert.throws(() => validateLock(value));
+    assert.throws(() => parseLock(value));
+  }
+  assert.throws(() => parseLock([{ ...release, runtimeSha256: python.runtimeSha256 }]), 'only a .pyz module may pin a runtime lock');
   assert.throws(() => checkSchema({ ...schema, minItems: 1 }), /Unsupported schema keyword/u);
 });
 
@@ -731,7 +781,7 @@ test('every module skill records its pinned source lineage, and a copied skill i
   }
   for (const entry of sources.written) assert.deepEqual(Object.keys(entry), ['skill', 'repository', 'tag', 'commit']);
   assert.deepEqual(sources.copied.map(({ skill }) => skill), ['ambitious-tasks-page']);
-  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback', 'ambitious-tasks-for-bots', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots']);
+  assert.deepEqual(sources.written.map(({ skill }) => skill), ['ambitious-audit-collector', 'ambitious-audit-page', 'ambitious-snapshot-routine', 'ambitious-send-feedback', 'ambitious-tasks-for-bots', 'ambitious-contracts-for-bots', 'ambitious-compliance-for-bots', 'ambitious-records-for-bots', 'ambitious-video-for-bots', 'ambitious-scheduling-for-bots']);
 });
 
 test('every skill body starts with the template version, so a shared skill library can tell which template wrote a skill, and the instructions start with their own version instead', () => {
@@ -949,7 +999,7 @@ test('the instructions state the boundaries a copy of the template must keep', (
   const instructions = readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8');
   for (const required of [
     'Never change your own instructions or another bot\'s.',
-    'Speak to the owner in this bot\'s own chat. Never send email, and never send a message anywhere else.',
+    OWNER_CHAT_LINE,
     'Nothing leaves this computer except through `send_report`, `send_feedback` and the factory calls below. Each `send_report` and `send_feedback` call needs the owner\'s tool approval. All are tools of the Ambitious connection, whose server is `https://ambitiousbots.com/api/mcp`.',
     'Do not enable module features that transmit account or business data through other network calls.',
     'Download only the pinned public release files that the `ambitious-module-installer` skill names.',
@@ -1157,22 +1207,30 @@ test('sync compares the bot\'s instructions with the template\'s: an earlier pub
   }
   const oldest = check(text('instructions/1.md'));
   assert.equal(oldest.instructions.permissions.comparison, 'more');
-  assert.equal(oldest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${['server-info-tool', UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'a bot on the oldest text is told plainly what the present text adds');
+  assert.equal(oldest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${['server-info-tool', UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'a bot on the oldest text is told plainly what the present text adds');
   const widest = check(text('instructions/3.md'));
   assert.equal(widest.instructions.permissions.comparison, 'more and fewer');
-  assert.equal(widest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')} It takes away these permissions: (1) ${grantText('other-connection-tools')} (2) ${grantText('private-reference-files')} (3) ${grantText('shared-skills')}`, 'a bot on a wider text is told what the present text adds and what it takes away');
+  assert.equal(widest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')} It takes away these permissions: (1) ${grantText('other-connection-tools')} (2) ${grantText('private-reference-files')} (3) ${grantText('shared-skills')}`, 'a bot on a wider text is told what the present text adds and what it takes away');
   const previous = check(text('instructions/5.md'));
   assert.equal(previous.instructions.permissions.comparison, 'more');
-  assert.equal(previous.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[...DAILY_GRANTS, ...FACTORY_GRANTS].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the permissions versions 6 and 7 add to version 5 are listed in plain words');
-  assert.deepEqual(previous.instructions.permissions.added, [...DAILY_GRANTS, ...FACTORY_GRANTS].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
+  assert.equal(previous.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the permissions versions 6, 7 and 8 add to version 5 are listed in plain words');
+  assert.deepEqual(previous.instructions.permissions.added, [...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
   assert(previous.instructions.diff.some((line) => line.startsWith('+ The daily `ambitious-selfcheck` may apply')));
   const beforeFactory = check(text('instructions/6.md'));
   assert.deepEqual(about(beforeFactory), ['out-of-date', 'instructions-out-of-date', 6, 'exact'], 'a bot on the text of templates 0.3.0 and 0.3.1 is told a newer text exists');
   assert.equal(beforeFactory.instructions.permissions.comparison, 'more');
-  assert.equal(beforeFactory.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${FACTORY_GRANTS.map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the proposal to a bot on version 6 lists exactly the four factory grants, in plain words');
-  assert.deepEqual(beforeFactory.instructions.permissions.added, FACTORY_GRANTS.map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
+  assert.equal(beforeFactory.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[...FACTORY_GRANTS, PRIMARY_BOT_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the proposal to a bot on version 6 lists exactly the four factory grants and the one message channel, in plain words');
+  assert.deepEqual(beforeFactory.instructions.permissions.added, [...FACTORY_GRANTS, PRIMARY_BOT_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
   assert.deepEqual(beforeFactory.instructions.permissions.removed, [], 'and takes nothing away');
   assert(beforeFactory.instructions.diff.some((line) => line.startsWith('+ After that same independent confirmation, and only for a factory step the owner started or agreed to')));
+  const beforeMessage = check(text('instructions/7.md'));
+  assert.deepEqual(about(beforeMessage), ['out-of-date', 'instructions-out-of-date', 7, 'exact'], 'a bot on the text of templates 0.3.2 and 0.4.0 is told a newer text exists');
+  assert.equal(beforeMessage.instructions.template, 8);
+  assert.equal(beforeMessage.instructions.permissions.comparison, 'more');
+  assert.equal(beforeMessage.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: (1) ${grantText(PRIMARY_BOT_GRANT)}`, 'the proposal to a bot on version 7 lists exactly the one new grant, in plain words');
+  assert.deepEqual(beforeMessage.instructions.permissions.added, [{ grant: PRIMARY_BOT_GRANT, permission: grantText(PRIMARY_BOT_GRANT), reason: published.versions.at(-1).reasons[PRIMARY_BOT_GRANT] }]);
+  assert.deepEqual(beforeMessage.instructions.permissions.removed, [], 'and takes nothing away');
+  assert.deepEqual(beforeMessage.instructions.diff, ['- Instructions version: 7', '+ Instructions version: 8', `- ${OWNER_CHAT_LINE_BEFORE}`, `+ ${OWNER_CHAT_LINE}`], 'the difference shown is the version line and the one changed line');
 
   const nbsp = String.fromCharCode(0xa0);
   const handCopies = {
@@ -1414,7 +1472,7 @@ test('every guide a skill names is carried by the installer, every guide is name
     if (guides.length === 0) continue;
     const text = skillOnly(name);
     assert.match(text, /```sh\nnode "\$\{AMBITIOUS_HOME:-\/workspace\/ambitious\}\/bin\/ambitious-modules" guide [A-Za-z-]+ --json\n```/u, `${name} must show the guide command`);
-    assert.match(text, name === 'ambitious-module-installer' ? /If `bin\/ambitious-modules` is missing or answers `E_USAGE` to `guide`, run "Fetch the pinned installer" below first\. If that fails, do none of these jobs and tell the owner\./u : /If it is missing or answers `E_USAGE`, first fetch the pinned installer \(`ambitious-module-installer` skill\)\./u, `${name} must say what to do when the guide command is missing`);
+    assert.match(text, name === 'ambitious-module-installer' ? /If `bin\/ambitious-modules` is missing or answers `E_USAGE` to `guide`, run "Fetch the pinned installer" below first\. If that fails, do none of these jobs and tell the owner\./u : /If `guide` fails, first fetch the pinned installer \(`ambitious-module-installer` skill\)\./u, `${name} must say what to do when the guide command is missing`);
   }
   assert.deepEqual(guidesOfSkill('ambitious-module-installer'), ['sync', 'instructions', 'routines', 'requests', 'daily-update', 'upgrade', 'skills']);
   for (const name of ['ambitious-getting-started', 'ambitious-capability-probe']) assert(guidesOfSkill(name).includes('connection'), name);
@@ -1535,6 +1593,15 @@ const IN_THE_SKILL_ITSELF = {
     'The send needs the owner\'s tool approval for each call; the one-time pre-approval for reports never covers feedback.',
     'Without that approval, send nothing and say what is waiting in this bot\'s own chat.',
   ],
+  'ambitious-scheduling-for-bots': [
+    'Use `ambitious-scheduling` for calendars, working hours, busy time, schedule plans and calendar-hold proposals, and `ambitious-constraints` when a schedule or other decision must satisfy rules: `solve`, `explain` conflicts, `whatif`.',
+    'Modules never call each other: carry data between them unchanged, only as `schedule-plan.v1`, `constraint-model.v1`, `constraint-solution.v1` and `calendar-holds.v1`.',
+    'Commit a plan or a model only after the owner approves that exact proposal in this bot\'s own chat.',
+    'Never work out times or totals yourself.',
+    'A calendar hold is only a proposal shown in a Page. Create or change a real calendar event only with Grok Bot\'s own calendar tools, after the owner approves that exact change in this bot\'s own chat.',
+    'Solving needs a pinned runtime the sync does not build: build it only on the owner\'s yes, as the guide says.',
+    'Never place credentials in module input.',
+  ],
   'ambitious-tasks-for-bots': ['Never compute task counts, ranking, critical paths, workload totals, dates or process metrics by hand', 'so do not report zero', 'Never place credentials or private bot files in task inputs.'],
   'ambitious-compliance-for-bots': ['report its statuses as the state of the register, never as a compliance opinion', 'stop writing, keep the database as it is, and tell the owner', 'Never place credentials in any field.'],
   'ambitious-contracts-for-bots': ['It does not decide what a clause legally means.', 'Never paraphrase evidence to make it pass.', 'Do not write another module\'s database', 'Never place credentials in any field.'],
@@ -1558,6 +1625,38 @@ test('the hard rules stay in the stored skill itself, in front of the bot, and a
   assert.equal(blocks.filter((block) => block.includes('sha256sum')).length, 1, 'the pin is in the installer skill itself');
   assert.match(installerSkill, new RegExp(`https://github\\.com/AmbitiousBots/ambitious-kit/releases/download/kit-v${templateVersion.replaceAll('.', '\\.')}/ambitious-modules-${templateVersion.replaceAll('.', '\\.')}\\.mjs`, 'u'), 'and so are the release address and the pinned version');
   for (const name of expectedSkills.filter((skill) => skill !== 'ambitious-module-installer')) assert.doesNotMatch(skillOnly(name), /sha256sum|[0-9a-f]{64}/u, `${name}: only the installer skill carries a pin`);
+});
+
+test('getting started and the bot factory point to the scheduling skill and its two modules where the job calls for a schedule or a rule-bound decision, the skill names its guide, and it fits the budget', () => {
+  const skill = 'ambitious-scheduling-for-bots';
+  assert(expectedSkills.includes(skill));
+  assert.deepEqual(guidesOfSkill(skill), ['scheduling']);
+  for (const name of ['ambitious-getting-started', 'ambitious-factory-for-bots']) {
+    const line = skillText(name).split('\n').find((text) => text.includes(`\`${skill}\``));
+    assert(line !== undefined, `${name} must point to ${skill}`);
+    for (const module of ['`ambitious-scheduling`', '`ambitious-constraints`']) assert(line.includes(module), `${name} must name ${module} with the skill`);
+    assert.match(line, /schedule/u);
+    assert.match(line, /decision that must satisfy rules/u);
+  }
+  const guide = guideText('scheduling');
+  for (const schema of ['tasks-snapshot.v1', 'schedule-plan.v1', 'constraint-model.v1', 'constraint-solution.v1', 'calendar-holds.v1']) {
+    assert(guide.includes(`\`${schema}\``), `the guide names ${schema}`);
+    assert(readFileSync(join(repoRoot, 'schemas', 'interchange', `${schema}.json`), 'utf8').length > 0, `${schema} is an interchange schema of the kit`);
+  }
+  for (const required of [
+    'A module never starts, imports or reads another module.',
+    'A hold is a proposal and nothing more.',
+    'only with Grok Bot\'s own calendar tools, only after the owner approves that exact change in this bot\'s own chat',
+    'The sync command never builds it unasked',
+    'Only after the owner\'s yes in this bot\'s own chat, run:',
+    'ambitious-modules" sync --json --runtime constraints',
+  ]) assert(guide.includes(required), `the scheduling guide must say: ${required}`);
+  assert.deepEqual(permissions.skills[skill], { requires: ['modules', 'owner-chat', 'pages', 'pinned-downloads'], optional: [], rulesOut: [] }, 'the skill needs only what the oldest supported instructions grant');
+  const { skills, routines } = readJson(join(root, 'bot.json'));
+  const sizes = templateSizes(skills, routines);
+  const item = sizes.items.find(({ name }) => name === skill);
+  assert(item !== undefined && item.bytes <= 1536, `${skill} is a short job description with its hard rules: ${item?.bytes} bytes`);
+  assert.deepEqual(budgetProblems(sizes), []);
 });
 
 const DAY = 86_400_000;

@@ -1,21 +1,21 @@
 ---
 name: ambitious-video-for-bots
-description: For the Ambitious Bot only. Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the owner asks the Ambitious Bot for a video made from screen recordings, title cards, stills, captions or voiceover, or asks what such a video would cost.
+description: For the Ambitious Bot only. Plan, price, render and check a video from a declarative script with the Ambitious Video CLI. Use when the Ambitious Bot is asked for a video made from screen recordings, title cards, stills, captions or voiceover, or for its cost.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Make a video with Ambitious Video
 
-Use the installed `ambitious-video` binary in `/workspace/ambitious/bin`. If its `selfcheck` reports something missing, tell the owner and stop; do not install software unasked.
+Use the installed `ambitious-video` binary. If its `selfcheck` reports something missing, tell the owner and stop; do not install software unasked.
 
-Read how to write a script and the order of `validate`, `plan`, `estimate`, `render` and `verify`:
+Read how to write a script and the order of the commands:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide video --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Hard rules:
 

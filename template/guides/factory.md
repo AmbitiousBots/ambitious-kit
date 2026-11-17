@@ -39,6 +39,7 @@ Write one Grok Bot Page named "Proposed bots". It holds:
 - the suites and packs that matched, as returned, and the one you recommend with the reason in plain words;
 - for the owner's choice, each card of `factory_plan` as one proposed bot: its name, its job, its full proposed instructions, the modules it uses, the text of each skill it names, each routine with its schedule and prompt, where it stops for a person, and its starter tasks;
 - the `handoffs` between the proposed bots, and `howToInstall`, as returned;
+- where a proposed bot's job calls for calendars, working hours, a schedule or a decision that must satisfy rules, a line naming the `ambitious-scheduling-for-bots` skill and its two modules, `ambitious-scheduling` and `ambitious-constraints`, which this template already pins;
 - which proposed bots look like bots the account already has, from what the capability probe observed. An existing bot is kept as it is;
 - what was not checked, and what is waiting for the owner.
 

@@ -10,6 +10,7 @@ export type LockRow = {
   readonly asset: string;
   readonly release: string;
   readonly tag: string;
+  readonly runtimeSha256?: string;
 };
 
 export const LOCK_PATTERNS = {
@@ -18,14 +19,15 @@ export const LOCK_PATTERNS = {
     "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(?:\\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
   url: "^https://[^\\s/?#@]+/[^\\s?#]+\\.(?:mjs|pyz)$",
   sha256: "^[0-9a-f]{64}$",
+  runtimeSha256: "^[0-9a-f]{64}$",
 } as const;
 
 const RELEASE_TAG = /^[0-9A-Za-z][0-9A-Za-z._+-]*$/;
 
-const FIELDS = ["module", "version", "url", "sha256"] as const;
+const FIELDS = ["module", "version", "url", "sha256", "runtimeSha256"] as const;
 
 const invalid = (message: string): never => {
-  throw failure("E_INPUT_SCHEMA", message, "The lock is a list of { module, version, url, sha256 } rows, one per module. Restore the lock that came with the template; never edit pins by hand.");
+  throw failure("E_INPUT_SCHEMA", message, "The lock is a list of { module, version, url, sha256 } rows, one per module; a .pyz row may add runtimeSha256, the pin of its runtime lock. Restore the lock that came with the template; never edit pins by hand.");
 };
 
 const field = (row: Readonly<Record<string, unknown>>, name: (typeof FIELDS)[number], where: string): string => {
@@ -48,7 +50,9 @@ const parseRow = (value: unknown, index: number): LockRow => {
   const kind = (["mjs", "pyz"] as const).find((extension) => asset === `ambitious-${module}-${version}.${extension}`);
   if (asset === undefined || kind === undefined) return invalid(`${where}.url must end in ambitious-${module}-${version}.mjs or .pyz, the asset of the pinned module and version.`);
   if (tag === undefined || !RELEASE_TAG.test(tag)) return invalid(`${where}.url must name the release the asset belongs to before the file name.`);
-  return { module, version, url, sha256, kind, asset, tag, release: url.slice(0, url.lastIndexOf("/")) };
+  if (value.runtimeSha256 !== undefined && kind !== "pyz") return invalid(`${where}.runtimeSha256 is only for a .pyz module, the one kind that may release a pinned runtime.`);
+  const runtime = value.runtimeSha256 === undefined ? {} : { runtimeSha256: field(value, "runtimeSha256", where) };
+  return { module, version, url, sha256, kind, asset, tag, release: url.slice(0, url.lastIndexOf("/")), ...runtime };
 };
 
 export const parseLock = (value: unknown): readonly LockRow[] => {

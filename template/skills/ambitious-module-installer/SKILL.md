@@ -1,9 +1,9 @@
 ---
 name: ambitious-module-installer
-description: For the Ambitious Bot only. Install, repair, upgrade and selfcheck every pinned Ambitious module with one sync command, check the bot's instructions and routines against the template's, upgrade the template, and decide whether a shared skill may be written. Use on the Ambitious Bot's first chat, at the start of each routine, when an upgrade is asked for, and before writing a skill.
+description: For the Ambitious Bot only. Install, repair, upgrade and selfcheck every pinned Ambitious module with one sync command, check the instructions and routines against the template's, upgrade the template, and decide whether a shared skill may be written. Use on the Ambitious Bot's first chat, at each routine start, for an upgrade, and before writing a skill.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Module installer
 
@@ -13,22 +13,22 @@ Run one command. It does every install and check step itself; never do those ste
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" sync --json
 ```
 
-It needs Node 24. A pinned module is put into `bin` under `AMBITIOUS_HOME` (default `/workspace/ambitious`) only after its SHA-256 matched both the pin inside the installer and the release's `SHA256SUMS`; then each `selfcheck --json` runs. It refuses `/home/box/agent-data`, the bot's private data directory.
+A pinned module is put into `bin` under `AMBITIOUS_HOME` (default `/workspace/ambitious`) only after its SHA-256 matched both the pin inside the installer and the release's `SHA256SUMS`; then each `selfcheck --json` runs. It refuses `/home/box/agent-data`, the bot's private data directory.
 
 Read the JSON envelope. Report every entry of `data.problems` to the owner as written, in this bot's own chat and nowhere else. Do not use a module whose `state` is `failed` or whose `selfcheck` is not `ok`. Never invent a result.
 
 ## Guides
 
-Before a job below, read its guide from the pinned installer and follow it, with its topic for TOPIC. The text is `data.text`, also in the file `data.path`.
+Before a job below, read its guide from the pinned installer and follow it, with its topic for TOPIC. The text is `data.text`.
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide TOPIC --json
 ```
 
-- `guide sync`: the sync result's fields, running a module, a mirror.
-- `guide instructions`, `guide routines`: on first chat and after a template update, check them and write the proposal Pages.
+- `guide sync`: the result's fields, running a module, a mirror, a pinned runtime.
+- `guide instructions`, `guide routines`: check them and write the proposal Pages.
 - `guide requests`: someone other than the owner asks for an upgrade.
-- `guide daily-update`: the `ambitious-selfcheck` routine's update check.
+- `guide daily-update`: the daily update check.
 - `guide upgrade`: upgrade a copy made from an earlier template.
 - `guide skills`: before writing a shared skill.
 
@@ -51,30 +51,30 @@ First get the file into `bin`, by exactly one of these three ways and no other:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}" && mkdir -p bin && cd bin &&
-curl -fsSLO https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.4.0/ambitious-modules-0.4.0.mjs
+curl -fsSLO https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.4.1/ambitious-modules-0.4.1.mjs
 ```
 
 If that download is refused and the GitHub CLI is installed and signed in:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}" && mkdir -p bin && cd bin &&
-gh release download kit-v0.4.0 --repo AmbitiousBots/ambitious-kit --pattern ambitious-modules-0.4.0.mjs --clobber
+gh release download kit-v0.4.1 --repo AmbitiousBots/ambitious-kit --pattern ambitious-modules-0.4.1.mjs --clobber
 ```
 
 Or from a mirror directory the owner names, set as `AMBITIOUS_MODULE_MIRROR`:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}" && mkdir -p bin && cd bin &&
-cp "$AMBITIOUS_MODULE_MIRROR/kit-v0.4.0/ambitious-modules-0.4.0.mjs" .
+cp "$AMBITIOUS_MODULE_MIRROR/kit-v0.4.1/ambitious-modules-0.4.1.mjs" .
 ```
 
-Then, whichever way the file arrived, check it against the pin and link it:
+Then check it against the pin and link it:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}/bin" &&
-echo "85ea9a126f300352f8e1af5da63e9f1776366ba8a882f3210e4932fb2c3ccf54  ambitious-modules-0.4.0.mjs" | sha256sum -c - &&
-chmod 755 ambitious-modules-0.4.0.mjs && ln -sfn ambitious-modules-0.4.0.mjs ambitious-modules ||
-{ rm -f ambitious-modules-0.4.0.mjs; false; }
+echo "24624cf0357f47e84ca506426a43383a6074ad3868c3281f2043742cc70925c0  ambitious-modules-0.4.1.mjs" | sha256sum -c - &&
+chmod 755 ambitious-modules-0.4.1.mjs && ln -sfn ambitious-modules-0.4.1.mjs ambitious-modules ||
+{ rm -f ambitious-modules-0.4.1.mjs; false; }
 ```
 
 The `sha256sum` line is the pin. If it fails, the file is deleted and the link is not made: nothing is installed, so do not run the file, do not go on with an upgrade, and report the failure. Then run the sync command above.

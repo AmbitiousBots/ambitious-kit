@@ -18,6 +18,7 @@ import { templateNote, templateStatus } from "../src/install/newer-template.ts";
 import { latestInstallerVersion, releaseDownload, type Fetchers } from "../src/install/release.ts";
 import { checkRoutines } from "../src/install/routines.ts";
 import { placeSkillFiles, skillsDirectory } from "../src/install/skill-files.ts";
+import type { RunTool } from "../src/install/runtime.ts";
 import { summaryOf, sync, type ModuleReport, type SyncRequest } from "../src/install/sync.ts";
 import { fixturesDirectory, parseTemplateFiles, placeTemplateFiles, templateDirectory } from "../src/install/template-files.ts";
 import { fingerprintOf } from "../src/install/text-file.ts";
@@ -219,6 +220,57 @@ test("the lock accepts exact pins and names what is wrong with anything else", (
   for (const value of bad) {
     assert.throws(() => parseLock(value), (error: unknown) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA", JSON.stringify(value));
   }
+});
+
+test("a .pyz pin may add the checksum of its runtime lock, and the runtime is built only for the module sync was asked to build it for", async (t) => {
+  const solver = published("solver", "0.1.0", "pyz");
+  const lockText = `engine==1.2.3 --hash=sha256:${"a".repeat(64)}\n`;
+  const lockAsset = "ambitious-solver-0.1.0.runtime.txt";
+  const url = `https://github.com/example/ambitious-solver/releases/download/${tagOf(solver)}/${assetOf(solver)}`;
+  const pin = { module: "solver", version: "0.1.0", url, sha256: sha256(solver.content) };
+  const [row] = parseLock([{ ...pin, runtimeSha256: sha256(lockText) }]);
+  if (row === undefined) throw new Error("the lock has no row");
+  assert.equal(row.runtimeSha256, sha256(lockText));
+  assert.equal(Object.hasOwn(parseLock([pin])[0] ?? {}, "runtimeSha256"), false, "a pin without one says nothing about a runtime");
+  const tasksUrl = "https://example.org/releases/tasks-v0.1.0/ambitious-tasks-0.1.0.mjs";
+  for (const bad of [[{ ...pin, runtimeSha256: "A".repeat(64) }], [{ ...pin, runtimeSha256: 7 }], [{ module: "tasks", version: "0.1.0", url: tasksUrl, sha256: "0".repeat(64), runtimeSha256: "0".repeat(64) }]]) {
+    assert.throws(() => parseLock(bad), (error: unknown) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA", JSON.stringify(bad));
+  }
+
+  const mirror = mirrorOf(t, [solver, TASKS]);
+  writeFileSync(join(mirror, tagOf(solver), lockAsset), lockText);
+  writeFileSync(join(mirror, tagOf(solver), "SHA256SUMS"), `${sha256(solver.content)}  ${assetOf(solver)}\n${sha256(lockText)}  ${lockAsset}\n`);
+  const calls: string[][] = [];
+  const runTool: RunTool = (program, args) => {
+    calls.push([program, ...args]);
+    if (args[1] === "venv") mkdirSync(join(args[2] ?? "", "bin"), { recursive: true });
+    return Promise.resolve();
+  };
+  const home = scratch(t);
+  const rows = [row, rowOf(TASKS)];
+  const runtimes = join(home, "solver", "runtime");
+
+  const plain = await sync(requestFor(home, rows, mirror));
+  assert.deepEqual(states(plain), { solver: "installed, selfcheck ok", tasks: "installed, selfcheck ok" });
+  assert.deepEqual([calls, existsSync(runtimes), plain.some((report) => Object.hasOwn(report, "runtime"))], [[], false, false], "a plain sync builds no runtime and reports none");
+
+  const other = await sync({ ...requestFor(home, rows, mirror), pinnedRuntime: { module: "tasks", runTool } });
+  assert.deepEqual([calls, existsSync(runtimes), other.some((report) => Object.hasOwn(report, "runtime"))], [[], false, false], "asking for a module that pins no runtime builds none");
+
+  const moved = await sync({ ...requestFor(home, [{ ...row, runtimeSha256: "d".repeat(64) }, rowOf(TASKS)], mirror), pinnedRuntime: { module: "solver", runTool } });
+  assert.match(moved[0]?.problems.join(" ") ?? "", /but the pinned checksum is d{64}\. The release and the pin disagree, so no runtime was built\./);
+  assert.deepEqual([calls, existsSync(runtimes), moved[0]?.selfcheck, moved[0]?.state], [[], false, "ok", "unchanged"], "a runtime lock that is not the pinned one is never built, and the module stays installed with its own selfcheck ok");
+
+  const asked = await sync({ ...requestFor(home, rows, mirror), pinnedRuntime: { module: "solver", runTool } });
+  assert.deepEqual(states(asked), { solver: "unchanged, selfcheck ok", tasks: "unchanged, selfcheck ok" });
+  assert.deepEqual(asked[0]?.runtime, { action: "installed", lock: lockAsset, lockSha256: sha256(lockText), path: join(runtimes, sha256(lockText)) });
+  assert.equal(Object.hasOwn(asked[1] ?? {}, "runtime"), false);
+  assert.deepEqual(calls.map((call) => call.slice(1, 3).join(" ")), ["-m venv", "-m pip"]);
+  assert.equal(calls[0]?.[0], process.execPath, "the runtime is built by the same Python the module will run with");
+  assert(calls[1]?.includes("--require-hashes") === true && calls[1].includes("--no-deps"));
+
+  const again = await sync({ ...requestFor(home, rows, null), pinnedRuntime: { module: "solver", runTool } });
+  assert.deepEqual([again[0]?.runtime?.action, calls.length], ["unchanged", 2], "asking again downloads and builds nothing");
 });
 
 test("versions compare by their numbers, and a pre-release is older than its release", () => {

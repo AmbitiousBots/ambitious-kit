@@ -1,21 +1,21 @@
 ---
 name: ambitious-audit-page
-description: For the Ambitious Bot only. Turn an ambitious-audit result into a page the customer can read, showing unseen values as not observed; the module does not render the page. Use after the Ambitious Bot has run an audit's findings and recommendations.
+description: For the Ambitious Bot only. Turn an ambitious-audit result into a page the customer can read, showing unseen values as not observed. Use after the Ambitious Bot has run an audit's findings and recommendations.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Audit page
 
 After `findings` and `recommend`, write a Page in the bot's own Page tool. For report review use the exact `report build` payload. In the `ambitious-snapshot` routine, write it only on the weekly run.
 
-Read the layout, the `partial` mode wording and the announcement rules:
+Read the layout and the announcement rules:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide page --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Hard rules:
 

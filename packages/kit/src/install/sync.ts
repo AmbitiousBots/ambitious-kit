@@ -8,6 +8,7 @@ import { isRecord } from "../domain/json.ts";
 import type { LockRow } from "../domain/lock.ts";
 import { refuseAgentData } from "../paths/refuse-agent-data.ts";
 import { currentLink, install, parseSums, SUMS_FILE, type Download } from "./install.ts";
+import { installRuntime, type RunTool, type RuntimeOutcome } from "./runtime.ts";
 
 export type ModuleState = "installed" | "unchanged" | "reinstalled" | "upgraded" | "failed";
 
@@ -19,6 +20,12 @@ export type ModuleReport = {
   readonly state: ModuleState;
   readonly selfcheck: SelfcheckState;
   readonly problems: readonly string[];
+  readonly runtime?: RuntimeOutcome;
+};
+
+export type PinnedRuntimeRequest = {
+  readonly module: string;
+  readonly runTool: RunTool;
 };
 
 export type Runtimes = {
@@ -32,6 +39,7 @@ export type SyncRequest = {
   readonly sourceFor: (row: LockRow) => Download;
   readonly runtimes: Runtimes;
   readonly environment: Readonly<Record<string, string | undefined>>;
+  readonly pinnedRuntime?: PinnedRuntimeRequest;
 };
 
 const SELFCHECK_TIMEOUT_MS = 120_000;
@@ -110,15 +118,34 @@ const checked = (row: LockRow, state: ModuleState, link: string, { runtimes, env
   return { ...base, selfcheck: problems.length === 0 ? "ok" : "problems", problems };
 };
 
+const problemsOf = (error: unknown): readonly string[] => {
+  if (!(error instanceof Failure)) throw error;
+  return error.errors.map(({ message, hint }) => `${message} ${hint}`);
+};
+
+const withPinnedRuntime = async (row: LockRow, report: ModuleReport, { home, sourceFor, runtimes, pinnedRuntime }: SyncRequest): Promise<ModuleReport> => {
+  if (pinnedRuntime?.module !== row.module || row.runtimeSha256 === undefined) return report;
+  const python = runtimes.python();
+  if (python === null) return report;
+  try {
+    const runtime = await installRuntime({ module: row.module, version: row.version, home, download: sourceFor(row), runTool: pinnedRuntime.runTool, python, pinned: row.runtimeSha256 });
+    return { ...report, runtime };
+  } catch (error) {
+    return { ...report, problems: [...report.problems, ...problemsOf(error)] };
+  }
+};
+
 const syncModule = async (row: LockRow, request: SyncRequest): Promise<ModuleReport> => {
   const bin = join(request.home, "bin");
   const change = changeOf(row, bin);
   try {
     const outcome = await install({ module: row.module, version: row.version, kind: row.kind, home: request.home, download: request.sourceFor(row), pinned: row.sha256 });
-    return checked(row, outcome.action === "unchanged" ? "unchanged" : change, outcome.link, request);
+    const state = outcome.action === "unchanged" ? "unchanged" : change;
+    const built = await withPinnedRuntime(row, { module: row.module, version: row.version, state, selfcheck: "not run", problems: [] }, request);
+    const report = checked(row, state, outcome.link, request);
+    return { ...report, problems: [...built.problems, ...report.problems], ...(built.runtime === undefined ? {} : { runtime: built.runtime }) };
   } catch (error) {
-    if (!(error instanceof Failure)) throw error;
-    return { module: row.module, version: row.version, state: "failed", selfcheck: "not run", problems: error.errors.map(({ message, hint }) => `${message} ${hint}`) };
+    return { module: row.module, version: row.version, state: "failed", selfcheck: "not run", problems: problemsOf(error) };
   }
 };
 

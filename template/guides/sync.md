@@ -30,7 +30,8 @@ The command prints one JSON envelope. Read it; do not rely on the exit code alon
 Report every entry of `data.problems` to the owner as written, with what to do next, in this bot's own chat. Do not send it anywhere else. Do not start work that depends on a module whose state is `failed` or whose selfcheck is not `ok`; the other modules stay usable.
 In a chat, pass on `data.notes`. In a routine, follow the routine's rule on when to speak.
 A problem that starts with `instructions-` or `routine-` is about this bot's own text, not about a module: every module stays usable.
-Python 3.13 is needed only by the video module. When it is missing, that is a reported problem for video alone.
+Python 3.13 is needed only by the video and constraints modules. When it is missing, that is a reported problem for those two alone.
+The constraints module also releases a pinned runtime, a large set of solver packages. A plain sync never builds it, and the module's selfcheck stays ok without it. `sync --json --runtime constraints` builds it after the runtime lock matched both its pin and the release's `SHA256SUMS`, and reports it as `runtime` in that module's entry of `data.modules[]`; run it only as the `ambitious-scheduling-for-bots` skill and its guide say, after the owner's yes.
 When `ok` is false, relay `errors[].message` and `errors[].hint`. If the command cannot start or prints no JSON, say what failed. Never invent a result or a clean selfcheck.
 
 ## Running a module

@@ -103,6 +103,16 @@
       "optional": [],
       "rulesOut": []
     },
+    "ambitious-scheduling-for-bots": {
+      "requires": [
+        "modules",
+        "owner-chat",
+        "pages",
+        "pinned-downloads"
+      ],
+      "optional": [],
+      "rulesOut": []
+    },
     "ambitious-send-feedback": {
       "requires": [
         "modules",

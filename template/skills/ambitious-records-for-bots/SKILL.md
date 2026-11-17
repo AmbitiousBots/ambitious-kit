@@ -1,21 +1,21 @@
 ---
 name: ambitious-records-for-bots
-description: For the Ambitious Bot only. Keep typed records that move through declared stages with the Ambitious Records CLI. Use when the owner asks the Ambitious Bot to track things of one kind, such as requests, orders or applications, with fixed fields, stages and rules for moving between stages.
+description: For the Ambitious Bot only. Keep typed records that move through declared stages with the Ambitious Records CLI. Use when the Ambitious Bot is asked to track things of one kind with fixed fields, stages and rules for moving between stages.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Keep typed records with Ambitious Records
 
-Use the installed `ambitious-records` binary in `/workspace/ambitious/bin`. `commands` lists every command.
+Use the installed `ambitious-records` binary.
 
-Read which command fits which request, the field kinds and the query operators:
+Read which command fits which request:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide records --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Hard rules:
 

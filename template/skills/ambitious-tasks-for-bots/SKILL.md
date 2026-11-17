@@ -3,11 +3,11 @@ name: ambitious-tasks-for-bots
 description: For the Ambitious Bot only. Track shared work, dependencies and status with the Ambitious Tasks CLI. Use when the Ambitious Bot is asked to remember work, change a task, finish work, find what to do next, inspect a process or plan assignments.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Track work with Ambitious Tasks
 
-Use the installed `ambitious-tasks` binary. `commands` lists the operations. Run `selfcheck` at routine start and resolve what `data.problems` reports before writing tasks.
+Use the installed `ambitious-tasks` binary. Run `selfcheck` at routine start and resolve what `data.problems` reports before writing tasks.
 
 Read how to add, change, finish, rank, count and schedule tasks:
 
@@ -15,7 +15,7 @@ Read how to add, change, finish, rank, count and schedule tasks:
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide tasks --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Hard rules:
 

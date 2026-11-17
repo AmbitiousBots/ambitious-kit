@@ -3,17 +3,17 @@ name: ambitious-factory-for-bots
 description: For the Ambitious Bot only. Find ready-made bots for the owner's business in the Ambitious catalog, propose them in a Grok Bot Page, and create them only after the owner approves. Use when the owner asks the Ambitious Bot for ready-made bots, a suite or an industry pack.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Bot factory
 
-Read the steps, the tool arguments and the edge cases:
+Read the steps and the tool arguments:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide factory --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 The canonical procedure is the public page `https://ambitiousbots.com/factory/setup.md`; read it only when this bot's instructions allow reading that page. Then call `factory_version` and `factory_environment`, which send no business data, `factory_match` with the description the owner approved, and `factory_plan` for the suite or pack the owner chose. Write the recommended team and each proposed bot's instructions in a Grok Bot Page, and wait.
 

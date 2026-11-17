@@ -1,21 +1,21 @@
 ---
 name: ambitious-audit-collector
-description: For the Ambitious Bot only. Gather a collector document for ambitious-audit from the account the bot can see, write every unseen value as null, and say honestly what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
+description: For the Ambitious Bot only. Gather a collector document for ambitious-audit, writing every unseen value as null and saying what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
-Template version: 0.4.0
+Template version: 0.4.1
 
 # Audit collector
 
 Build the JSON document that `ambitious-audit snapshot` stores. Use only the bot's own tools. Do not read another program's private files, and do not put a conversation transcript in any field.
 
-Read the field lists, the allowed values, how to write usage reported as shares, and the smallest document `snapshot` accepts:
+Read the field lists and the allowed values:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide collector --json
 ```
 
-If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
+If `guide` fails, first fetch the pinned installer (`ambitious-module-installer` skill).
 
 Hard rules:
 
