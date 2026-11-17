@@ -25,8 +25,7 @@ const unsafeStatePath = (path: string): never => {
   throw failure("E_INSTALL_PATH", `The review Page state path ${path} is not a regular file under real directories.`, "Use an AMBITIOUS_HOME path with no symlinks and a regular template/review-page.json file. Check any symlink or non-regular target with the owner before removing it.");
 };
 
-const safeStatePath = (home: string): string => {
-  const file = refuseAgentData(reviewPageStatePath(home));
+const validateStatePath = (file: string): void => {
   const { root } = parse(file);
   let path = root;
   for (const part of file.slice(root.length).split(sep)) {
@@ -35,11 +34,11 @@ const safeStatePath = (home: string): string => {
     if (present === undefined) break;
     if (path === file ? !present.isFile() : !present.isDirectory()) unsafeStatePath(path);
   }
-  return file;
 };
 
 const openState = (path: string): number | null => {
   try {
+    validateStatePath(path);
     return openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
   } catch (error) {
     if (isRecord(error) && error.code === "ELOOP") unsafeStatePath(path);
@@ -64,7 +63,7 @@ const stateIn = (path: string): ReviewPageState => {
 };
 
 export const reviewPage = ({ home, now, built, highPriority }: ReviewPageRequest): ReviewPageReport => {
-  const file = safeStatePath(home);
+  const file = refuseAgentData(reviewPageStatePath(home));
   const before = stateIn(file);
   const after: ReviewPageState = { builtAt: built ? now.toISOString() : before.builtAt, highPriority: highPriority ?? before.highPriority };
   if (built || highPriority !== null) placeTemplateFiles(home, new Map([[STATE_FILE, `${JSON.stringify(after, null, 2)}\n`]]));

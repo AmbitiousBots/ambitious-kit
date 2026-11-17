@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import fs, { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import fs, { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -100,6 +100,38 @@ test("the build time and the high-priority ids are kept in one file under the ho
   writeFileSync(file, "not json");
   assert.equal(reviewPage({ home, now: NOW, built: false, highPriority: null }).due, true, "a damaged file makes the Page due instead of putting it off");
   assert.equal(codeOf(() => reviewPage({ home: "/home/box/agent-data/ambitious", now: NOW, built: true, highPriority: null })), "E_FORBIDDEN_PATH");
+});
+
+test("an unreadable template directory makes the Page due without opening the state file", (t) => {
+  const home = scratch(t);
+  const directory = join(home, "template");
+  reviewPage({ home, now: NOW, built: true, highPriority: ["retained"] });
+  t.mock.method(fs, "openSync", () => assert.fail("an unvalidated state path must not be opened"));
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  chmodSync(directory, 0o000);
+  try {
+    assert.throws(() => fs.lstatSync(reviewPageStatePath(home)), { code: "EACCES" });
+    const report = reviewPage({ home, now: NOW, built: false, highPriority: null });
+    assert.deepEqual([report.due, report.builtAt, report.daysSinceBuilt, report.highPriority], [true, null, null, []]);
+  } finally {
+    chmodSync(directory, 0o700);
+  }
+});
+
+test("EPERM during state path validation makes the Page due without opening the file", (t) => {
+  const home = scratch(t);
+  const file = reviewPageStatePath(home);
+  reviewPage({ home, now: NOW, built: true, highPriority: null });
+  const lstat = fs.lstatSync;
+  t.mock.method(fs, "lstatSync", (...args: Parameters<typeof fs.lstatSync>) => {
+    if (args[0] === file) throw Object.assign(new Error("permission denied"), { code: "EPERM" });
+    return lstat(...args);
+  });
+  t.mock.method(fs, "openSync", () => assert.fail("an unvalidated state path must not be opened"));
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  assert.equal(reviewPage({ home, now: NOW, built: false, highPriority: null }).due, true);
 });
 
 test("state reads reject leaf, template, home and ancestor symlinks before reading or writing", (t) => {
