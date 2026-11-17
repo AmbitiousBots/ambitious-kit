@@ -1,9 +1,9 @@
 ---
 name: ambitious-getting-started
-description: For the Ambitious Bot only. Ask three setup questions, set the routines to the owner's time zone, check observable capabilities, write the first audit as a Grok Bot Page, and find the monitoring connection by its tools. Use on the Ambitious Bot's first chat, after the module sync, and when the owner asks the Ambitious Bot about setup or monitoring.
+description: For the Ambitious Bot only. Ask three setup questions, set the routines to the owner's time zone, check observable capabilities, write the first audit as a Grok Bot Page, and find the monitoring connection by its tools. Use on the Ambitious Bot's first chat, after the module sync, and when the owner asks about setup or monitoring.
 ---
 
-Template version: 0.3.1
+Template version: 0.3.2
 
 # Getting started
 
@@ -17,11 +17,7 @@ node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide setup
 
 If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
-Ask these three questions, using any answers the owner already gave instead of asking again.
-
-1. What does your business do, and what would you like help with?
-2. What do your bots do today, and which work should this audit cover?
-3. Would you like monitoring, yes or no, and is there an optional partner AI Consultant email you want recorded for review?
+Ask the guide's three setup questions, using any answers the owner already gave instead of asking again. Once the owner has described the business and what they need, offer one optional choice: "find ready-made bots for your business in the Ambitious catalog". A yes is the `ambitious-factory-for-bots` skill's job; offering it sends nothing.
 
 Then schedule the routines, run the `ambitious-capability-probe` skill, write the first audit Page and record the monitoring choice.
 

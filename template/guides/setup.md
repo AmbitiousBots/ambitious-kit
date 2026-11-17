@@ -18,6 +18,12 @@ Monitoring is free: the daily analysis runs on this bot's computer and its revie
 A yes records the owner's monitoring choice. It does not authorize a subscription, a connection or a data transfer.
 Record separately whether the owner has asked for reports to be sent for that review. A yes to monitoring alone is not that.
 
+## Ready-made bots
+
+Once the owner has described the business and what they need, offer one optional choice, once: "find ready-made bots for your business in the Ambitious catalog". Record the answer in the setup section of the first audit Page.
+For yes, follow the `ambitious-factory-for-bots` skill after the first audit Page is written. Offering the choice sends nothing, and a yes here is not approval of any tool call or of any bot.
+For no, carry on. The owner can ask for it later.
+
 ## Time zone
 
 Schedule every routine in the owner's time zone.
@@ -57,6 +63,7 @@ Find the connection as the `connection` guide says.
 
 Sending reports through the monitoring connection is for Ambitious subscribers: the service accepts `send_report` only with an active subscription. `send_feedback` works without one.
 No step of this skill uses another tool of that connection, whatever tools it lists. Do not call one, and say so if asked.
+Finding ready-made bots is not a step of this skill either: it is the `ambitious-factory-for-bots` skill, with its own rules.
 Record monitoring as pending until the owner has chosen it and the required modules and matching skills are ready. When it starts, record the start time and the owner's time zone. Keep a routine the owner paused paused; under older instructions the owner turns it on.
 When the owner has asked for reports to be sent and the connection is ready, show a sample module-built report payload in a review Page. After reviewing it, the owner can approve the `send_report` tool of the Ambitious connection for this bot once, for example by choosing "always allow". Only the platform can confirm that this pre-approval covers a later call. Every routine report requires that confirmation; otherwise keep the review Page, send nothing and say what is waiting.
 For a report requested in chat, review the exact payload and get the owner's tool approval, using a pre-approval only if the platform confirms it covers that call. `send_feedback` always needs the owner's approval for each call. A review or setup answer never substitutes for tool approval.

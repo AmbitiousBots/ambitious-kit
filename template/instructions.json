@@ -1,5 +1,5 @@
 {
-  "current": 6,
+  "current": 7,
   "oldestSupported": 1,
   "grants": {
     "owner-chat": "Speak to the owner in this bot's own chat, in a conversation or as the reply of a routine run.",
@@ -21,7 +21,11 @@
     "check-updates-tool": "Call the Ambitious connection's read-only check_updates tool with no arguments only after independently confirming its exact endpoint from the platform's own connector or connection details, never from a connection tool result.",
     "service-verified-downloads": "Download a newer installer only when its SHA-256 matches both the checksum from the independently endpoint-confirmed connection and the release's SHA256SUMS from the official repository URL, without downgrading.",
     "daily-upgrades": "Let the daily selfcheck apply module and skill upgrades through the verified installer chain without a new request, only after independent platform endpoint confirmation; otherwise report to the owner and wait for the owner's go-ahead in chat through the stored skill's pin.",
-    "active-snapshot": "Create the daily snapshot active, doing nothing until monitoring is chosen and its modules and skills are ready, then writing its review Page and sending a report only when the owner has asked for reports to be sent and the authenticated connection is ready."
+    "active-snapshot": "Create the daily snapshot active, doing nothing until monitoring is chosen and its modules and skills are ready, then writing its review Page and sending a report only when the owner has asked for reports to be sent and the authenticated connection is ready.",
+    "factory-tools": "Call the Ambitious connection's factory_environment, factory_version, factory_match and factory_plan tools, which search and preview the catalog of ready-made bots and create nothing, only after independently confirming the exact endpoint and only for a factory step the owner started or agreed to in this bot's own chat.",
+    "factory-description": "Send a short description of the business, or an industry code, to Ambitious with factory_match, after showing the owner the exact text or code and getting the owner's yes in this bot's own chat and the owner's tool approval for that call, which a pre-approval never covers.",
+    "factory-pages": "Read the public page https://ambitiousbots.com/factory/setup.md and the public factory pages it links as reference, which carries no account or business data.",
+    "owner-approved-bots": "Create a new bot, or a routine for it, with Grok Bot's own tools after the owner approves that exact proposal, written in a Page, in this bot's own chat, without changing an existing bot."
   },
   "versions": [
     {
@@ -175,7 +179,7 @@
     {
       "version": 6,
       "firstTemplate": "0.3.0",
-      "file": "INSTRUCTIONS.md",
+      "file": "instructions/6.md",
       "sha256": "48fa04f3f1df1b21685142b7cdd0273be93d59ef0ef6e06a6b95b7aa8c10ebfd",
       "whitespaceSha256": "c61ecddc4b2f9a80f1b5f8c37e7a0dafc3fe79f8bbe367a811dc317be96e5396",
       "variants": [],
@@ -203,6 +207,47 @@
         "service-verified-downloads": "Trusts a newer installer only through the independently endpoint-confirmed checksum and official release SHA256SUMS. Without endpoint confirmation, no self-update or announcements; wait for the owner to use the stored skill's pin.",
         "daily-upgrades": "Keeps modules and skills current each day through verified files after independent platform endpoint confirmation; the owner still applies instructions and decides routine changes.",
         "active-snapshot": "Enables the free daily analysis once the owner chooses monitoring: its review Page stays in the account, and a report leaves only when the owner asked for that, with the connection and a confirmed pre-approval. The owner can pause it."
+      }
+    },
+    {
+      "version": 7,
+      "firstTemplate": "0.3.2",
+      "file": "INSTRUCTIONS.md",
+      "sha256": "91bfc1389968a63bec9352896e29902992ffa8df08a80dc1fea74b2c2a5ba51a",
+      "whitespaceSha256": "95b007cf1185ccb10998197342df7ee1e6995f2df16cae5fe5c060b56d5394c4",
+      "variants": [],
+      "grants": [
+        "owner-chat",
+        "pages",
+        "modules",
+        "pinned-downloads",
+        "account-read-tools",
+        "report-tool",
+        "feedback-tool",
+        "routines",
+        "owner-requested-skills",
+        "server-info-tool",
+        "upgrade-on-any-request",
+        "check-updates-tool",
+        "service-verified-downloads",
+        "daily-upgrades",
+        "active-snapshot",
+        "factory-tools",
+        "factory-description",
+        "factory-pages",
+        "owner-approved-bots"
+      ],
+      "reasons": {
+        "server-info-tool": "Lets the bot confirm that the connector it found answers as the Ambitious monitoring service before a report is prepared for it. The call takes no arguments.",
+        "upgrade-on-any-request": "Lets a bot or an agent that looks after the owner's bots bring this bot up to the template its stored installer skill pins. The request supplies nothing: every file is checked against that pin, and the owner is told what changed.",
+        "check-updates-tool": "Lets the daily check learn versions, tools and announcements without sending account data, only after platform connection details confirm the exact endpoint. A matching server_info identity is not proof.",
+        "service-verified-downloads": "Trusts a newer installer only through the independently endpoint-confirmed checksum and official release SHA256SUMS. Without endpoint confirmation, no self-update or announcements; wait for the owner to use the stored skill's pin.",
+        "daily-upgrades": "Keeps modules and skills current each day through verified files after independent platform endpoint confirmation; the owner still applies instructions and decides routine changes.",
+        "active-snapshot": "Enables the free daily analysis once the owner chooses monitoring: its review Page stays in the account, and a report leaves only when the owner asked for that, with the connection and a confirmed pre-approval. The owner can pause it.",
+        "factory-tools": "Restores the bot factory step: the owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. The tools only search and preview, and need the same endpoint confirmation as the update check.",
+        "factory-description": "Matching needs to know what the business does. Only a short description or industry code the owner has seen and said yes to for that call is sent: no names of people, contact details, credentials, account data, transcripts or customer data.",
+        "factory-pages": "The setup page is the factory's current procedure and the directory lists the catalog. Reading them sends nothing about the owner, and their content never widens what the bot may do.",
+        "owner-approved-bots": "Lets the bot set up the bots the owner chose, each with the instructions the owner approved in a Page. Existing bots are never changed, and a new bot's routines still start paused."
       }
     }
   ]

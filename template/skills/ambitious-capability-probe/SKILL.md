@@ -3,7 +3,7 @@ name: ambitious-capability-probe
 description: For the Ambitious Bot only. Return observed audit visibility. Use before an Ambitious Bot audit or snapshot, and after an account, role, connector or computer change.
 ---
 
-Template version: 0.3.1
+Template version: 0.3.2
 
 # Capability probe
 
@@ -20,7 +20,7 @@ node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide probe
 
 If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
-Keep the inventory locally under `AMBITIOUS_HOME`; a snapshot adds it to the review Page only when `review-page` says due. Return the collector's `visibility` array: exactly `signal`, `seen` and `why` for each signal in `ambitious-audit schema`.
+Keep the inventory locally under `AMBITIOUS_HOME`; a snapshot adds it to the review Page only when `review-page` says due.
 
 Hard rules:
 

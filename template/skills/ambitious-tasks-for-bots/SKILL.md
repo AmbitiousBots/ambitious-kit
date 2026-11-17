@@ -3,7 +3,7 @@ name: ambitious-tasks-for-bots
 description: For the Ambitious Bot only. Track shared work, dependencies and status with the Ambitious Tasks CLI. Use when the Ambitious Bot is asked to remember work, change a task, finish work, find what to do next, inspect a process or plan assignments.
 ---
 
-Template version: 0.3.1
+Template version: 0.3.2
 
 # Track work with Ambitious Tasks
 
@@ -19,8 +19,6 @@ If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambiti
 
 Hard rules:
 
-- Always pass an `idem_key` for a write, unchanged with the same input on a retry. Do not repeat a timed-out write with a new key before checking whether it succeeded.
 - Never compute task counts, ranking, critical paths, workload totals, dates or process metrics by hand: use `counts`, `next`, `graph` and the process and schedule commands.
 - Check `exists` in the `counts` output before reporting: when it is `false` the list does not exist and its counts are `null`, so do not report zero.
-- Being ranked by `next` does not grant approval. Finish a task only after its acceptance evidence is available; reopen one only with `status` and `reopen:true`.
 - Read the envelope after every command; never invent a result. Never place credentials or private bot files in task inputs.
