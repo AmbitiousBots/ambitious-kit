@@ -41,18 +41,18 @@ Time zone: the owner's time zone as the platform gives it; ask the owner only wh
 Destination: the run's reply, in this bot's own chat
 Starts: active
 
-Create this daily routine active only when this bot's instructions allow an active snapshot; under older instructions create it paused and let the owner turn it on. The owner can pause it or the daily selfcheck.
+Create this routine active only when this bot's instructions allow an active snapshot; under older instructions create it paused and let the owner turn it on. The owner can pause either routine.
 Until the owner has chosen monitoring and the required modules and matching skills are ready, do nothing and end with an empty reply.
-The run is daily; the review Page and any report are built once a week.
-The analysis and its review Page need no connection and no subscription. Build and send a report only when the owner has asked for reports to be sent, which is the Ambitious Bot plan, and the authenticated Ambitious connection is ready. Otherwise do steps 1 to 3 only: build no report and send nothing.
+Runs daily; build the review Page and new reports only when due.
+The analysis and its review Page need no connection and no subscription. Build and send a report only when the owner has asked for reports to be sent, which is the Ambitious Bot plan, and the authenticated Ambitious connection is ready. Otherwise build no report and send nothing.
 
-1. Run the `ambitious-module-installer` sync command and the `ambitious-capability-probe` skill again. If a required module or matching skill is no longer ready, do nothing further and end with an empty reply.
-2. Follow the `ambitious-snapshot-routine` and `ambitious-audit-collector` skills: collect observed JSON, run the audit CLI, keep its evidence, then run the installer's `review-page` command. It says the review Page is due on the first run and when the last one was built 7 or more days ago; never work that out yourself. When it is not due, stop here: build no Page and no report, and end with an empty reply unless something needs the owner now, such as a module command that failed or a new high-priority finding. Say that once, briefly.
-3. When it is due, write or update the review Page using the `ambitious-audit-page` skill, then record it with `review-page --built`. Group high priority before low and label each item finding, recommendation or announcement. All reported numbers and priorities come from module output. With no report, stop here.
-4. When a report is to be sent, build the report as the snapshot skill says. Its announcements come only from the saved endpoint-confirmed `check_updates` result; never write your own. Complete the required human review: a Page draft alone is not a completed review.
-5. Call `send_report` with the module-built payload only under an owner-granted pre-approval the platform confirms covers this call. Without that confirmation, keep the review Page, send nothing and say what is waiting in this bot's own chat. Never infer approval from monitoring, a subscription, a schedule, a review or a previous send. A timeout is not proof of receipt: retry with the same report identifier and confirmed pre-approval.
+1. Run the `ambitious-module-installer` sync command and the `ambitious-capability-probe` skill. If a required module or matching skill is not ready, end with an empty reply.
+2. Follow the `ambitious-snapshot-routine` and `ambitious-audit-collector` skills: collect observed JSON, run the audit CLI, keep evidence locally under AMBITIOUS_HOME, then run the installer's `review-page` command. It says the review Page is due on the first run and when the last one was built 7 or more days ago; never work that out yourself. When not due, skip steps 3 and 4: build no Page or new report; continue pending report review and delivery in step 5.
+3. Only when due and a report is to be sent, build it as the snapshot skill says, before its review Page. Announcements come only from the saved endpoint-confirmed `check_updates` result; never write your own.
+4. Only when due, write or update the review Page using the `ambitious-audit-page` skill with the exact report payload, or with findings and recommendations when no report is built. Group high priority before low and label each item finding, recommendation or announcement. All numbers and priorities come from module output. Only after the Page succeeds, record it with `review-page --built`.
+5. For a new or pending report, complete the required human review: a Page draft alone is not a completed review. Call `send_report` with the exact module-built payload only under an owner-granted pre-approval the platform confirms covers this call. Without that confirmation, keep the review Page, send nothing and say what is waiting in this bot's own chat. Never infer approval from monitoring, a subscription, a schedule, a review or a previous send. A timeout is not proof of receipt: retry with the same report identifier and confirmed pre-approval.
 
-Reply only when something changed or needs the owner; otherwise end with an empty reply. Never send by another channel. Do not invent successful results.
+Reply once, briefly, only for changes or something needing the owner; otherwise end with an empty reply. Never send by another channel. Never invent successful results.
 Feedback follows the `ambitious-send-feedback` skill and needs its own per-call `send_feedback` tool approval.
 
 ## Routines from packs

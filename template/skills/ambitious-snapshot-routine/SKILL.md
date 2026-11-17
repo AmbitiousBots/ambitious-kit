@@ -1,6 +1,6 @@
 ---
 name: ambitious-snapshot-routine
-description: For the Ambitious Bot only. Run ambitious-audit every day to keep evidence current, build the review Page once a week, and send a report only under a platform-confirmed owner pre-approval. Use in the Ambitious Bot's ambitious-snapshot routine.
+description: For the Ambitious Bot only. Audit daily; build review Pages weekly; send reports only under platform-confirmed owner pre-approval. Use in the Ambitious Bot's ambitious-snapshot routine.
 ---
 
 Template version: 0.3.1
@@ -9,7 +9,7 @@ Template version: 0.3.1
 
 Runs daily. Create it active only when this bot's instructions allow an active snapshot; under older instructions create it paused and let the owner turn it on. Until the owner has chosen monitoring and the required modules and matching skills are ready, do nothing and end with an empty reply.
 
-Read the steps:
+Read:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide snapshot --json
@@ -17,7 +17,7 @@ node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide snaps
 
 If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
-Every run syncs, probes, collects and runs `ambitious-audit` up to `findings` and `recommend`, then asks whether the weekly review Page is due, with the `ruleId` of each finding of `priority` `high` as a JSON list in the named file:
+Sync, probe, collect and run `ambitious-audit` through `findings` and `recommend`; keep evidence locally. Ask if the Page is due, passing each high-priority finding's `ruleId` as a JSON list:
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" review-page --json --in "${AMBITIOUS_HOME:-/workspace/ambitious}/high-priority.json"
@@ -25,8 +25,8 @@ node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" review-page
 
 `data.due` is true on the first run and when the last review Page was built 7 or more days ago. Never work that out yourself.
 
-- Not due: build no Page and no report. End with an empty reply unless something needs the owner now: a module command that failed, or a new high-priority finding in `data.newHighPriority`. Say it once, briefly, in this bot's own chat.
-- Due: write or update the review Page with the `ambitious-audit-page` skill, then record it with `review-page --built --json`.
+- Not due: build no Page or new report; continue pending report review and delivery per the guide. Reply once, briefly, in this bot's own chat only for changed failures, `data.newHighPriority` or something needing the owner; otherwise end with an empty reply.
+- Due: build any report first, then use `ambitious-audit-page` for its exact payload, or findings and recommendations without a report. Only after the Page succeeds, record it with `review-page --built --json`.
 
 Hard rules:
 

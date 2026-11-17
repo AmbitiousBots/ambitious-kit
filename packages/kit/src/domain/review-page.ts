@@ -27,9 +27,10 @@ export const parseReviewPageState = (value: unknown): ReviewPageState => {
 
 export const reviewPageDue = (builtAt: string | null, now: Date): ReviewPageDue => {
   if (builtAt === null) return { due: true, daysSinceBuilt: null, why: "No review Page has been recorded as built, so this run builds the first one." };
-  const daysSinceBuilt = Math.round((now.getTime() - Date.parse(builtAt)) / DAY_MS);
-  if (daysSinceBuilt < 0) return { due: true, daysSinceBuilt, why: `The recorded build time ${builtAt} is in the future, so it is not trusted and this run builds the review Page.` };
-  return daysSinceBuilt >= REVIEW_PAGE_EVERY_DAYS
+  const elapsed = now.getTime() - Date.parse(builtAt);
+  const daysSinceBuilt = Math.floor(elapsed / DAY_MS);
+  if (elapsed < 0) return { due: true, daysSinceBuilt, why: `The recorded build time ${builtAt} is in the future, so it is not trusted and this run builds the review Page.` };
+  return elapsed >= REVIEW_PAGE_EVERY_DAYS * DAY_MS
     ? { due: true, daysSinceBuilt, why: `The review Page was last built ${daysSinceBuilt} days ago, at ${builtAt}. It is built when ${REVIEW_PAGE_EVERY_DAYS} or more days have passed.` }
     : { due: false, daysSinceBuilt, why: `The review Page was last built ${AGE[daysSinceBuilt] ?? `${daysSinceBuilt} days`} ago, at ${builtAt}. It is built again when ${REVIEW_PAGE_EVERY_DAYS} or more days have passed.` };
 };

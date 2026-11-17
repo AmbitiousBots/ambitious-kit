@@ -81,7 +81,7 @@
   },
   {
     "id": "weekly-review-page",
-    "userVisible": "The snapshot routine runs every day and keeps its evidence current, but builds the review Page, and any report, once a week: on its first run and when the last Page was built 7 or more days ago. On the other days it stays silent unless a module command failed or a new high-priority finding appeared.",
+    "userVisible": "The snapshot routine keeps daily evidence locally and builds the review Page and any new report when due: on its first run and after at least 7 full days since the last Page. Pending report review and delivery continue on other days. It stays silent unless something changed or needs the owner, including a module failure or new high-priority finding.",
     "check": "node --test --test-name-pattern='once a week|weekly' template/test/check.test.mjs packages/kit/test/review-page.test.ts"
   },
   {

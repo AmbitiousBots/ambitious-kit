@@ -1,6 +1,6 @@
 ---
 name: ambitious-capability-probe
-description: For the Ambitious Bot only. Inspect observed account access and produce an honest visibility array for an audit. Use before the Ambitious Bot collects an audit or a snapshot, and after an account, role, connector or computer change.
+description: For the Ambitious Bot only. Return observed audit visibility. Use before an Ambitious Bot audit or snapshot, and after an account, role, connector or computer change.
 ---
 
 Template version: 0.3.1
@@ -20,7 +20,7 @@ node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" guide probe
 
 If it is missing or answers `E_USAGE`, first fetch the pinned installer (`ambitious-module-installer` skill).
 
-The result is the inventory, kept in the audit's Grok Bot Page, and a JSON array for the collector's `visibility` field: one entry, with exactly `signal`, `seen` and `why`, for each signal that `ambitious-audit schema` lists.
+Keep the inventory locally under `AMBITIOUS_HOME`; a snapshot adds it to the review Page only when `review-page` says due. Return the collector's `visibility` array: exactly `signal`, `seen` and `why` for each signal in `ambitious-audit schema`.
 
 Hard rules:
 

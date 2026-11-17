@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import fs, { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
@@ -15,7 +16,7 @@ const DAY = 24 * 60 * MINUTE;
 const ago = (milliseconds: number): string => new Date(NOW.getTime() - milliseconds).toISOString();
 
 const scratch = (t: TestContext): string => {
-  const home = mkdtempSync(join(tmpdir(), "ambitious-review-page-"));
+  const home = mkdtempSync(join(realpathSync(tmpdir()), "ambitious-review-page-"));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   return home;
 };
@@ -30,7 +31,7 @@ const codeOf = (run: () => unknown): string => {
   return "";
 };
 
-test("the weekly review Page is due when none was built and when the last one was built 7 or more days ago, to the nearest day", () => {
+test("the weekly review Page is due when none was built or at least exactly 7 days have elapsed", () => {
   assert.equal(REVIEW_PAGE_EVERY_DAYS, 7);
   assert.deepEqual(reviewPageDue(null, NOW), { due: true, daysSinceBuilt: null, why: "No review Page has been recorded as built, so this run builds the first one." });
   const cases: readonly (readonly [number, boolean, number])[] = [
@@ -38,7 +39,9 @@ test("the weekly review Page is due when none was built and when the last one wa
     [DAY, false, 1],
     [6 * DAY, false, 6],
     [6 * DAY + 11 * 60 * MINUTE, false, 6],
-    [7 * DAY - 5 * MINUTE, true, 7],
+    [6.5 * DAY, false, 6],
+    [7 * DAY - 5 * MINUTE, false, 6],
+    [7 * DAY - 1, false, 6],
     [7 * DAY, true, 7],
     [7 * DAY + 5 * MINUTE, true, 7],
     [8 * DAY, true, 8],
@@ -49,13 +52,15 @@ test("the weekly review Page is due when none was built and when the last one wa
     assert.deepEqual([answer.due, answer.daysSinceBuilt], [due, days], `built ${age / DAY} days ago`);
   }
   const daily = [1, 2, 3, 4, 5, 6, 7].map((day) => reviewPageDue(ago(day * DAY - 3 * MINUTE), NOW).due);
-  assert.deepEqual(daily, [false, false, false, false, false, false, true], "a routine that starts a few minutes early each day builds the Page on the seventh day, not the eighth");
+  assert.deepEqual(daily, [false, false, false, false, false, false, false], "a routine that starts a few minutes early must still wait until seven days have elapsed");
   assert.match(reviewPageDue(ago(DAY), NOW).why, /^The review Page was last built 1 day ago, at .* It is built again when 7 or more days have passed\.$/);
   assert.match(reviewPageDue(ago(0), NOW).why, /^The review Page was last built less than a day ago, /);
   assert.match(reviewPageDue(ago(9 * DAY), NOW).why, /^The review Page was last built 9 days ago, at .* It is built when 7 or more days have passed\.$/);
-  const future = reviewPageDue(ago(-3 * DAY), NOW);
-  assert.deepEqual([future.due, future.daysSinceBuilt], [true, -3], "a build time in the future is not trusted");
-  assert.match(future.why, /is in the future/);
+  for (const age of [-3 * DAY, -60 * MINUTE, -1]) {
+    const future = reviewPageDue(ago(age), NOW);
+    assert.deepEqual([future.due, future.daysSinceBuilt], [true, Math.floor(age / DAY)], "even a build time one millisecond in the future is not trusted");
+    assert.match(future.why, /is in the future/);
+  }
 });
 
 test("a recorded state that cannot be read is no state, so the Page is due; high-priority ids are text, and a new one is one the run before did not have", () => {
@@ -88,13 +93,82 @@ test("the build time and the high-priority ids are kept in one file under the ho
   const sixth = reviewPage({ home, now: new Date(NOW.getTime() + 6 * DAY), built: false, highPriority: ["failing-routine", "weekly-limit"] });
   assert.deepEqual([sixth.due, sixth.daysSinceBuilt, sixth.newHighPriority], [false, 6, ["weekly-limit"]]);
   const seventh = reviewPage({ home, now: new Date(NOW.getTime() + 7 * DAY - 2 * MINUTE), built: false, highPriority: ["failing-routine", "weekly-limit"] });
-  assert.deepEqual([seventh.due, seventh.daysSinceBuilt, seventh.newHighPriority], [true, 7, []]);
+  assert.deepEqual([seventh.due, seventh.daysSinceBuilt, seventh.newHighPriority], [false, 6, []]);
   const rebuilt = reviewPage({ home, now: new Date(NOW.getTime() + 7 * DAY), built: true, highPriority: [] });
   assert.deepEqual([rebuilt.due, rebuilt.daysSinceBuilt, rebuilt.highPriority], [false, 0, []]);
 
   writeFileSync(file, "not json");
   assert.equal(reviewPage({ home, now: NOW, built: false, highPriority: null }).due, true, "a damaged file makes the Page due instead of putting it off");
   assert.equal(codeOf(() => reviewPage({ home: "/home/box/agent-data/ambitious", now: NOW, built: true, highPriority: null })), "E_FORBIDDEN_PATH");
+});
+
+test("state reads reject leaf, template, home and ancestor symlinks before reading or writing", (t) => {
+  for (const level of ["file", "template", "home", "ancestor"]) {
+    const root = scratch(t);
+    const actual = join(root, "actual");
+    const contents = `${JSON.stringify({ builtAt: NOW.toISOString(), highPriority: ["retained"] })}\n`;
+    mkdirSync(join(actual, "home", "template"), { recursive: true });
+    const target = reviewPageStatePath(join(actual, "home"));
+    writeFileSync(target, contents);
+    let home = join(root, "home");
+    if (level === "file") {
+      mkdirSync(join(home, "template"), { recursive: true });
+      symlinkSync(target, reviewPageStatePath(home));
+    } else if (level === "template") {
+      mkdirSync(home);
+      symlinkSync(join(actual, "home", "template"), join(home, "template"));
+    } else if (level === "home") {
+      symlinkSync(join(actual, "home"), home);
+    } else {
+      symlinkSync(actual, join(root, "linked"));
+      home = join(root, "linked", "home");
+    }
+    for (const built of [false, true]) {
+      assert.equal(codeOf(() => reviewPage({ home, now: NOW, built, highPriority: null })), "E_INSTALL_PATH", level);
+      assert.equal(readFileSync(target, "utf8"), contents, "the linked target is unchanged");
+    }
+  }
+});
+
+test("state paths into private data and non-regular state files are errors, never the unreadable-state fallback", (t) => {
+  for (const level of ["file", "template", "home"]) {
+    const root = scratch(t);
+    const home = join(root, "home");
+    if (level === "file") {
+      mkdirSync(join(home, "template"), { recursive: true });
+      symlinkSync("/home/box/agent-data/state.json", reviewPageStatePath(home));
+    } else if (level === "template") {
+      mkdirSync(home);
+      symlinkSync("/home/box/agent-data", join(home, "template"));
+    } else {
+      symlinkSync("/home/box/agent-data", home);
+    }
+    assert.equal(codeOf(() => reviewPage({ home, now: NOW, built: false, highPriority: null })), "E_FORBIDDEN_PATH", level);
+  }
+  const home = scratch(t);
+  mkdirSync(reviewPageStatePath(home), { recursive: true });
+  assert.equal(codeOf(() => reviewPage({ home, now: NOW, built: false, highPriority: null })), "E_INSTALL_PATH");
+});
+
+test("a state file swapped for a symlink at open is refused by O_NOFOLLOW", (t) => {
+  const home = scratch(t);
+  const file = reviewPageStatePath(home);
+  mkdirSync(join(home, "template"));
+  writeFileSync(file, "{}");
+  const outside = join(home, "outside.json");
+  const contents = JSON.stringify({ builtAt: NOW.toISOString(), highPriority: ["outside"] });
+  writeFileSync(outside, contents);
+  const open = fs.openSync;
+  t.mock.method(fs, "openSync", (path: fs.PathLike, flags: fs.OpenMode) => {
+    assert.equal(path, file);
+    rmSync(file);
+    symlinkSync(outside, file);
+    return open(path, flags);
+  });
+  syncBuiltinESMExports();
+  t.after(() => { t.mock.restoreAll(); syncBuiltinESMExports(); });
+  assert.equal(codeOf(() => reviewPage({ home, now: NOW, built: false, highPriority: null })), "E_INSTALL_PATH");
+  assert.equal(readFileSync(outside, "utf8"), contents);
 });
 
 test("a guide is found by its topic, an unknown topic is a usage error that names the topics, and its file is written under template/guides in the home", (t) => {

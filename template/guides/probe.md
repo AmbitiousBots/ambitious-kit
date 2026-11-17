@@ -39,7 +39,7 @@ Do not use a successful read of one resource as proof of access to other resourc
 | Connectors | Returned connector inventory, with each connector's name, tool names and status. The tool names come from the platform's tool catalog, read per connector namespace; a count of tools is not a list of names. Configuration alone does not prove that connector content is readable. |
 | Audit log | Readable account event history for the requested scope and period, not an ordinary chat transcript. |
 
-Keep this inventory in the audit's Grok Bot Page. Pass observed source values to the collector without estimating missing counts or calculating totals. A value no tool returned is passed as `null`, never as zero.
+Keep this inventory locally under `AMBITIOUS_HOME`, never under `/home/box/agent-data`. The probe writes no Page. During a snapshot, include the retained inventory in the review Page only after `review-page` says it is due. Pass observed source values to the collector without estimating missing counts or calculating totals. A value no tool returned is passed as `null`, never as zero.
 Record usage in the unit the platform reports, credits, percentages or shares of all bot usage in a period, and do not convert one into another. The `ambitious-audit-collector` skill says how to ask for a usage report by bot and how to write it down.
 Keep tool identifiers and short evidence references so the collector can trace claims. Do not copy full transcripts, secrets, or private backing data into evidence.
 
@@ -47,7 +47,7 @@ Keep tool identifiers and short evidence references so the collector can trace c
 
 Find the monitoring connection as the `connection` guide says, then:
 
-Record it in the Page inventory as present and signed in, present and needing a sign-in, or absent, and whether its identity was confirmed or not confirmed.
+Record it in the local inventory as present and signed in, present and needing a sign-in, or absent, and whether its identity was confirmed or not confirmed.
 When a connector is `unidentified`, its tools were not read. Record what the first line of `data.tellOwner` says: whether there is a monitoring connection among the connectors whose tools were read, how many were read, and which were not. Do not go by the name.
 The probe only reads these names; it does not call `send_report` or `send_feedback`.
 
@@ -73,17 +73,17 @@ Use `false` for partial coverage, denied access, unavailable tools, errors, and 
 When some information is visible but coverage is incomplete, describe both the visible part and the gap in `why`.
 Do not encode unknown as zero, omit a signal, or infer visibility from the role.
 The last five signals each cover a group of collector values. When any value of the group is `null`, or the role is `unknown`, that signal's `seen` must be false; the module refuses a document where it is not.
-A capability with no signal in the schema stays a gap in the Page inventory; do not invent wire signals or relabel it as `auditLog`.
-Carry every gap into the audit Page and report review. Do not claim the report covers information the collector cannot represent.
+A capability with no signal in the schema stays a gap in the local inventory; do not invent wire signals or relabel it as `auditLog`.
+Carry every gap into the next due audit Page and report review. Do not claim the report covers information the collector cannot represent.
 
 ## Fixture scenarios
 
 The fixtures are expected entries for the nine signals above, for synthetic tool observations. They do not establish real account permissions or replace live probing.
 The `ambitious-module-installer` sync command writes them to `template/fixtures/ambitious-capability-probe` under `AMBITIOUS_HOME`, by default `/workspace/ambitious/template/fixtures/ambitious-capability-probe`. Read them there.
 
-In the owner scenario (`owner.expected.json`), the account tool identifies an owner. A complete bot inventory, requested transcripts, and bot usage are returned. Routine usage and audit history are unavailable. Task counts, Page counts, bot activity and routines are all read. Memory and connector status are readable within the requested scope and belong in the separate Page inventory.
+In the owner scenario (`owner.expected.json`), the account tool identifies an owner. A complete bot inventory, requested transcripts, and bot usage are returned. Routine usage and audit history are unavailable. Task counts, Page counts, bot activity and routines are all read. Memory and connector status are readable within the requested scope and belong in the separate local inventory for the next due Page.
 
-In the guest scenario (`guest.expected.json`), the account tool identifies a guest. Only the current shared bot and its shared Page are readable. The tools deny transcripts, usage, other bot inventory, the Page list and the routine list; no audit log tool is available, the `ambitious-tasks` module is not installed, and the shared bot's last-active time is not shown. Memory and connector status are unavailable and belong in the separate Page inventory.
+In the guest scenario (`guest.expected.json`), the account tool identifies a guest. Only the current shared bot and its shared Page are readable. The tools deny transcripts, usage, other bot inventory, the Page list and the routine list; no audit log tool is available, the `ambitious-tasks` module is not installed, and the shared bot's last-active time is not shown. Memory and connector status are unavailable and belong in the separate local inventory for the next due Page.
 
 In the unknown-role scenario (`role-unknown.expected.json`), no tool reports the role and the account holder has not stated it. A complete bot inventory is returned, though without a last-active time for one bot. Usage by bot is shown as percentage shares, and usage by routine, transcripts, audit history and the Page list are unavailable. Task counts and routines are read. The role is recorded as `unknown` and the audit still runs.
 

@@ -72,7 +72,7 @@ Then, whichever way the file arrived, check it against the pin and link it:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}/bin" &&
-echo "f6ee4dd7e18463261ee59e74000fb37f0fc8905082ce43d473b6f8151c33170c  ambitious-modules-0.3.1.mjs" | sha256sum -c - &&
+echo "ee3a3e9e0012e7952e62db92cb00594c41eb0c65f7b4cdd6aac5f10f483e7c96  ambitious-modules-0.3.1.mjs" | sha256sum -c - &&
 chmod 755 ambitious-modules-0.3.1.mjs && ln -sfn ambitious-modules-0.3.1.mjs ambitious-modules ||
 { rm -f ambitious-modules-0.3.1.mjs; false; }
 ```
