@@ -1,0 +1,10 @@
+{
+  "action-unknown.json": {
+    "pointer": "/holds/0/action",
+    "keyword": "enum"
+  },
+  "hold-without-key.json": {
+    "pointer": "/holds/0",
+    "keyword": "required"
+  }
+}

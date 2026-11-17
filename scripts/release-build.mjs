@@ -94,7 +94,8 @@ const packPackage = (name, version, scratch, output) => {
     }),
   );
   run(join(repoRoot, "node_modules", ".bin", "tsc"), ["--project", tsconfig]);
-  const [{ filename }] = JSON.parse(run("npm", ["pack", "--json", "--pack-destination", output], { cwd: stage }));
+  const packed = JSON.parse(run("npm", ["pack", "--json", "--pack-destination", output], { cwd: stage }));
+  const [{ filename }] = Array.isArray(packed) ? packed : Object.values(packed);
   return filename;
 };
 

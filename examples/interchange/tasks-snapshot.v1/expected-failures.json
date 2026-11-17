@@ -1,0 +1,14 @@
+{
+  "status-unknown.json": {
+    "pointer": "/tasks/0/status",
+    "keyword": "enum"
+  },
+  "task-without-updated-at.json": {
+    "pointer": "/tasks/1",
+    "keyword": "required"
+  },
+  "schema-of-another-version.json": {
+    "pointer": "/schema",
+    "keyword": "const"
+  }
+}

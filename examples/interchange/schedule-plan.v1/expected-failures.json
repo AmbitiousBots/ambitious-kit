@@ -1,0 +1,10 @@
+{
+  "block-with-an-offset.json": {
+    "pointer": "/blocks/0/start",
+    "keyword": "pattern"
+  },
+  "plan-without-digest.json": {
+    "pointer": "",
+    "keyword": "required"
+  }
+}

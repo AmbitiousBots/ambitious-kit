@@ -10,6 +10,8 @@ The Python mirror of [`@ambitious/kit`](../kit): the same envelope, command-line
 | `ambitious_kit.domain.clock` | `parse_now`, `parse_seed`, `format_instant`. |
 | `ambitious_kit.db.sqlite` | `open_db(path, readonly=...)`, `migrate`, `load_migrations`, `require_current_schema`, `integrity_check`. |
 | `ambitious_kit.paths` | `refuse_agent_data(path)` and `ambitious_home(environment)`. |
+| `ambitious_kit.domain.json_schema` | `schema_problems(schema, value)`: checks a document against an interchange schema from `schemas/interchange/`. |
+| `ambitious_kit.runtime` | `pinned_runtime(env, module, lock_text)`, `activate(runtime)` and `runtime_failure(runtime)`: find the module's opt-in pinned runtime by the SHA-256 of its lock, put it on the import path, or fail with `E_RUNTIME`. Pass the lock text as `ModuleSpec.runtime_lock` and `selfcheck` reports it in `data.pinnedRuntime` and `data.warnings`. |
 | `ambitious_kit.contract` | The contract tests: `python -m ambitious_kit.contract <binary>`. |
 | `ambitious_kit.build` | `build_zipapp(target, packages, main)`: writes the module's `.pyz`, byte for byte the same on every build. |
 
@@ -26,10 +28,10 @@ commands = {
 
 ## Use it in a module
 
-A kit release has `ambitious_kit-<version>.pyz`. It is a zip file: unpack it into the module repository with `python3 -m zipfile -e ambitious_kit-0.3.2.pyz vendor/`, so the `ambitious_kit` package can be imported, and let `build_zipapp` put it and the module's own package into the module's `.pyz`. The same file also runs the contract tests on its own:
+A kit release has `ambitious_kit-<version>.pyz`. It is a zip file: unpack it into the module repository with `python3 -m zipfile -e ambitious_kit-0.4.0.pyz vendor/`, so the `ambitious_kit` package can be imported, and let `build_zipapp` put it and the module's own package into the module's `.pyz`. The same file also runs the contract tests on its own:
 
 ```text
-python3 ambitious_kit-0.3.2.pyz dist/ambitious-<module>.pyz
+python3 ambitious_kit-0.4.0.pyz dist/ambitious-<module>.pyz
 ```
 
 ## Checks

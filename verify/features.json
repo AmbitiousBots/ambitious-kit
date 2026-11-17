@@ -30,6 +30,16 @@
     "check": "node verify/checks/install.mjs"
   },
   {
+    "id": "pinned-runtime",
+    "userVisible": "A module that needs a large native package can have it installed only when the person asks: the package list is checked against its published checksum, every package is checked against its pinned hash, a failed or interrupted install never leaves a half-built runtime in place, and installing twice changes nothing. Without it the module still answers selfcheck and says in plain words what is missing.",
+    "check": "node --test packages/kit/test/runtime.test.ts && node scripts/with-pinned-tools.mjs python3 -m unittest packages/kit-python/tests/test_runtime.py"
+  },
+  {
+    "id": "interchange",
+    "userVisible": "Data a bot carries from one module to another has one published shape per kind, and both the TypeScript and the Python kit accept the same valid documents and refuse the same broken ones.",
+    "check": "node --test packages/kit/test/interchange.test.ts && node scripts/with-pinned-tools.mjs python3 -m unittest packages/kit-python/tests/test_interchange.py"
+  },
+  {
     "id": "sync",
     "userVisible": "A bot keeps every pinned module in place with one command: it installs what is missing, replaces what was removed or altered, upgrades when a pin moves, runs each selfcheck and says in plain words what happened. A newer template release is only reported: nothing from it is downloaded, installed or run.",
     "check": "node --test packages/kit/test/sync.test.ts"

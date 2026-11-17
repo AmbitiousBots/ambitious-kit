@@ -1,0 +1,37 @@
+{
+  "schema": "schedule-plan.v1",
+  "plan_id": "launch-week",
+  "version": 1,
+  "forked_from": null,
+  "status": "committed",
+  "horizon": {
+    "start": "2026-01-05T00:00:00.000Z",
+    "end": "2026-01-10T00:00:00.000Z"
+  },
+  "policy": {
+    "block_minutes": 90
+  },
+  "tasks_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "busy_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "tzdata": "2025b",
+  "solver": "greedy",
+  "blocks": [
+    {
+      "task_id": "T-1",
+      "calendar_id": "sam",
+      "seq": 0,
+      "start": "2026-01-05T17:00:00.000Z",
+      "end": "2026-01-05T18:30:00.000Z",
+      "local_start": "2026-01-05T09:00:00-08:00",
+      "local_end": "2026-01-05T10:30:00-08:00",
+      "tz": "America/Los_Angeles"
+    }
+  ],
+  "unscheduled": [
+    {
+      "task_id": "T-2",
+      "code": "NO_FEASIBLE_SLOT",
+      "message": "No free time is left inside the horizon."
+    }
+  ]
+}

@@ -22,6 +22,7 @@ Last confirmed in step with the code at commit `32303bf2e0991a6f7848eae5a8e1eb02
 | Model | Covers | Each model step is this code |
 |---|---|---|
 | `packages/kit/spec/Install.tla` | `install` in `packages/kit/src/install/install.ts` | `AlreadyInstalled`: the early return when the installed file matches its recorded checksum and, when a pin is given, the pin (it only switches the link). `Download`: the two `fetched` calls, into memory. `RejectBadChecksum`: the `E_INSTALL_CHECKSUM` failures, including a `SHA256SUMS` line that differs from the pin, before anything is written. `Place`: the first `placeByRename`, one rename of the verified bytes. `Record`: the second `placeByRename`, for `SHA256SUMS`. `SwitchLink`: `switchLink`, one rename of a new symbolic link. `Crash`: the process stopping between any two of those. `Damage`: something outside the installer corrupting an installed file. |
+| `packages/kit/spec/Runtime.tla` | `installRuntime` in `packages/kit/src/install/runtime.ts` | `AlreadyBuilt`: the early returns when the directory named by the lock's SHA-256 holds a matching marker. `Download`: the two `fetched` calls, into memory. `RejectBadLock`: the `E_INSTALL_CHECKSUM` and unpinned-line failures, before any tool runs. `Stage`: `python3 -m venv` into the temporary directory. `Fill`: `pip install --require-hashes`; a failure removes the temporary directory. `Mark`: writing `ambitious-runtime.json` last. `MoveIntoPlace`: one rename of the directory. `Crash`: the process stopping between any two of those. |
 | `examples/hello/spec/Greetings.tla` | `greet` and `list` in `examples/hello/src/cli/main.ts` with `examples/hello/src/db/greetings.ts` | `Greet`: one `INSERT`, inside the single transaction the kit wraps around a write command. `List`: the read-only `SELECT`. |
 | `spec/Sample.tla` | Nothing in the kit. It is the starting example every module repository gets. | |
 
@@ -32,9 +33,11 @@ Last confirmed in step with the code at commit `32303bf2e0991a6f7848eae5a8e1eb02
 | `OnlyVerifiedAssetsInPlace` | The installer never puts a file in `bin` whose SHA-256 it did not match against `SHA256SUMS`. | A damaged or swapped download would run as the module on the next start. |
 | `LinkNeverDangles` | The link `ambitious-<module>` never points at a file that is not there, also if the installer is stopped at any moment. | The bot's next start would fail to run the module at all. |
 | `RecordedMeansInstalled` | A checksum line in `bin/SHA256SUMS` always has its file. | A later install would trust a record for a file that does not exist. |
+| `InPlaceMeansComplete` | The directory a module loads its pinned runtime from is either absent or complete with its marker, also if the installer is stopped at any moment. | A module would import a half-installed package and fail in a way `selfcheck` did not report. |
+| `OnlyVerifiedLockIsBuilt` | A runtime is only ever built from a lock whose SHA-256 matched `SHA256SUMS`. | A damaged or swapped lock would decide which packages run inside the module. |
 | `NothingLost`, `OldestFirst` | `list` shows every greeting that `greet` accepted, in the order they were made. | Stored data would silently disappear or reorder. |
 
-Bounds and assumptions: two versions of one module; a download is either exactly the published bytes or not; a rename is atomic; one installer runs at a time. The model does not cover two installers racing, a full disk, or whether `SHA256SUMS` itself is genuine: the installer checks that the asset matches the checksum file it was given, not who published it.
+Bounds and assumptions: two versions of one module; a download is either exactly the published bytes or not; a rename is atomic; one installer runs at a time. The model does not cover two installers racing, a full disk, or whether `SHA256SUMS` itself is genuine: the installer checks that the asset matches the checksum file it was given, not who published it. For the runtime, `pip` checking each package against the lock's hashes is assumed, not modelled.
 
 ## Each property has been seen to fail
 
@@ -44,6 +47,8 @@ Bounds and assumptions: two versions of one module; a download is either exactly
 |---|---|---|
 | `InstallNoVerify` | The checksum comparison before `Place` | `OnlyVerifiedAssetsInPlace` |
 | `InstallLinkFirst` | The order: the link is switched before the file is placed | `LinkNeverDangles` |
+| `RuntimeBuiltInPlace` | The staging directory: the runtime is built where the module looks for it | `InPlaceMeansComplete` |
+| `RuntimeNoVerify` | The checksum comparison of the lock before `Stage` | `OnlyVerifiedLockIsBuilt` |
 | `GreetingsOverwrite` | `greet` replaces the stored greetings instead of adding one | `NothingLost` |
 
 ## When you change covered code

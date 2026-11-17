@@ -9,6 +9,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 | [MODULE_CONTRACT.md](MODULE_CONTRACT.md) | The contract. Ten rules covering the command line and the JSON envelope, repeatable output, the SQLite database and its migrations, install and self-check, key handling, network use, versioning, and the checks a module passes before a release. It defines every term it uses, so you can read it with no other context. |
 | [schemas/envelope.v1.json](schemas/envelope.v1.json) | The JSON Schema for the one JSON document every command prints. |
 | [examples/envelopes](examples/envelopes) | Envelopes that are valid, and envelopes that are each broken in one named way. |
+| [schemas/interchange](schemas/interchange) | The interchange schemas: the JSON shapes a bot carries from one module to another (a tasks snapshot, a constraint model and its solution, a schedule plan, a calendar holds proposal). Part 5 of the contract says how they are used; [examples/interchange](examples/interchange) has a valid document and broken ones for each. |
 | [packages/kit](packages/kit) | `@ambitious/kit`: the command-line runner, the envelope, the SQLite and migration helpers, `selfcheck`, the installer and the contract tests, in TypeScript with no runtime dependencies. |
 | [packages/kit-python](packages/kit-python) | `ambitious_kit`: the same for modules written in Python, standard library only. |
 | [packages/lint](packages/lint) | `@ambitious/lint`: the comment ban and the other lint rules, a Python comment checker, and the `ambitious-standalone` command. |
@@ -22,7 +23,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.3.2`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.0`.
 
 | File | Use |
 |---|---|
@@ -42,9 +43,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.3.2.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.3.2.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.3.2.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.0.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.0.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.0.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -224,6 +225,12 @@ jobs:
 `tlc.yml` installs the toolchain from the calling repo's `.mise.toml` and runs its `scripts/tlc.mjs`; both come from the template. Input `spec-directory` defaults to `spec`. `lean.yml` installs the Lean version named in the `lean-toolchain` file and runs `lake build`; input `directory` (default `proofs`) is where the Lake package lives.
 
 ## Release notes
+
+### 0.4.0
+
+- Interchange schemas: `schemas/interchange/` holds the versioned JSON shapes that cross between modules, and the contract's new Part 5 says a bot carries them; a module never calls another module. `json-schema` in both kits checks a document against one.
+- Opt-in pinned runtime: a Python module may release a hash-pinned runtime lock beside its `.pyz`. `ambitious-install ... --runtime` verifies the lock and builds it under `$AMBITIOUS_HOME/<module>/runtime/`; without the flag nothing changes. `selfcheck` reports the runtime in `data.pinnedRuntime` and `data.warnings`, and a command that needs a runtime that is not there fails with the new shared code `E_RUNTIME`.
+- The bot template, its instructions and its module pins are unchanged.
 
 ### 0.3.2
 
