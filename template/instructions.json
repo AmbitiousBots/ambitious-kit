@@ -23,9 +23,9 @@
     "daily-upgrades": "Let the daily selfcheck apply module and skill upgrades through the verified installer chain without a new request, only after independent platform endpoint confirmation; otherwise report to the owner and wait for the owner's go-ahead in chat through the stored skill's pin.",
     "active-snapshot": "Create the daily snapshot active, doing nothing until monitoring is chosen and its modules and skills are ready, then writing its review Page and sending a report only when the owner has asked for reports to be sent and the authenticated connection is ready.",
     "factory-tools": "Call the Ambitious connection's factory_environment, factory_version, factory_match and factory_plan tools, which search and preview the catalog of ready-made bots and create nothing, only after independently confirming the exact endpoint and only for a factory step the owner started or agreed to in this bot's own chat.",
-    "factory-description": "Send a short description of the business to Ambitious with factory_match, after showing the owner the exact text and getting the owner's tool approval for that call.",
+    "factory-description": "Send a short description of the business, or an industry code, to Ambitious with factory_match, after showing the owner the exact text or code and getting the owner's yes in this bot's own chat and the owner's tool approval for that call, which a pre-approval never covers.",
     "factory-pages": "Read the public page https://ambitiousbots.com/factory/setup.md and the public factory pages it links as reference, which carries no account or business data.",
-    "owner-approved-bots": "Create a new bot or routine with Grok Bot's own tools after the owner approves that exact proposal, written in a Page, in this bot's own chat, without changing an existing bot."
+    "owner-approved-bots": "Create a new bot, or a routine for it, with Grok Bot's own tools after the owner approves that exact proposal, written in a Page, in this bot's own chat, without changing an existing bot."
   },
   "versions": [
     {
@@ -213,8 +213,8 @@
       "version": 7,
       "firstTemplate": "0.3.2",
       "file": "INSTRUCTIONS.md",
-      "sha256": "c9e6e006d06e76d955cda1a9cbd41dbc43977fc22bc8450dfbebb15530d1930e",
-      "whitespaceSha256": "ac3b9ba144413d537646fa6af80581a4c5c0e99360d32718365e372f2576490c",
+      "sha256": "91bfc1389968a63bec9352896e29902992ffa8df08a80dc1fea74b2c2a5ba51a",
+      "whitespaceSha256": "95b007cf1185ccb10998197342df7ee1e6995f2df16cae5fe5c060b56d5394c4",
       "variants": [],
       "grants": [
         "owner-chat",
@@ -245,7 +245,7 @@
         "daily-upgrades": "Keeps modules and skills current each day through verified files after independent platform endpoint confirmation; the owner still applies instructions and decides routine changes.",
         "active-snapshot": "Enables the free daily analysis once the owner chooses monitoring: its review Page stays in the account, and a report leaves only when the owner asked for that, with the connection and a confirmed pre-approval. The owner can pause it.",
         "factory-tools": "Restores the bot factory step: the owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. The tools only search and preview, and need the same endpoint confirmation as the update check.",
-        "factory-description": "Matching needs to know what the business does. Only a short description the owner has seen and approved for that call is sent: no names of people, contact details, credentials, account data, transcripts or customer data.",
+        "factory-description": "Matching needs to know what the business does. Only a short description or industry code the owner has seen and said yes to for that call is sent: no names of people, contact details, credentials, account data, transcripts or customer data.",
         "factory-pages": "The setup page is the factory's current procedure and the directory lists the catalog. Reading them sends nothing about the owner, and their content never widens what the bot may do.",
         "owner-approved-bots": "Lets the bot set up the bots the owner chose, each with the instructions the owner approved in a Page. Existing bots are never changed, and a new bot's routines still start paused."
       }
