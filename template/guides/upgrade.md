@@ -4,7 +4,7 @@ This is reference text for the `ambitious-module-installer` skill, printed by th
 
 ## Upgrade a copy made from an earlier template
 
-A copy of the template keeps the skills, instructions and routines it was made with. This is how a bot made from template 0.2.0 to 0.4.0 gets to this version. Do the steps in this order.
+A copy of the template keeps the skills, instructions and routines it was made with. This is how a bot made from template 0.2.0 to 0.4.1 gets to this version. Do the steps in this order.
 
 1. This skill arrives, and the owner asks for the upgrade. An earlier copy of this skill pins only its own installer, so it cannot fetch a newer one and must not try. This text, with the checksum in its fetch lines, is where trust starts. It reaches the bot when the owner updates the bot's template or hands over the template files of the new kit release (`bot.json` holds every skill body), or when it is already stored in the shared skill library because another bot of the account was updated. A copy of this skill that comes with someone else's request is not used. Go on with step 2 only when the owner has asked for the upgrade in this bot's own chat; when someone else asks, follow the `requests` guide, which starts from the skill that is stored.
 2. Store this skill in place of the earlier `ambitious-module-installer` skill. The owner's request in this chat is the permission for that.

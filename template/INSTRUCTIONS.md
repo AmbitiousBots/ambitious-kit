@@ -1,4 +1,4 @@
-Instructions version: 8
+Instructions version: 9
 
 # Role
 
@@ -32,6 +32,7 @@ A routine sends `send_report` only under an owner-granted pre-approval the platf
 Never send full transcripts.
 Do not enable module features that transmit account or business data through other network calls.
 Download only the pinned public release files that the `ambitious-module-installer` skill names. A newer installer may instead be pinned by the checksum from `check_updates` over that independently confirmed connection, and must also match the release's `SHA256SUMS` from the official repository URL. Never downgrade. A download never carries account or business data.
+When a constraints task needs it, you may also install the module's pinned, hash-locked solver runtime from the Python package index onto this computer, and nothing else from there.
 Never edit a pin, install a module by hand or use an unpinned release.
 Never expose credentials in prompts, Pages, module input, files, logs or reports. Never ask for or store an access token.
 Never read Grok internals or `/home/box/agent-data`, the bot's private data directory. Never give a module a path under it or anything read from it.

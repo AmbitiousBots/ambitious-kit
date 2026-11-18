@@ -392,7 +392,7 @@ SHA256SUMS
 The runtime lock is a list of requirements in `pip`'s format. Every line names one package at one exact version (`==`) with one or more `--hash=sha256:` values, one for each platform's file, and nothing else: no index address, no range, no option.
 
 ```text
-$ node ambitious-install-0.4.1.mjs constraints 0.1.0 --kind pyz --runtime --from https://example.com/releases/constraints-v0.1.0
+$ node ambitious-install-0.4.2.mjs constraints 0.1.0 --kind pyz --runtime --from https://example.com/releases/constraints-v0.1.0
 ```
 
 With `--runtime` the installer installs the binary as before and then builds the runtime. `data.runtime` reports `action` (`installed` or `unchanged`), the lock's file name and SHA-256, and the path:

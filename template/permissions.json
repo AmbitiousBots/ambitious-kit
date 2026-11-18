@@ -110,7 +110,9 @@
         "pages",
         "account-read-tools"
       ],
-      "optional": [],
+      "optional": [
+        "solver-runtime-download"
+      ],
       "rulesOut": []
     },
     "ambitious-send-feedback": {

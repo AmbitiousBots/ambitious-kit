@@ -3,7 +3,7 @@ name: ambitious-scheduling-for-bots
 description: For the Ambitious Bot only. Plan time with Ambitious Scheduling and check rule-bound decisions with Ambitious Constraints. Use when the Ambitious Bot is asked about calendars, working hours, schedules, calendar holds, or whether a plan can satisfy every rule.
 ---
 
-Template version: 0.4.1
+Template version: 0.4.2
 
 # Scheduling and constraints
 

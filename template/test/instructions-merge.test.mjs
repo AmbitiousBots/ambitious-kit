@@ -40,9 +40,11 @@ test("the built installer merges a proposal from embedded history, reports confl
   assert.equal(clean.data.published.version, registry.current);
   assert.match(clean.data.permissionsStatement, /permissions cannot be inferred/);
 
-  const changedLine = baseText.split("\n").find((line) => line !== "" && !line.startsWith("Instructions version:") && !currentText.split("\n").includes(line));
-  assert(changedLine, "each published instructions change has a changed line to exercise an overlapping edit");
-  const conflicted = run(baseText.replace(changedLine, "Keep the local wording for owner review."));
+  const [baseLines, currentLines] = [baseText.split("\n"), currentText.split("\n")];
+  const changedLine = baseLines.find((line) => line !== "" && !line.startsWith("Instructions version:") && !currentLines.includes(line));
+  const addedAfter = currentLines[currentLines.findIndex((line) => line !== "" && !line.startsWith("Instructions version:") && !baseLines.includes(line)) - 1];
+  assert(changedLine ?? addedAfter, "each published instructions change has a changed line, or a line added after one both texts have, to exercise an overlapping edit");
+  const conflicted = run(changedLine === undefined ? baseText.replace(`${addedAfter}\n`, `${addedAfter}\nKeep the local wording for owner review.\n`) : baseText.replace(changedLine, "Keep the local wording for owner review."));
   assert.equal(conflicted.ok, true);
   assert.equal(conflicted.data.state, "conflicts");
   assert(conflicted.data.conflicts.some(({ current: ours }) => ours.includes("Keep the local wording for owner review.")));
