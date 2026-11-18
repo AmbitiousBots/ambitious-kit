@@ -3,7 +3,7 @@ name: ambitious-getting-started
 description: For the Ambitious Bot only. Ask three setup questions, schedule the routines in the owner's time zone, check capabilities, write the first audit Page and find the monitoring connection. Use on the Ambitious Bot's first chat, after the module sync, and when the owner asks about setup or monitoring.
 ---
 
-Template version: 0.4.1
+Template version: 0.4.2
 
 # Getting started
 

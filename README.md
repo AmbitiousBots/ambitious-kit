@@ -23,7 +23,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.1`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.2`.
 
 | File | Use |
 |---|---|
@@ -43,9 +43,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.1.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.1.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.1.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.2.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.2.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.2.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -141,7 +141,7 @@ To change a pin, edit `template/modules.lock.json` with the release's asset addr
 A bot's instructions are set once, by its owner, when the bot is made. Nothing updates them afterwards, while the skills are replaced with every template update. So the template keeps the two apart:
 
 - `INSTRUCTIONS.md` holds only what does not change: who the bot is, a pointer to the skills, and the hard limits. Everything that changes with a release (modules, commands, schedules, tools) is in the skills. Its first line is `Instructions version: N`, a whole number that is raised only when the text has to change. The generator never rewrites the file, and the installer build fails when the text differs from the SHA-256 recorded for its version.
-- `instructions.json` lists every text a template has published, by version, with its SHA-256 and its `grants`: the things that text allows, such as `owner-chat`, `report-tool` or `server-info-tool`, each described in one plain sentence. Version 1 is the text of template 0.2.1 and is the oldest one supported; version 2 is the text of templates 0.2.2 to 0.2.4; version 3 is the text of template 0.2.5; version 4 is the text of template 0.2.6; version 5 is the text of template 0.2.7; version 6 is the text of templates 0.3.0 and 0.3.1; version 7 is the text of templates 0.3.2 and 0.4.0; version 8, first published with template 0.4.1, is the present one. A template release that leaves the text alone, as 0.3.1 and 0.4.0 did, keeps its version and its SHA-256. Every later version grants at least what version 1 grants, and each grant beyond version 1 has a one-line reason under `reasons`.
+- `instructions.json` lists every text a template has published, by version, with its SHA-256 and its `grants`: the things that text allows, such as `owner-chat`, `report-tool` or `server-info-tool`, each described in one plain sentence. Version 1 is the text of template 0.2.1 and is the oldest one supported; version 2 is the text of templates 0.2.2 to 0.2.4; version 3 is the text of template 0.2.5; version 4 is the text of template 0.2.6; version 5 is the text of template 0.2.7; version 6 is the text of templates 0.3.0 and 0.3.1; version 7 is the text of templates 0.3.2 and 0.4.0; version 8 is the text of template 0.4.1; version 9, first published with template 0.4.2, is the present one. A template release that leaves the text alone, as 0.3.1 and 0.4.0 did, keeps its version and its SHA-256. Every later version grants at least what version 1 grants, and each grant beyond version 1 has a one-line reason under `reasons`.
 - The present text is kept minimal. Version 3 allowed three things no skill needs: any tool of the Ambitious connection, reading the platform's reference files inside the bot's private data directory, and writing shared skills without being asked. Version 4 takes them away again, restores version 1's rule against module features that transmit data through other network calls, and adds exactly one permission to version 1: calling the connection's `server_info` tool, which takes no arguments, to confirm which server the connection reaches.
 - Version 5 is version 4 plus one permission, `upgrade-on-any-request`: the bot runs the documented template upgrade, including writing the template's `ambitious-*` skills, when any agent or person asks for it, not only the owner. The text says what such a request is worth: it starts the upgrade and supplies nothing. Every pin, address, checksum and skill text comes from the `ambitious-module-installer` skill that is stored and the installer it pins; whatever comes with a request is ignored; nothing is installed whose SHA-256 does not match the pin; and the owner is told afterwards which skills changed and which permissions a proposed instructions text would add. The instructions are still never changed by the bot, and updating an existing routine remains the owner's choice.
 - A skill never requires more than the oldest supported instructions grant. `permissions.json` is the explicit map, and `npm run template:test` fails when a skill or routine requires a grant version 1 lacks, uses a permission its entry does not list, or uses an `optional` one without saying in the same line that it is done only when the bot's instructions allow it. Under version 1 that means, for example, that a skill speaks to the owner only in the bot's own chat, asks for no file from the bot's private data directory, writes a shared skill only when the owner asks, and treats the `server_info` call, spoken voiceover and an upgrade at someone else's request as optional. The wider behaviour is switched on by the bot's own instructions, never by a skill: `sync --instructions` reports `upgradeOn` as `any request` only for a published text that grants it.
@@ -192,13 +192,15 @@ Template 0.4.1 pins two more modules, `ambitious-scheduling` and `ambitious-cons
 
 - The two modules never call each other. The bot carries data between them only as the interchange documents `schedule-plan.v1`, `constraint-model.v1`, `constraint-solution.v1` and `calendar-holds.v1`, with task rows as `tasks-snapshot.v1`.
 - A calendar hold is a proposal shown in a Page, and the owner applies it in their own calendar. The bot never creates, changes or cancels a real calendar event: no instructions version grants a write to a calendar. It may read busy time with a read-only calendar tool, which `account-read-tools` covers.
-- The constraints release also has a runtime lock, a hash-pinned list of solver packages. Its pin is the optional `runtimeSha256` of that module's row in `template/modules.lock.json`. A plain `sync` never builds a runtime: the module is installed, its `selfcheck` is ok and lists the missing runtime under `data.warnings`, and a solving command answers `E_RUNTIME`. `ambitious-modules sync --runtime <module>` builds it, for that one module and only where the lock pins a runtime lock, after the release's `SHA256SUMS` and the pin agree. The build downloads about 200 MB of hash-pinned packages from the Python package index, which are not release files, so the skill has the bot run it only when the owner asks for solving in chat and the bot's instructions allow that download. The instructions up to version 8 do not, so under them the bot says so and uses the commands that need no runtime; an owner can run the same command themselves.
+- The constraints release also has a runtime lock, a hash-pinned list of solver packages. Its pin is the optional `runtimeSha256` of that module's row in `template/modules.lock.json`. A plain `sync` never builds a runtime: the module is installed, its `selfcheck` is ok and lists the missing runtime under `data.warnings`, and a solving command answers `E_RUNTIME`. `ambitious-modules sync --runtime <module>` builds it, for that one module and only where the lock pins a runtime lock, after the release's `SHA256SUMS` and the pin agree. The build downloads about 200 MB of hash-pinned packages from the Python package index, which are not release files, so the skill has the bot run it only when the owner asks for solving in chat and the bot's instructions allow that download. Version 9 allows it and versions through 8 do not, so under those the bot says so and uses the commands that need no runtime; an owner can run the same command themselves.
 
 Version 8 is version 7 with one line changed, and adds one grant, `primary-bot-message`: besides the bot's own chat, the bot may send a message to the owner's primary bot, through the platform's teammate messaging, about Ambitious kit and template coordination, with no credentials, transcripts or customer data in it. No skill or routine of the template uses it.
 
+Version 9 is version 8 plus one sentence, and adds one grant, `solver-runtime-download`: when a constraints task needs it, the bot may install the constraints module's pinned, hash-locked solver runtime from the Python package index onto its computer, and nothing else from there. Every other download is still only the pinned public release files. The `ambitious-scheduling-for-bots` skill lists the grant as optional and has the bot build the runtime only under a text that grants it. A bot on an earlier text is shown the version 9 text with the added permissions listed, and the owner decides.
+
 ### Upgrading a bot made from an earlier template
 
-A bot made from template 0.2.0 to 0.4.0 keeps the skills, instructions and routine prompts of that template, and its `ambitious-module-installer` skill pins only that template's installer. An earlier skill therefore cannot fetch a newer installer, and is written not to try. Trust starts at the installer skill that is stored: its fetch lines carry the release address and the SHA-256 of the installer, and the installer carries the module pins and every other skill body.
+A bot made from template 0.2.0 to 0.4.1 keeps the skills, instructions and routine prompts of that template, and its `ambitious-module-installer` skill pins only that template's installer. An earlier skill therefore cannot fetch a newer installer, and is written not to try. Trust starts at the installer skill that is stored: its fetch lines carry the release address and the SHA-256 of the installer, and the installer carries the module pins and every other skill body.
 
 Anyone may ask the bot to run `sync` and the two checks: the owner, a bot that manages other bots, or an agent working for the owner. Who may ask for an upgrade that writes shared `ambitious-*` skills depends on the bot's own instructions, which `sync --instructions` reads:
 
@@ -235,6 +237,11 @@ jobs:
 `tlc.yml` installs the toolchain from the calling repo's `.mise.toml` and runs its `scripts/tlc.mjs`; both come from the template. Input `spec-directory` defaults to `spec`. `lean.yml` installs the Lean version named in the `lean-toolchain` file and runs `lake build`; input `directory` (default `proofs`) is where the Lake package lives.
 
 ## Release notes
+
+### 0.4.2
+
+- Instructions version 9 lets a bot install the constraints module's pinned, hash-locked solver runtime from the Python package index when a constraints task needs it, and nothing else from there.
+- Module pins are unchanged from 0.4.1.
 
 ### 0.4.1
 

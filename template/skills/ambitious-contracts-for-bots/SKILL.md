@@ -3,7 +3,7 @@ name: ambitious-contracts-for-bots
 description: For the Ambitious Bot only. Keep a literal-quote obligation register with the Ambitious Contracts CLI: amendments, due work and suggested tasks. Use when the Ambitious Bot is asked to track obligations from a contract or an amendment.
 ---
 
-Template version: 0.4.1
+Template version: 0.4.2
 
 # Contracts for bots
 
