@@ -84,7 +84,7 @@ export const identifyConnection = (offers: readonly ConnectorOffer[]): Connectio
     found.length > 1
       ? `More than one connector looks like the monitoring connection among ${read}: ${found.map(({ name }) => `"${name}"`).join(", ")}. None was chosen; the owner decides which one to keep. ${notRead}`
       : only === undefined
-        ? `There is no monitoring connection among ${read}. ${notRead}${toolsNotRead.length === 0 ? " The owner adds the monitoring connection through the platform's connection flow." : ""}`
+        ? `There is no monitoring connection among ${read}. ${notRead}${toolsNotRead.length === 0 ? " The `connect` guide says how the Ambitious connection is added and signed in to." : ""}`
         : `"${only.name}" is the monitoring connection, found among ${read}. ${notRead}`;
   return {
     monitoring: only?.name ?? null,

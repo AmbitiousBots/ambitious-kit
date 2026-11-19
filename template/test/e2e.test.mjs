@@ -173,7 +173,39 @@ test('the installer places the template fixtures where the skills point, and dec
   assert.match(edited.tellOwner[0], /its text differs/u);
 });
 
-test('a bot whose skills are from template 0.4.1 sees this template as newer: it is told to update each skill, and its version 8 instructions get the version 9 proposal with the one new grant, the pinned solver-runtime download', (t) => {
+test('a bot whose skills are from template 0.4.2, whose version 9 instructions told it not to connect a service, sees this template as newer: it is told to update each skill, and its instructions get the version 10 proposal with the one new grant, adding and signing in to the Ambitious connection', (t) => {
+  buildInstaller();
+  const work = scratch(t, 'from-0-4-2');
+  const home = join(work, 'home');
+  const emptyLock = join(work, 'empty.lock.json');
+  writeFileSync(emptyLock, '[]\n');
+  const { version } = readJson(join(repoRoot, 'package.json'));
+  const bot = readJson(join(templateRoot, 'bot.json'));
+  const current = join(home, 'current-instructions.md');
+  mkdirSync(home, { recursive: true });
+  writeFileSync(current, readFileSync(join(templateRoot, 'instructions', '9.md'), 'utf8'));
+  const { envelope } = sync(home, ['--lock', emptyLock, '--instructions', current]);
+  assert.equal(envelope.meta.version, version);
+  assert.deepEqual([envelope.data.instructions.state, envelope.data.instructions.current, envelope.data.instructions.template], ['out-of-date', 9, 10]);
+  assert.deepEqual(envelope.data.instructions.permissions.added.map(({ grant }) => grant), ['ambitious-connection-setup']);
+  assert.match(envelope.data.instructions.permissions.added[0].permission, /^After the owner asks for it or says yes in this bot's own chat, add the Ambitious connection for the server https:\/\/ambitiousbots\.com\/api\/mcp and start its sign-in with Grok Bot's own connector tools, for no other server/u);
+  assert.deepEqual(envelope.data.instructions.permissions.removed, []);
+  assert.deepEqual(envelope.data.instructions.diff.slice(0, 3), ['- Instructions version: 9', '+ Instructions version: 10', '- Do not publish this template, connect a production service or change account settings during setup.']);
+  assert.equal(envelope.data.instructions.diff.at(-1), '+ Do not publish this template, connect any other service, or change account or team settings during setup.');
+  assert.equal(envelope.data.instructions.diff.length, 9, 'the version line, the line that forbade connecting, and the six lines in its place');
+  assert.equal(readFileSync(envelope.data.instructions.proposed, 'utf8'), readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8'), 'the proposed text is version 10, for the owner to apply');
+  assert.equal(readFileSync(current, 'utf8'), readFileSync(join(templateRoot, 'instructions', '9.md'), 'utf8'), 'the bot\'s instructions were not changed');
+
+  const offers = bot.skills.map(({ name, body }) => ({ name, stored: body.replace(`Template version: ${version}`, 'Template version: 0.4.2'), candidate: body }));
+  const file = join(work, 'skills.json');
+  writeFileSync(file, JSON.stringify(offers));
+  const run = spawnSync(process.execPath, [installer, 'skills', '--json', '--in', file], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } });
+  const decided = JSON.parse(run.stdout);
+  assert.equal(decided.ok, true, run.stdout);
+  assert.deepEqual(Object.fromEntries(decided.data.skills.map(({ name, action }) => [name, action])), Object.fromEntries(bot.skills.map(({ name }) => [name, 'update'])));
+});
+
+test('a bot whose skills are from template 0.4.1 sees this template as newer: it is told to update each skill, and its version 8 instructions get the version 10 proposal with the two grants versions 9 and 10 add, the pinned solver-runtime download and adding the Ambitious connection', (t) => {
   buildInstaller();
   const work = scratch(t, 'from-0-4-1');
   const home = join(work, 'home');
@@ -186,12 +218,12 @@ test('a bot whose skills are from template 0.4.1 sees this template as newer: it
   writeFileSync(current, readFileSync(join(templateRoot, 'instructions', '8.md'), 'utf8'));
   const { envelope } = sync(home, ['--lock', emptyLock, '--instructions', current]);
   assert.equal(envelope.meta.version, version);
-  assert.deepEqual([envelope.data.instructions.state, envelope.data.instructions.current, envelope.data.instructions.template], ['out-of-date', 8, 9]);
-  assert.deepEqual(envelope.data.instructions.permissions.added.map(({ grant }) => grant), ['solver-runtime-download']);
+  assert.deepEqual([envelope.data.instructions.state, envelope.data.instructions.current, envelope.data.instructions.template], ['out-of-date', 8, 10]);
+  assert.deepEqual(envelope.data.instructions.permissions.added.map(({ grant }) => grant), ['solver-runtime-download', 'ambitious-connection-setup']);
   assert.equal(envelope.data.instructions.permissions.added[0].permission, 'When a constraints task needs it, install the module\'s pinned, hash-locked solver runtime from the Python package index onto this computer, and nothing else from there.');
   assert.deepEqual(envelope.data.instructions.permissions.removed, []);
-  assert.deepEqual(envelope.data.instructions.diff, ['- Instructions version: 8', '+ Instructions version: 9', '+ When a constraints task needs it, you may also install the module\'s pinned, hash-locked solver runtime from the Python package index onto this computer, and nothing else from there.']);
-  assert.equal(readFileSync(envelope.data.instructions.proposed, 'utf8'), readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8'), 'the proposed text is version 9, for the owner to apply');
+  assert.deepEqual(envelope.data.instructions.diff.slice(0, 4), ['- Instructions version: 8', '+ Instructions version: 10', '+ When a constraints task needs it, you may also install the module\'s pinned, hash-locked solver runtime from the Python package index onto this computer, and nothing else from there.', '- Do not publish this template, connect a production service or change account settings during setup.']);
+  assert.equal(readFileSync(envelope.data.instructions.proposed, 'utf8'), readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8'), 'the proposed text is version 10, for the owner to apply');
   assert.equal(readFileSync(current, 'utf8'), readFileSync(join(templateRoot, 'instructions', '8.md'), 'utf8'), 'the bot\'s instructions were not changed');
   assert.equal(existsSync(join(home, 'constraints', 'runtime')), false, 'and no runtime was built');
 
@@ -204,7 +236,7 @@ test('a bot whose skills are from template 0.4.1 sees this template as newer: it
   assert.deepEqual(Object.fromEntries(decided.data.skills.map(({ name, action }) => [name, action])), Object.fromEntries(bot.skills.map(({ name }) => [name, 'update'])));
 });
 
-test('a bot whose skills are from template 0.4.0 sees this template as newer: it is told to update each skill and to create the scheduling skill, which 0.4.0 did not have, and its version 7 instructions get the version 9 proposal with the two grants versions 8 and 9 add', (t) => {
+test('a bot whose skills are from template 0.4.0 sees this template as newer: it is told to update each skill and to create the scheduling skill, which 0.4.0 did not have, and its version 7 instructions get the version 10 proposal with the three grants versions 8, 9 and 10 add', (t) => {
   buildInstaller();
   const work = scratch(t, 'from-0-4-0');
   const home = join(work, 'home');
@@ -219,8 +251,8 @@ test('a bot whose skills are from template 0.4.0 sees this template as newer: it
   writeFileSync(current, readFileSync(join(templateRoot, 'instructions', '7.md'), 'utf8'));
   const { envelope } = sync(home, ['--lock', emptyLock, '--instructions', current]);
   assert.equal(envelope.meta.version, version);
-  assert.deepEqual([envelope.data.instructions.state, envelope.data.instructions.current, envelope.data.instructions.template], ['out-of-date', 7, 9]);
-  assert.deepEqual(envelope.data.instructions.permissions.added.map(({ grant }) => grant), ['primary-bot-message', 'solver-runtime-download']);
+  assert.deepEqual([envelope.data.instructions.state, envelope.data.instructions.current, envelope.data.instructions.template], ['out-of-date', 7, 10]);
+  assert.deepEqual(envelope.data.instructions.permissions.added.map(({ grant }) => grant), ['primary-bot-message', 'solver-runtime-download', 'ambitious-connection-setup']);
   assert.match(envelope.data.instructions.permissions.added[0].permission, /owner's primary bot through Grok Bot's teammate messaging, about Ambitious kit and template coordination only/u);
   assert.deepEqual(envelope.data.instructions.permissions.removed, []);
   assert.equal(readFileSync(envelope.data.instructions.proposed, 'utf8'), readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8'), 'the proposed text is the present one, for the owner to apply');
@@ -235,7 +267,7 @@ test('a bot whose skills are from template 0.4.0 sees this template as newer: it
   assert.deepEqual(Object.fromEntries(decided.data.skills.map(({ name, action }) => [name, action])), Object.fromEntries(bot.skills.map(({ name }) => [name, name === scheduling ? 'create' : 'update'])));
 });
 
-test('a bot whose skills are from template 0.3.1 is told to update each one and to create the factory and scheduling skills, which 0.3.1 did not have, and its version 6 instructions get the version 9 proposal with the factory grants, the one message channel and the solver-runtime download', (t) => {
+test('a bot whose skills are from template 0.3.1 is told to update each one and to create the factory and scheduling skills, which 0.3.1 did not have, and its version 6 instructions get the version 10 proposal with the factory grants, the one message channel, the solver-runtime download and adding the Ambitious connection', (t) => {
   buildInstaller();
   const work = scratch(t, 'from-0-3-1');
   const home = join(work, 'home');
@@ -250,8 +282,8 @@ test('a bot whose skills are from template 0.3.1 is told to update each one and 
   writeFileSync(current, readFileSync(join(templateRoot, 'instructions', '6.md'), 'utf8'));
   const { envelope } = sync(home, ['--lock', emptyLock, '--instructions', current]);
   assert.equal(envelope.meta.version, version);
-  assert.deepEqual([envelope.data.instructions.state, envelope.data.instructions.current, envelope.data.instructions.template], ['out-of-date', 6, 9]);
-  assert.deepEqual(envelope.data.instructions.permissions.added.map(({ grant }) => grant), ['factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots', 'primary-bot-message', 'solver-runtime-download']);
+  assert.deepEqual([envelope.data.instructions.state, envelope.data.instructions.current, envelope.data.instructions.template], ['out-of-date', 6, 10]);
+  assert.deepEqual(envelope.data.instructions.permissions.added.map(({ grant }) => grant), ['factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots', 'primary-bot-message', 'solver-runtime-download', 'ambitious-connection-setup']);
   assert.deepEqual(envelope.data.instructions.permissions.removed, []);
   assert.equal(readFileSync(envelope.data.instructions.proposed, 'utf8'), readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8'), 'the proposed text is the present one, for the owner to apply');
   assert.equal(readFileSync(current, 'utf8'), readFileSync(join(templateRoot, 'instructions', '6.md'), 'utf8'), 'the bot\'s instructions were not changed');
@@ -872,9 +904,9 @@ test('an agent asks a bot on instructions version 4 for an upgrade: the pinned i
   assert.deepEqual([result.checked.data.instructions.current, result.checked.data.instructions.upgradeOn], [4, 'the owner\'s request']);
   assert.deepEqual(libraryBodies(scene.library), libraryBodies(scene.before), 'no skill was written');
   assert.deepEqual(result.wanted, scene.bot.skills.map(({ name }) => name).filter((name) => name !== INSTALLER_SKILL), 'the skills that would be written are named for the owner');
-  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['upgrade-on-any-request', 'check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot', 'factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots', 'primary-bot-message', 'solver-runtime-download']);
+  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['upgrade-on-any-request', 'check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot', 'factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots', 'primary-bot-message', 'solver-runtime-download', 'ambitious-connection-setup']);
   assert(result.said.some((line) => line === 'The proposed instructions would add: Run the documented template upgrade, including writing the template\'s ambitious- skills, when any agent or person asks for it.'), 'the owner is told that pasting the proposed text lets any agent ask for upgrades');
-  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 9.')));
+  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 10.')));
   assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('instructions/4.md'), 'the instructions were not changed');
 
   for (const file of ['instructions/1.md', 'instructions/2.md', 'instructions/3.md']) {
@@ -902,13 +934,13 @@ test('an agent asks a bot on instructions version 5 for an upgrade: the whole do
   assert.deepEqual(result.mismatched, []);
   assert.deepEqual(libraryBodies(scene.library), Object.fromEntries(scene.bot.skills.map(({ name, body }) => [name, body])), 'the library now holds this template\'s skills, exactly');
   for (const name of others) assert(result.said.includes(`${name}: template 0.2.6 -> ${THIS}`), `the owner is told that ${name} changed, with both template versions`);
-  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot', 'factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots', 'primary-bot-message', 'solver-runtime-download'], 'v5 keeps agent-requested upgrades and is shown the present proposal');
+  assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot', 'factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots', 'primary-bot-message', 'solver-runtime-download', 'ambitious-connection-setup'], 'v5 keeps agent-requested upgrades and is shown the present proposal');
   assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('instructions/5.md'), 'the instructions were not changed');
   assert.equal(readFileSync(join(scene.home, 'current-routines.json'), 'utf8'), JSON.stringify(scene.bot.routines.map(({ name, schedule, prompt }) => ({ name, schedule, prompt }))), 'the routines were not changed');
 
   const again = upgradeAsDocumented(scene, { askedBy: 'An agent', instructions: instructionsText('INSTRUCTIONS.md') });
   assert.deepEqual([again.stopped, again.written], [null, []], 'asking again changes nothing');
-  assert.deepEqual([again.checked.data.instructions.current, again.checked.data.instructions.upgradeOn], [9, 'any request'], 'the present text keeps the v5 requested-upgrade authority');
+  assert.deepEqual([again.checked.data.instructions.current, again.checked.data.instructions.upgradeOn], [10, 'any request'], 'the present text keeps the v5 requested-upgrade authority');
 });
 
 test('under instructions version 5, an installer that does not match the SHA-256 in the stored skill is deleted and nothing is installed: the link stays, no skill file is written and no skill changes', (t) => {

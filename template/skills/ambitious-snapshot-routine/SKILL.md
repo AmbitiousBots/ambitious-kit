@@ -3,7 +3,7 @@ name: ambitious-snapshot-routine
 description: For the Ambitious Bot only. Audit daily; build review Pages weekly; send reports only under platform-confirmed owner pre-approval. Use in the Ambitious Bot's ambitious-snapshot routine.
 ---
 
-Template version: 0.4.2
+Template version: 0.4.3
 
 # Snapshot routine
 
