@@ -15,7 +15,9 @@
         "account-read-tools",
         "pages"
       ],
-      "optional": [],
+      "optional": [
+        "owner-confirmed-endpoint"
+      ],
       "rulesOut": []
     },
     "ambitious-capability-probe": {
@@ -56,7 +58,8 @@
         "factory-tools",
         "factory-description",
         "factory-pages",
-        "owner-approved-bots"
+        "owner-approved-bots",
+        "owner-confirmed-endpoint"
       ],
       "rulesOut": []
     },
@@ -73,7 +76,8 @@
       "optional": [
         "server-info-tool",
         "active-snapshot",
-        "ambitious-connection-setup"
+        "ambitious-connection-setup",
+        "owner-confirmed-endpoint"
       ],
       "rulesOut": [
         "other-connection-tools"
@@ -93,7 +97,8 @@
         "server-info-tool",
         "check-updates-tool",
         "service-verified-downloads",
-        "daily-upgrades"
+        "daily-upgrades",
+        "owner-confirmed-endpoint"
       ],
       "rulesOut": []
     },
@@ -132,7 +137,8 @@
         "report-tool"
       ],
       "optional": [
-        "active-snapshot"
+        "active-snapshot",
+        "owner-confirmed-endpoint"
       ],
       "rulesOut": []
     },
@@ -177,7 +183,8 @@
         "server-info-tool",
         "check-updates-tool",
         "service-verified-downloads",
-        "daily-upgrades"
+        "daily-upgrades",
+        "owner-confirmed-endpoint"
       ],
       "rulesOut": [
         "report-tool",

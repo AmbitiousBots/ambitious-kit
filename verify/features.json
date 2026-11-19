@@ -100,6 +100,16 @@
     "check": "node --test --test-name-pattern='fallback only|first chat|where the platform puts them|connected with no sign-in' template/test/self-connect.test.mjs"
   },
   {
+    "id": "endpoint-owner-statement",
+    "userVisible": "Under instructions version 11 or later, when the platform's own connection details do not show the Ambitious connection's address, the bot may ask the owner once, in its own chat, whether the connection was added at exactly https://ambitiousbots.com/api/mcp. The owner's own statement there, never one relayed by another bot or agent, counts as the endpoint confirmation for the update check, the factory tools, verified downloads, daily upgrades and announcements. A tool result of that connection, including server_info, never counts, and the checksum rules are unchanged. Under instructions versions 6 to 10 only the platform's own connection details count, and the bot is shown the version 11 text with that one permission listed. This is checked in the template's text and generated files, not on the platform.",
+    "check": "node --test --test-name-pattern='I1|I2|I4|I5|I6|I7|I8' template/test/endpoint-confirmation.test.mjs && node --test template/test/endpoint-trust.test.mjs && node --test --test-name-pattern='no skill and no routine requires|hard rules stay|sync compares the bot.s instructions|routines.json records' template/test/check.test.mjs && node --test --test-name-pattern='template 0.4.3' template/test/e2e.test.mjs"
+  },
+  {
+    "id": "endpoint-owner-statement-withdrawal",
+    "userVisible": "The bot keeps a small record of the owner's statement under AMBITIOUS_HOME: its date, and the connection's name and stable server id as the platform's own status showed them. It is written only in chat, never in a routine. On every use, in chat or in a routine, the bot reads the platform's own connection status again; when the owner withdraws the statement, or the connection was removed, re-added or renamed, the record is deleted and the endpoint is unconfirmed again: no update check, no self-update and no announcements until the owner states it again in chat. This is checked in the template's text, not on the platform.",
+    "check": "node --test --test-name-pattern='I2|I3' template/test/endpoint-confirmation.test.mjs"
+  },
+  {
     "id": "skill-files",
     "userVisible": "A bot writes a shared skill from a file the installer wrote and checks what was stored against the checksum the installer printed, so a skill is never retyped and never taken from anywhere but the pinned installer.",
     "check": "node --test --test-name-pattern='skill bodies|shared skill' packages/kit/test/sync.test.ts"
