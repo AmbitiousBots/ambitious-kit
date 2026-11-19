@@ -25,11 +25,11 @@ Use only the platform's own tools, in this order. The names are Grok Bot's.
 
 ## Afterwards
 
-The tools of a connection that was just added may appear only on the next turn. When they are there, find it as the `connection` guide says: by its three tool names, then by its identity where this bot's instructions allow that call, and by the address in the platform's own connection details. Tell the owner what was found, and what was not confirmed.
+The tools of a connection that was just added may appear only on the next turn. When they are there, find it as the `connection` guide says: by its three tool names, then by its identity where this bot's instructions allow that call, and by the address in the platform's own connection details where the platform shows one. Tell the owner what was found, and what was not confirmed.
 
 Signed in is what the platform's status says, or what a call that needs the sign-in shows by succeeding. The service answers `server_info`, `check_updates`, the factory tools and `send_feedback` without a sign-in, so an answer from any of them shows that the server is reachable, not that anyone is signed in. Never say that a report was sent, would be accepted or is ready to send because one of them answered. Until the platform reports the sign-in, say that the connection is added and the sign-in is waiting for the owner.
 
-Adding the connection or signing in approves no tool call. `send_report` and `send_feedback` still need the owner's tool approval as the stored skills say. A report needs the sign-in and no subscription: a signed-in organization's reports are stored, and the Ambitious Bot plan adds a person's review of each. The update check and the factory tools still need the endpoint confirmed from the platform's own connection details.
+Adding the connection or signing in approves no tool call. `send_report` and `send_feedback` still need the owner's tool approval as the stored skills say. A report needs the sign-in and no subscription: a signed-in organization's reports are stored, and the Ambitious Bot plan adds a person's review of each. The update check and the factory tools still need the endpoint confirmed as "Endpoint confirmation" in the `endpoint` guide says, never from a tool result of that connection, including `server_info`, and never from the sign-in. Ask for the owner's statement only when this bot's instructions allow it as that confirmation, which the published texts do from `Instructions version: 11`, and the platform's own details do not show the connection's address: then ask that guide's one question once, here in this chat, and write its record as that guide says.
 
 ## A bot shared with a team
 

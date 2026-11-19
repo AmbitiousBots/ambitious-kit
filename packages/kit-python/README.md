@@ -28,10 +28,10 @@ commands = {
 
 ## Use it in a module
 
-A kit release has `ambitious_kit-<version>.pyz`. It is a zip file: unpack it into the module repository with `python3 -m zipfile -e ambitious_kit-0.4.3.pyz vendor/`, so the `ambitious_kit` package can be imported, and let `build_zipapp` put it and the module's own package into the module's `.pyz`. The same file also runs the contract tests on its own:
+A kit release has `ambitious_kit-<version>.pyz`. It is a zip file: unpack it into the module repository with `python3 -m zipfile -e ambitious_kit-0.4.4.pyz vendor/`, so the `ambitious_kit` package can be imported, and let `build_zipapp` put it and the module's own package into the module's `.pyz`. The same file also runs the contract tests on its own:
 
 ```text
-python3 ambitious_kit-0.4.3.pyz dist/ambitious-<module>.pyz
+python3 ambitious_kit-0.4.4.pyz dist/ambitious-<module>.pyz
 ```
 
 ## Checks

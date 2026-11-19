@@ -73,7 +73,7 @@ export const selfUpdate = async ({ home, runningVersion, version, sha256 }: Self
   if (!VERSION.test(version) || !VERSION.test(runningVersion)) {
     throw failure("E_USAGE", "A self-update needs an exact stable kit version, such as 0.3.0.", "Use the numeric kit.version from check_updates; never use latest, an address, or a prerelease.");
   }
-  if (!HASH.test(sha256)) throw failure("E_USAGE", "The service checksum must be 64 lowercase hexadecimal characters.", "Pass kit.installer.sha256 from check_updates over the Ambitious connection whose exact endpoint was independently confirmed from the platform connection details.");
+  if (!HASH.test(sha256)) throw failure("E_USAGE", "The service checksum must be 64 lowercase hexadecimal characters.", "Pass kit.installer.sha256 from check_updates over the Ambitious connection whose exact endpoint was confirmed as the endpoint guide says, never from a tool result of that connection.");
   const root = refuseAgentData(home);
   const bin = refuseAgentData(join(root, "bin"));
   const asset = `ambitious-${INSTALLER_MODULE}-${version}.mjs`;
