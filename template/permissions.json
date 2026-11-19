@@ -72,7 +72,8 @@
       ],
       "optional": [
         "server-info-tool",
-        "active-snapshot"
+        "active-snapshot",
+        "ambitious-connection-setup"
       ],
       "rulesOut": [
         "other-connection-tools"

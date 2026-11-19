@@ -29,17 +29,29 @@ const MONITORING_IDENTITY = 'ambitiousbots.com/mcp/v1';
 const MONITORING_TOOLS = ['server_info', 'send_report', 'send_feedback'];
 const FACTORY_TOOLS = ['factory_environment', 'factory_version', 'factory_match', 'factory_plan'];
 const whitespaceSha256 = (text) => sha256(foldWhitespace(text));
-const earlierTemplates = ['0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4', '0.2.5', '0.2.6', '0.2.7', '0.3.0', '0.3.1', '0.3.2', '0.4.0', '0.4.1'];
+const earlierTemplates = ['0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4', '0.2.5', '0.2.6', '0.2.7', '0.3.0', '0.3.1', '0.3.2', '0.4.0', '0.4.1', '0.4.2'];
 const TEMPLATES_THAT_KEPT_THE_TEXT_BEFORE = ['0.3.1', '0.4.0'];
 const FACTORY_INSTRUCTIONS_FIRST_TEMPLATE = '0.3.2';
 const MESSAGE_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.1';
-const PRESENT_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.2';
+const RUNTIME_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.2';
+const PRESENT_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.3';
 const PRIMARY_BOT_GRANT = 'primary-bot-message';
 const SOLVER_RUNTIME_GRANT = 'solver-runtime-download';
+const CONNECTION_GRANT = 'ambitious-connection-setup';
+const NO_CONNECTING_LINE_BEFORE = 'Do not publish this template, connect a production service or change account settings during setup.';
+const NO_OTHER_SERVICE_LINE = 'Do not publish this template, connect any other service, or change account or team settings during setup.';
+const CONNECTION_LINES = [
+  'You may add the Ambitious connection to this bot and start its sign-in yourself, as the `ambitious-getting-started` skill describes: only with Grok Bot\'s own connector tools, only for the server `https://ambitiousbots.com/api/mcp`, and only after the owner asks for it or says yes to your offer in this bot\'s own chat. On first chat, offer it once; never add it unasked.',
+  'That is the one exception to what leaves this computer: the platform is given that address and shows its own connect card, and the owner signs up or signs in on the service\'s own screen. No account or business data goes with it.',
+  'Never ask for, read, type or store a password, code, token or key for it, never give the owner a sign-in link of your own, and never add, sign in to, change or remove any other connection.',
+  'When those tools are not available to this bot, or the platform refuses, say exactly that, and that the owner can add that address in the platform\'s connection settings.',
+  'Adding or signing in to the connection is not tool approval, and a sign-in is not the independent confirmation of the endpoint: every limit above on the tools of that connection still holds.',
+];
 const PINNED_DOWNLOADS_LINE_START = 'Download only the pinned public release files that the `ambitious-module-installer` skill names.';
 const SOLVER_RUNTIME_LINE = 'When a constraints task needs it, you may also install the module\'s pinned, hash-locked solver runtime from the Python package index onto this computer, and nothing else from there.';
 const OWNER_CHAT_LINE_BEFORE = 'Speak to the owner in this bot\'s own chat. Never send email, and never send a message anywhere else.';
 const OWNER_CHAT_LINE = 'Speak to the owner in this bot\'s own chat. Never send email. The only other message you may send is to the owner\'s primary bot, through Grok Bot\'s teammate messaging, about Ambitious kit and template coordination. Never include credentials, transcripts or customer data in it.';
+const CONNECTION_DIFF = [`- ${NO_CONNECTING_LINE_BEFORE}`, ...[...CONNECTION_LINES, NO_OTHER_SERVICE_LINE].map((line) => `+ ${line}`)];
 const FACTORY_GRANTS = ['factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots'];
 const DAILY_GRANTS = ['check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot'];
 const UPGRADE_GRANT = 'upgrade-on-any-request';
@@ -181,7 +193,7 @@ test('instructions.json records every published instructions text by version, wi
   }
   const [oldest, second, third, fourth, fifth] = published.versions;
   const current = published.versions.at(-1);
-  assert.deepEqual(published.versions.map(({ file, firstTemplate }) => [file, firstTemplate]), [['instructions/1.md', '0.2.1'], ['instructions/2.md', '0.2.4'], ['instructions/3.md', '0.2.5'], ['instructions/4.md', '0.2.6'], ['instructions/5.md', '0.2.7'], ['instructions/6.md', '0.3.0'], ['instructions/7.md', FACTORY_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/8.md', MESSAGE_INSTRUCTIONS_FIRST_TEMPLATE], ['INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE]]);
+  assert.deepEqual(published.versions.map(({ file, firstTemplate }) => [file, firstTemplate]), [['instructions/1.md', '0.2.1'], ['instructions/2.md', '0.2.4'], ['instructions/3.md', '0.2.5'], ['instructions/4.md', '0.2.6'], ['instructions/5.md', '0.2.7'], ['instructions/6.md', '0.3.0'], ['instructions/7.md', FACTORY_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/8.md', MESSAGE_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/9.md', RUNTIME_INSTRUCTIONS_FIRST_TEMPLATE], ['INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE]]);
   assert.equal(current.version, published.current);
   assert.equal(fifth.version, 5);
   assert.match(readFileSync(join(root, fourth.file), 'utf8'), /^Instructions version: 4\n/u);
@@ -209,7 +221,7 @@ test('every grant beyond the oldest supported instructions carries a one-line re
   for (const text of Object.values(published.grants)) assert.match(text, /^[A-Z].*\.$/u, 'each grant is a plain sentence, because the owner is shown it word for word');
   const current = published.versions.find(({ version }) => version === 5);
   assert.deepEqual(current.grants.filter((grant) => !oldestGrants.includes(grant)), ['server-info-tool', UPGRADE_GRANT]);
-  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(UPGRADE_GRANT)).map(({ version }) => version), [5, 6, 7, 8, 9], 'versions 5 and later let someone other than the owner ask for an upgrade that writes skills');
+  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(UPGRADE_GRANT)).map(({ version }) => version), [5, 6, 7, 8, 9, 10], 'versions 5 and later let someone other than the owner ask for an upgrade that writes skills');
   const fourth = published.versions.find(({ version }) => version === 4);
   assert.deepEqual([current.grants.filter((grant) => !fourth.grants.includes(grant)), fourth.grants.filter((grant) => !current.grants.includes(grant))], [[UPGRADE_GRANT], []], 'version 5 is version 4 plus that one grant');
   assert.equal(published.grants[UPGRADE_GRANT], 'Run the documented template upgrade, including writing the template\'s ambitious- skills, when any agent or person asks for it.');
@@ -323,15 +335,15 @@ test('version 8 adds only one message channel, to the owner\'s primary bot throu
 
 test('version 9 adds only the pinned solver-runtime download from the Python package index for a constraints task: one sentence after the line on pinned downloads, one grant, and every line of version 8 kept', () => {
   const before = published.versions.find(({ version }) => version === 8);
-  const current = published.versions.at(-1);
-  assert.deepEqual([current.version, current.file, current.firstTemplate, published.current], [9, 'INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE, 9]);
+  const current = published.versions.find(({ version }) => version === 9);
+  assert.deepEqual([current.version, current.file, current.firstTemplate], [9, 'instructions/9.md', RUNTIME_INSTRUCTIONS_FIRST_TEMPLATE]);
   assert.deepEqual(current.grants, [...before.grants, SOLVER_RUNTIME_GRANT]);
   assert.deepEqual(Object.keys(current.reasons), [...Object.keys(before.reasons), SOLVER_RUNTIME_GRANT]);
   for (const [grant, reason] of Object.entries(before.reasons)) assert.equal(current.reasons[grant], reason, grant);
   assert.equal(published.grants[SOLVER_RUNTIME_GRANT], 'When a constraints task needs it, install the module\'s pinned, hash-locked solver runtime from the Python package index onto this computer, and nothing else from there.');
   assert.equal(current.reasons[SOLVER_RUNTIME_GRANT], 'Lets the bot build the constraints module\'s pinned solver runtime, which is not a release file, when a constraints task needs it.');
   assert.equal(published.grants['pinned-downloads'], 'Download the pinned public release files that the installer skill names.', 'the grant for every other download is unchanged');
-  for (const { version, grants } of published.versions.slice(0, -1)) assert(!grants.includes(SOLVER_RUNTIME_GRANT), `instructions version ${version} does not allow the solver-runtime download`);
+  for (const { version, grants } of published.versions.filter((entry) => entry.version < 9)) assert(!grants.includes(SOLVER_RUNTIME_GRANT), `instructions version ${version} does not allow the solver-runtime download`);
   const [earlier, instructions] = [readFileSync(join(root, before.file), 'utf8').split('\n'), readFileSync(join(root, current.file), 'utf8').split('\n')];
   assert.equal(instructions.length, earlier.length + 1, 'one line is added');
   const at = instructions.indexOf(SOLVER_RUNTIME_LINE);
@@ -340,6 +352,27 @@ test('version 9 adds only the pinned solver-runtime download from the Python pac
   const changed = earlier.flatMap((line, index) => (line === without[index] ? [] : [[line, without[index]]]));
   assert.deepEqual(changed, [['Instructions version: 8', 'Instructions version: 9']], 'the version line and the one added sentence are the only two differences');
   for (const kept of ['A download never carries account or business data.', 'Never edit a pin, install a module by hand or use an unpinned release.', 'Do not enable module features that transmit account or business data through other network calls.']) assert(instructions.join('\n').includes(kept), kept);
+});
+
+test('version 10 lets the bot add the Ambitious connection and start its sign-in itself, for that one address and after the owner asks or says yes: one grant, the line that forbade connecting replaced, five lines added before it, and every other line of version 9 kept', () => {
+  const before = published.versions.find(({ version }) => version === 9);
+  const current = published.versions.at(-1);
+  assert.deepEqual([current.version, current.file, current.firstTemplate, published.current], [10, 'INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE, 10]);
+  assert.deepEqual(current.grants, [...before.grants, CONNECTION_GRANT]);
+  assert.deepEqual(Object.keys(current.reasons), [...Object.keys(before.reasons), CONNECTION_GRANT]);
+  for (const [grant, reason] of Object.entries(before.reasons)) assert.equal(current.reasons[grant], reason, grant);
+  assert.equal(published.grants[CONNECTION_GRANT], `After the owner asks for it or says yes in this bot's own chat, add the Ambitious connection for the server ${MONITORING_ADDRESS} and start its sign-in with Grok Bot's own connector tools, for no other server and with no password, token or key handled by the bot.`);
+  assert.equal(current.reasons[CONNECTION_GRANT], 'Lets a new copy connect on its first run instead of sending the owner to add it by hand. The owner still signs in on the service\'s own screen, and every report and feedback call still needs the owner\'s tool approval.');
+  for (const { version, grants } of published.versions.slice(0, -1)) assert(!grants.includes(CONNECTION_GRANT), `instructions version ${version} does not let the bot add a connection`);
+  for (const grant of ['report-tool', 'feedback-tool']) assert.match(published.grants[grant], /after the owner's tool approval\.$/u, `${grant} still needs the owner's tool approval`);
+  const [earlier, instructions] = [readFileSync(join(root, before.file), 'utf8').split('\n'), readFileSync(join(root, current.file), 'utf8').split('\n')];
+  assert.equal(instructions.length, earlier.length + CONNECTION_LINES.length, 'five lines are added');
+  assert.deepEqual([earlier.at(-2), earlier.at(-1)], [NO_CONNECTING_LINE_BEFORE, ''], 'version 9 ended with the line that forbade connecting a service');
+  assert.deepEqual(instructions.slice(earlier.length - 2), [...CONNECTION_LINES, NO_OTHER_SERVICE_LINE, ''], 'version 10 ends with the five lines on the connection and the changed last line');
+  const kept = earlier.slice(0, -2).flatMap((line, index) => (line === instructions[index] ? [] : [[line, instructions[index]]]));
+  assert.deepEqual(kept, [['Instructions version: 9', 'Instructions version: 10']], 'every other line of version 9 is kept, in place');
+  assert.doesNotMatch(instructions.join('\n'), /\bproduction\b|any (?:service|connection) the owner/u, 'the text names the one address, and grants nothing about connections in general');
+  for (const line of CONNECTION_LINES) assert.doesNotMatch(line, /[A-Z][a-z]+[A-Z][A-Za-z]+/u, 'platform tool names change with the platform, so they are in the skill and its guide, not in the instructions');
 });
 
 test('each recorded instructions text is the one its template release published', (t) => {
@@ -426,6 +459,7 @@ const MARKERS = {
   'service-verified-downloads': /`self-update`|service-verified downloads/u,
   'daily-upgrades': /daily upgrades/u,
   'active-snapshot': /active snapshot/u,
+  [CONNECTION_GRANT]: /AddMcpServer|AuthenticateMcpServer/u,
 };
 
 const CALENDAR_WRITE_VERB = String.raw`\b(?:(?:creat|chang|updat|delet|mov)(?:e|es|ed|ing)|cancel(?:s|ed|ing|led|ling)?)\b`;
@@ -523,6 +557,11 @@ test('no skill and no routine requires a permission that the oldest supported in
   assert.match(caught('Build the solver runtime when the owner asks for solving.', { optional: [SOLVER_RUNTIME_GRANT] }), /must say it is done "only when this bot's instructions allow" it/u);
   assert.equal(caught('Build the solver runtime only when the owner asks for solving in this bot\'s own chat and this bot\'s instructions allow that download.', { optional: [SOLVER_RUNTIME_GRANT] }), '');
   for (const [name, , entry] of texts) assert(name === 'ambitious-scheduling-for-bots' ? entry.optional.includes(SOLVER_RUNTIME_GRANT) : ![...entry.requires, ...entry.optional].includes(SOLVER_RUNTIME_GRANT), `${name}: only the scheduling skill builds the solver runtime, and only as an optional step`);
+  assert.match(caught('Call `AddMcpServer` with the address.', {}), /uses ambitious-connection-setup .* but permissions\.json does not list it/u);
+  assert.match(caught('Call `AuthenticateMcpServer` with the server id.', { requires: [CONNECTION_GRANT] }), /requires ambitious-connection-setup, which instructions version 1 does not grant/u);
+  assert.match(caught('Call `AddMcpServer` with the address.', { optional: [CONNECTION_GRANT] }), /must say it is done "only when this bot's instructions allow" it/u);
+  assert.equal(caught('Call `AddMcpServer` only when this bot\'s instructions allow adding the Ambitious connection.', { optional: [CONNECTION_GRANT] }), '');
+  for (const [name, , entry] of texts) assert(name === 'ambitious-getting-started' ? entry.optional.includes(CONNECTION_GRANT) : ![...entry.requires, ...entry.optional].includes(CONNECTION_GRANT), `${name}: only the ambitious-getting-started skill adds or signs in to the Ambitious connection, and only as an optional step`);
   assert.match(caught('Read the platform\'s reference files in the private data directory.', {}), /uses private-reference-files/u);
   assert.match(caught('Call `send_report` now.', { rulesOut: ['report-tool'] }), /does not rule it out/u);
   assert.equal(caught('Never call `send_report` here.', { rulesOut: ['report-tool'] }), '');
@@ -1010,7 +1049,7 @@ test('monitoring needs no connection and no subscription: the snapshot then writ
     'No account or business data goes through it without the owner\'s tool approval.',
     'Do not repeat the encouragement in routine replies.',
     'Monitoring carries on meanwhile: the review Page is written and nothing is sent.',
-    'the service accepts `send_report` only with an active subscription. `send_feedback` works without one.',
+    'Sending a report through the monitoring connection needs the owner\'s sign-in and no subscription: a signed-in organization\'s reports are stored, and the Ambitious Bot plan adds a person\'s review of each. `send_feedback` works without a sign-in.',
   ]) assert(started.includes(required), `ambitious-getting-started must say: ${required}`);
   const prose = [readFileSync(join(root, 'INSTRUCTIONS.md'), 'utf8'), readFileSync(join(root, 'routines.md'), 'utf8'), ...expectedSkills.map(skillText)];
   for (const text of prose) {
@@ -1254,38 +1293,46 @@ test('sync compares the bot\'s instructions with the template\'s: an earlier pub
   }
   const oldest = check(text('instructions/1.md'));
   assert.equal(oldest.instructions.permissions.comparison, 'more');
-  assert.equal(oldest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${['server-info-tool', UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'a bot on the oldest text is told plainly what the present text adds');
+  assert.equal(oldest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${['server-info-tool', UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'a bot on the oldest text is told plainly what the present text adds');
   const widest = check(text('instructions/3.md'));
   assert.equal(widest.instructions.permissions.comparison, 'more and fewer');
-  assert.equal(widest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')} It takes away these permissions: (1) ${grantText('other-connection-tools')} (2) ${grantText('private-reference-files')} (3) ${grantText('shared-skills')}`, 'a bot on a wider text is told what the present text adds and what it takes away');
+  assert.equal(widest.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[UPGRADE_GRANT, ...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')} It takes away these permissions: (1) ${grantText('other-connection-tools')} (2) ${grantText('private-reference-files')} (3) ${grantText('shared-skills')}`, 'a bot on a wider text is told what the present text adds and what it takes away');
   const previous = check(text('instructions/5.md'));
   assert.equal(previous.instructions.permissions.comparison, 'more');
-  assert.equal(previous.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the permissions versions 6, 7, 8 and 9 add to version 5 are listed in plain words');
-  assert.deepEqual(previous.instructions.permissions.added, [...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
+  assert.equal(previous.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the permissions versions 6 to 10 add to version 5 are listed in plain words');
+  assert.deepEqual(previous.instructions.permissions.added, [...DAILY_GRANTS, ...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
   assert(previous.instructions.diff.some((line) => line.startsWith('+ The daily `ambitious-selfcheck` may apply')));
   const beforeFactory = check(text('instructions/6.md'));
   assert.deepEqual(about(beforeFactory), ['out-of-date', 'instructions-out-of-date', 6, 'exact'], 'a bot on the text of templates 0.3.0 and 0.3.1 is told a newer text exists');
   assert.equal(beforeFactory.instructions.permissions.comparison, 'more');
-  assert.equal(beforeFactory.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the proposal to a bot on version 6 lists exactly the four factory grants, the one message channel and the solver-runtime download, in plain words');
-  assert.deepEqual(beforeFactory.instructions.permissions.added, [...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
+  assert.equal(beforeFactory.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: ${[...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the proposal to a bot on version 6 lists exactly the four factory grants, the one message channel, the solver-runtime download and adding the Ambitious connection, in plain words');
+  assert.deepEqual(beforeFactory.instructions.permissions.added, [...FACTORY_GRANTS, PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
   assert.deepEqual(beforeFactory.instructions.permissions.removed, [], 'and takes nothing away');
   assert(beforeFactory.instructions.diff.some((line) => line.startsWith('+ After that same independent confirmation, and only for a factory step the owner started or agreed to')));
   const beforeMessage = check(text('instructions/7.md'));
   assert.deepEqual(about(beforeMessage), ['out-of-date', 'instructions-out-of-date', 7, 'exact'], 'a bot on the text of templates 0.3.2 and 0.4.0 is told a newer text exists');
-  assert.equal(beforeMessage.instructions.template, 9);
+  assert.equal(beforeMessage.instructions.template, 10);
   assert.equal(beforeMessage.instructions.permissions.comparison, 'more');
-  assert.equal(beforeMessage.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: (1) ${grantText(PRIMARY_BOT_GRANT)} (2) ${grantText(SOLVER_RUNTIME_GRANT)}`, 'the proposal to a bot on version 7 lists exactly the two grants versions 8 and 9 add, in plain words');
-  assert.deepEqual(beforeMessage.instructions.permissions.added, [PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
+  assert.equal(beforeMessage.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: (1) ${grantText(PRIMARY_BOT_GRANT)} (2) ${grantText(SOLVER_RUNTIME_GRANT)} (3) ${grantText(CONNECTION_GRANT)}`, 'the proposal to a bot on version 7 lists exactly the three grants versions 8, 9 and 10 add, in plain words');
+  assert.deepEqual(beforeMessage.instructions.permissions.added, [PRIMARY_BOT_GRANT, SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
   assert.deepEqual(beforeMessage.instructions.permissions.removed, [], 'and takes nothing away');
-  assert.deepEqual(beforeMessage.instructions.diff, ['- Instructions version: 7', '+ Instructions version: 9', `- ${OWNER_CHAT_LINE_BEFORE}`, `+ ${OWNER_CHAT_LINE}`, `+ ${SOLVER_RUNTIME_LINE}`], 'the difference shown is the version line, the one changed line and the one added line');
+  assert.deepEqual(beforeMessage.instructions.diff, ['- Instructions version: 7', '+ Instructions version: 10', `- ${OWNER_CHAT_LINE_BEFORE}`, `+ ${OWNER_CHAT_LINE}`, `+ ${SOLVER_RUNTIME_LINE}`, ...CONNECTION_DIFF], 'the difference shown is the version line, the changed line on where the bot may speak, the added line on the solver runtime, and the lines on the connection');
   const beforeRuntime = check(text('instructions/8.md'));
   assert.deepEqual(about(beforeRuntime), ['out-of-date', 'instructions-out-of-date', 8, 'exact'], 'a bot on the text of template 0.4.1 is told a newer text exists');
-  assert.equal(beforeRuntime.instructions.template, 9);
+  assert.equal(beforeRuntime.instructions.template, 10);
   assert.equal(beforeRuntime.instructions.permissions.comparison, 'more');
-  assert.equal(beforeRuntime.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: (1) ${grantText(SOLVER_RUNTIME_GRANT)}`, 'the proposal to a bot on version 8 lists exactly the one new grant, in plain words');
-  assert.deepEqual(beforeRuntime.instructions.permissions.added, [{ grant: SOLVER_RUNTIME_GRANT, permission: grantText(SOLVER_RUNTIME_GRANT), reason: published.versions.at(-1).reasons[SOLVER_RUNTIME_GRANT] }]);
+  assert.equal(beforeRuntime.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: (1) ${grantText(SOLVER_RUNTIME_GRANT)} (2) ${grantText(CONNECTION_GRANT)}`, 'the proposal to a bot on version 8 lists exactly the two grants versions 9 and 10 add, in plain words');
+  assert.deepEqual(beforeRuntime.instructions.permissions.added, [SOLVER_RUNTIME_GRANT, CONNECTION_GRANT].map((grant) => ({ grant, permission: grantText(grant), reason: published.versions.at(-1).reasons[grant] })));
   assert.deepEqual(beforeRuntime.instructions.permissions.removed, [], 'and takes nothing away');
-  assert.deepEqual(beforeRuntime.instructions.diff, ['- Instructions version: 8', '+ Instructions version: 9', `+ ${SOLVER_RUNTIME_LINE}`], 'the difference shown is the version line and the one added sentence');
+  assert.deepEqual(beforeRuntime.instructions.diff, ['- Instructions version: 8', '+ Instructions version: 10', `+ ${SOLVER_RUNTIME_LINE}`, ...CONNECTION_DIFF], 'the difference shown is the version line, the added sentence on the solver runtime, and the lines on the connection');
+  const beforeConnection = check(text('instructions/9.md'));
+  assert.deepEqual(about(beforeConnection), ['out-of-date', 'instructions-out-of-date', 9, 'exact'], 'a bot on the text of template 0.4.2, which told it not to connect a service, is told a newer text exists');
+  assert.equal(beforeConnection.instructions.template, 10);
+  assert.equal(beforeConnection.instructions.permissions.comparison, 'more');
+  assert.equal(beforeConnection.instructions.permissions.statement, `Pasting this text gives the bot these additional permissions: (1) ${grantText(CONNECTION_GRANT)}`, 'the proposal to a bot on version 9 lists exactly the one new grant, in plain words');
+  assert.deepEqual(beforeConnection.instructions.permissions.added, [{ grant: CONNECTION_GRANT, permission: grantText(CONNECTION_GRANT), reason: published.versions.at(-1).reasons[CONNECTION_GRANT] }]);
+  assert.deepEqual(beforeConnection.instructions.permissions.removed, [], 'and takes nothing away');
+  assert.deepEqual(beforeConnection.instructions.diff, ['- Instructions version: 9', '+ Instructions version: 10', ...CONNECTION_DIFF], 'the difference shown is the version line, the line that forbade connecting, and the lines that replace it');
 
   const nbsp = String.fromCharCode(0xa0);
   const handCopies = {
@@ -1558,7 +1605,7 @@ test('the installer prints each guide from inside itself: the list with no topic
   }
   const unknown = run(['guide', 'no-such-guide']);
   assert.deepEqual([unknown.status, unknown.ok, unknown.command, unknown.errors[0].code], [1, false, 'guide', 'E_USAGE']);
-  assert.match(unknown.errors[0].hint, /The guides are collector, compliance, connection, /u);
+  assert.match(unknown.errors[0].hint, /The guides are collector, compliance, connect, connection, /u);
   for (const args of [['guide', 'sync', 'upgrade'], ['guide', '--in', join(home, 'x.json')], ['guide', 'sync', '--from', home], ['review-page', 'sync'], ['review-page', '--lock', join(home, 'x.json')]]) {
     assert.equal(run(args).errors[0].code, 'E_USAGE', args.join(' '));
   }
@@ -1594,7 +1641,9 @@ const IN_THE_SKILL_ITSELF = {
     'Identify the monitoring connection by the tools the connector offers, never by its display name.',
     'Call `server_info` only when this bot\'s instructions allow calling `server_info`, and call no other tool of that connection beyond `send_report` and `send_feedback`.',
     'Nothing is sent without the owner\'s tool approval: a routine calls `send_report` only under a pre-approval the platform confirms covers that call; `send_feedback` needs approval for each call.',
-    'Do not connect a production endpoint or collect credentials.',
+    'only when this bot\'s instructions allow it and the owner asked or agreed in this chat, as `guide connect` says, with this bot\'s own tools: `GetMcpServerStatus`, `AddMcpServer` if not installed, `AuthenticateMcpServer` if not signed in.',
+    'If one is missing or refused, say so. Never collect credentials.',
+    'A setup answer is never tool approval.',
   ],
   'ambitious-factory-for-bots': [
     'read it only when this bot\'s instructions allow reading that page',
@@ -1711,7 +1760,7 @@ test('getting started and the bot factory point to the scheduling skill and its 
     'ambitious-modules" sync --json --runtime constraints',
   ]) assert(guide.includes(required), `the scheduling guide must say: ${required}`);
   assert.deepEqual(permissions.skills[skill], { requires: ['modules', 'owner-chat', 'pages', 'account-read-tools'], optional: [SOLVER_RUNTIME_GRANT], rulesOut: [] }, 'the skill requires only what the oldest supported instructions grant; building the solver runtime is optional, and so gated on the bot\'s own instructions');
-  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(SOLVER_RUNTIME_GRANT)).map(({ version }) => version), [9], 'version 9 is the first text recorded as allowing that download');
+  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(SOLVER_RUNTIME_GRANT)).map(({ version }) => version), [9, 10], 'version 9 is the first text recorded as allowing that download');
   const { skills, routines } = readJson(join(root, 'bot.json'));
   const sizes = templateSizes(skills, routines);
   const item = sizes.items.find(({ name }) => name === skill);

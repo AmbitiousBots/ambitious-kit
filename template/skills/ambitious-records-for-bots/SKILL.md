@@ -3,7 +3,7 @@ name: ambitious-records-for-bots
 description: For the Ambitious Bot only. Keep typed records that move through declared stages with the Ambitious Records CLI. Use when the Ambitious Bot is asked to track things of one kind with fixed fields, stages and rules for moving between stages.
 ---
 
-Template version: 0.4.2
+Template version: 0.4.3
 
 # Keep typed records with Ambitious Records
 

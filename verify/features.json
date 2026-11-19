@@ -75,6 +75,31 @@
     "check": "node --test --test-name-pattern='monitoring connection' packages/kit/test/sync.test.ts"
   },
   {
+    "id": "connect-first-run",
+    "userVisible": "Under instructions version 10 or later a bot adds the Ambitious connection and starts its sign-in itself, with the platform's own connector tools, for https://ambitiousbots.com/api/mcp only and only after the owner asks or says yes; nothing in the template still tells it to refuse. It handles no password, token or key, shows one connect card, and every report and feedback call still needs the owner's tool approval. A bot on earlier instructions adds nothing and is shown the version 10 text with that one permission listed. This is checked in the template's text and generated files, not on the platform.",
+    "check": "node --test template/test/self-connect.test.mjs && node --test --test-name-pattern='version 10|no skill and no routine requires|hard rules stay|sync compares the bot.s instructions' template/test/check.test.mjs && node --test --test-name-pattern='template 0.4.2' template/test/e2e.test.mjs && node --test --test-name-pattern='monitoring connection' packages/kit/test/sync.test.ts"
+  },
+  {
+    "id": "connect-new-account-offer",
+    "userVisible": "Walked by hand in a new account, with the bot imported from the template and shared with a team; this check does not run the platform and proves only that the template tells the bot to do this. Step 1: import the template as a team bot and open its first chat; the bot installs the modules, offers once to add the Ambitious connection and adds nothing before a yes. Step 2: say \"let's connect to the Ambitious MCP and sign up\"; the bot does not refuse and does not send the owner to settings: it looks for the connection, adds the server https://ambitiousbots.com/api/mcp with the platform's own tool, and exactly one connect card appears, with no second card and no sign-in link written by the bot.",
+    "check": "node --test --test-name-pattern='explicit request|may not connect|named and used in one order|where the platform puts them|one connect card|first chat' template/test/self-connect.test.mjs"
+  },
+  {
+    "id": "connect-new-account-sign-up",
+    "userVisible": "Walked by hand in a new account, with the bot imported from the template and shared with a team; this check does not run the platform and proves only that the template tells the bot to do this. Step 3: complete the card; the service's hosted screen opens, where a new person creates an account, or an existing one signs in, and creates or chooses their organization; the bot never asks for an email address, a password, a code, a token or a key. Step 4: back in the chat, on the next turn at the latest, the bot finds the connection by its tool names, says what it confirmed and what it did not, and changes no team setting.",
+    "check": "node --test --test-name-pattern='one connect card|no secret is handled|first chat' template/test/self-connect.test.mjs"
+  },
+  {
+    "id": "connect-new-account-signed-in",
+    "userVisible": "Walked by hand in a new account, with the bot imported from the template and shared with a team; this check does not run the platform and proves only that the template tells the bot to do this. Step 5: if the platform shows the connection as connected and no card appeared, the bot starts the sign-in once from the platform's status and one card appears; before the card is completed, ask whether reports can be sent, and the bot says the sign-in is waiting and does not treat an answer from a tool that needs no sign-in as proof that anyone is signed in. Step 6: after sign-in, ask for feedback to be sent; the bot shows the exact payload and the platform asks for tool approval for that call. Step 7: signed in and without a subscription, ask for a report to be sent; the bot shows the payload, the platform asks for tool approval, and the bot reports only what the call returned.",
+    "check": "node --test --test-name-pattern='no secret is handled|connected with no sign-in|needs a subscription' template/test/self-connect.test.mjs && node --test --test-name-pattern='monitoring needs no connection|boundaries a copy' template/test/check.test.mjs"
+  },
+  {
+    "id": "connect-new-account-refusals",
+    "userVisible": "Walked by hand in a new account, with the bot imported from the template and shared with a team; this check does not run the platform and proves only that the template tells the bot to do this. Step 8: in a bot that has the platform's add or sign-in tool neither in its own tool list nor on demand, ask to connect; the bot names the missing tool and gives the by-hand steps as the fallback, and invents no argument or server id. Step 9: decline the platform's confirmation or close the card; the bot adds nothing and does not ask again. Step 10: with a team rule that blocks custom connections, the bot repeats the platform's reason and says an administrator may have to allow it. Step 11: where the team already provides the connection, the bot adds no second one, and as a second member it starts a sign-in only for that member. Step 12: where the platform refuses to start a sign-in because the server asked for none, the bot repeats that, says reports stay waiting, and does not try again.",
+    "check": "node --test --test-name-pattern='fallback only|first chat|where the platform puts them|connected with no sign-in' template/test/self-connect.test.mjs"
+  },
+  {
     "id": "skill-files",
     "userVisible": "A bot writes a shared skill from a file the installer wrote and checks what was stored against the checksum the installer printed, so a skill is never retyped and never taken from anywhere but the pinned installer.",
     "check": "node --test --test-name-pattern='skill bodies|shared skill' packages/kit/test/sync.test.ts"

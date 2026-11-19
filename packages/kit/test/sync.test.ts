@@ -856,7 +856,7 @@ test("the monitoring connection is found by its three tool names and confirmed b
   assert.deepEqual([two.monitoring, two.identity], [null, null]);
   assert.match(two.tellOwner[0] ?? "", /^More than one connector looks like the monitoring connection among the 2 connectors whose tools were read: "A", "B"\. None was chosen/);
   const none = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools: ["search"], serverInfo: null }]));
-  assert.deepEqual([none.monitoring, none.tellOwner], [null, ["There is no monitoring connection among the 1 connector whose tools were read. No connector was left unread. The owner adds the monitoring connection through the platform's connection flow."]]);
+  assert.deepEqual([none.monitoring, none.tellOwner], [null, ["There is no monitoring connection among the 1 connector whose tools were read. No connector was left unread. The `connect` guide says how the Ambitious connection is added and signed in to."]]);
   const hidden = identifyConnection(parseConnectorOffers([{ name: "Ambitious", tools: null, serverInfo: null }, { name: "Calendar", tools: ["list_events"], serverInfo: null }, { name: "Mail", tools: null, serverInfo: null }]));
   assert.deepEqual([hidden.monitoring, hidden.toolsRead, hidden.toolsNotRead], [null, 1, ["Ambitious", "Mail"]]);
   assert.equal(hidden.tellOwner[0], 'There is no monitoring connection among the 1 connector whose tools were read. The tools of 2 connectors were not read: "Ambitious", "Mail". Read their tool names from the platform\'s tool catalog and run this again.');

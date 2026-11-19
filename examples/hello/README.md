@@ -15,7 +15,7 @@ Every command accepts `[--in file] [--db path] [--now ISO8601] [--seed int] [--j
 
 ```text
 $ echo '{"name":"world"}' | node dist/ambitious-hello.mjs greet --now 2026-01-01T00:00:00Z --seed 7
-{"ok":true,"schemaVersion":1,"module":"hello","command":"greet","data":{"greeting":{"id":1,"name":"world","text":"Hello, world.","createdAt":"2026-01-01T00:00:00.000Z"}},"errors":[],"meta":{"now":"2026-01-01T00:00:00.000Z","seed":7,"version":"0.4.2"}}
+{"ok":true,"schemaVersion":1,"module":"hello","command":"greet","data":{"greeting":{"id":1,"name":"world","text":"Hello, world.","createdAt":"2026-01-01T00:00:00.000Z"}},"errors":[],"meta":{"now":"2026-01-01T00:00:00.000Z","seed":7,"version":"0.4.3"}}
 ```
 
 ## Error codes
