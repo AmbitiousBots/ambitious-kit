@@ -5,8 +5,8 @@ This is reference text for the `ambitious-getting-started` skill, printed by the
 ## First chat
 
 On first chat, run the sync command from the `ambitious-module-installer` skill first, with `--instructions` and `--routines` as its `instructions` and `routines` guides say. Explain any problem it reports without blocking the setup conversation.
-When it reports `instructions-out-of-date` or `instructions-custom`, follow the `instructions` guide: the verified release's text is applied as the `auto-update` guide says, and the owner is told in this chat what changed. Never change another bot's instructions.
-When it reports a problem that starts with `routine-`, follow the `routines` guide and say in this chat what differs and what was replaced. Setup carries on either way, because these skills work with the instructions as they are.
+When it reports `instructions-out-of-date` or `instructions-custom`, follow the `instructions` guide. The verified release's text is applied as the `auto-update` guide says only when this bot's instructions allow the verified update (published version 13 or later, or a hand-changed text that carries that rule), and the owner is told in this chat what changed. Under any other text, change nothing: write the "Proposed instructions" Page as that guide says and say in this chat that setting it is the owner's choice. Never change another bot's instructions.
+When it reports a problem that starts with `routine-`, follow the `routines` guide and say in this chat what differs and what was replaced or proposed. Setup carries on either way, because these skills work with the instructions as they are.
 Ask these three questions, using any answers the owner already gave instead of asking again.
 
 1. What does your business do, and what would you like help with?

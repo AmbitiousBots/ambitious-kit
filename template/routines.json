@@ -2,11 +2,11 @@
   "ambitious-selfcheck": {
     "current": {
       "firstTemplate": "0.4.6",
-      "whitespaceSha256": "9c73ea62e589a683784b69b9a3fd3e669d695e88b9fd22a7cf16460a14599e75",
+      "whitespaceSha256": "9e2ce1b243c2825b4e652fbb1f49f2e64ad4fb07f16067c21ab265113560b06d",
       "variants": [
         {
           "template": "0.4.6",
-          "whitespaceSha256": "c784d9825dd165d22f68db193bfb5d95c32cf0855fcc6bea13a282c899614f9e",
+          "whitespaceSha256": "e2acd35b9286a815d2d9bc066a4ca9c9d2e372de6429823606b401890a091a43",
           "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
         }
       ]

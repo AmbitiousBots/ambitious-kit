@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -19,13 +19,20 @@ const ACTIONS = ["apply", "apply-published-and-archive", "no-change", "blocked"]
 const SELF_APPLY_GRANT = "verified-self-apply";
 const OTHER_BOT_TOOL = "UpdateAgent";
 const asIs = ({ name, schedule, prompt }) => ({ name, schedule, prompt });
+const GATE = "only when this bot's instructions allow the verified update (published version 13 or later, or a hand-changed text that carries that rule)";
+const reasonOf = (data, name) => data.reasons.find((reason) => reason.startsWith(`${name}: `)) ?? "";
+const NOT_GRANTED = /^self-apply-not-granted: This bot's present instructions do not let it apply an update to itself, so this plan is for the owner to read and nothing may be written\. Put the version 13 text in the "Proposed instructions" Page; once the owner sets it, verified updates are applied automatically\.$/u;
 
 const fixture = (t) => {
   const installer = buildInstaller();
   const home = mkdtempSync(join(tmpdir(), "ambitious-apply-plan-"));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const [current, published, routines, readBack] = ["current-instructions.md", "published-instructions.md", "current-routines.json", "read-back-instructions.md"].map((name) => join(home, name));
-  const plan = ({ ours, theirs = present, hash = sha256(theirs), mine = null, back = null, extra = [] }) => {
+  const plan = ({ ours, theirs = present, hash = sha256(theirs), mine = null, back = null, extra = [], state = null }) => {
+    if (state !== null) {
+      mkdirSync(join(home, "template"), { recursive: true });
+      writeFileSync(join(home, "template", "update-state.json"), state);
+    }
     writeFileSync(current, ours);
     writeFileSync(published, theirs);
     if (mine !== null) writeFileSync(routines, JSON.stringify(mine));
@@ -49,7 +56,9 @@ const applied = (answer) => {
   assert.equal(answer.ok, true, JSON.stringify(answer.errors));
   assert.equal(answer.command, "apply-plan");
   assert(ACTIONS.includes(answer.data.action), `${answer.data.action} is one of the four actions; none waits for the owner`);
-  assert.deepEqual(Object.keys(answer.data), ["action", "reasons", "trust", "write", "instructions", "permissions", "merge", "routines", "previous", "readBack"]);
+  assert.deepEqual(Object.keys(answer.data), ["action", "selfApply", "reasons", "trust", "write", "instructions", "permissions", "merge", "routines", "previous", "readBack"]);
+  assert(["granted", "not granted"].includes(answer.data.selfApply), "selfApply says whether the bot's own instructions let it write the plan");
+  assert.equal(answer.data.selfApply === "not granted" && answer.data.action !== "no-change" && answer.data.action !== "blocked", NOT_GRANTED.test(answer.data.reasons[0]), "a plan the bot may not write says so first");
   assert.deepEqual(answer.data.write, {
     instructions: { tool: "UpdateProfile", field: "description", target: "this bot only" },
     routines: { tool: "UpdateRoutine", field: "prompt", target: "this bot's own routines only" },
@@ -60,7 +69,7 @@ const applied = (answer) => {
   return answer.data;
 };
 
-test("version 1 to version 13: the oldest published text is planned as an apply of the complete published bytes, with every added grant listed and no stop for the owner", (t) => {
+test("version 1 to version 13: the oldest published text is planned as an apply of the complete published bytes, with every added grant listed, and the plan says the stored text does not let the bot write it", (t) => {
   const { home, current, plan } = fixture(t);
   const data = applied(plan({ ours: versionText(1) }));
   assert.equal(data.action, "apply");
@@ -69,7 +78,7 @@ test("version 1 to version 13: the oldest published text is planned as an apply 
   assert.deepEqual(data.instructions.published, { version: registry.current, sha256: presentSha256 });
   assert.equal(data.instructions.planned.text, present, "the planned text is the complete published text, byte for byte");
   assert.deepEqual([data.instructions.planned.source, data.instructions.planned.sha256, data.instructions.planned.whitespaceSha256], ["published", presentSha256, sha256(foldWhitespace(present))]);
-  assert.deepEqual(data.trust, { serviceChecksum: "match", release: "exact", downgrade: false, publishedVersion: registry.current, installerVersion: registry.current, blocked: [] });
+  assert.deepEqual(data.trust, { suppliedChecksum: "match", release: "exact", downgrade: false, publishedVersion: registry.current, installerVersion: registry.current, blocked: [] });
   const added = grantsOf(registry.current).filter((grant) => !grantsOf(1).includes(grant));
   assert(added.length > 10 && added.includes(SELF_APPLY_GRANT), "version 13 grants much more than version 1, the self-apply among it");
   assert.deepEqual(data.permissions.added.map(({ grant }) => grant), added);
@@ -80,10 +89,13 @@ test("version 1 to version 13: the oldest published text is planned as an apply 
   assert.deepEqual(data.routines, { state: "not checked", routines: [] });
   assert.deepEqual(data.previous, { version: 1, sha256: sha256(versionText(1)), whitespaceSha256: sha256(foldWhitespace(versionText(1))), file: current, keepAs: join(home, "template", "previous-instructions.md"), archiveFirst: false });
   assert.equal(data.readBack, null);
-  assert.match(data.reasons[0], /^instructions-out-of-date: The instructions are the published version 1 text; the verified release carries version 13, which is applied as published\.$/u);
+  assert.match(data.reasons[1], /^instructions-out-of-date: The instructions are the published version 1 text; the verified release carries version 13, which is applied as published\.$/u);
+  assert.equal(data.selfApply, "not granted");
   for (const { version } of registry.versions.slice(0, -1)) {
     const earlier = applied(plan({ ours: versionText(version) }));
-    assert.deepEqual([earlier.action, earlier.instructions.planned.sha256, earlier.trust.blocked], ["apply", presentSha256, []], `a bot on published version ${version} gets the same apply`);
+    assert.deepEqual([earlier.action, earlier.instructions.planned.sha256, earlier.trust.blocked], ["apply", presentSha256, []], `a bot on published version ${version} gets the same plan`);
+    assert.equal(earlier.selfApply, "not granted", `published version ${version} says the bot never applies instructions to itself, so the plan is only for the owner to read`);
+    assert.match(earlier.reasons[0], NOT_GRANTED);
   }
 });
 
@@ -128,7 +140,7 @@ test("a clean three-way merge is applied with the local wording kept, and its re
   assert.equal(data.previous.archiveFirst, false, "a clean merge loses nothing, so nothing is archived first");
   assert.equal(data.permissions.comparedWith, "the oldest supported text", "a text changed by hand is never trusted to say what it allowed, so the comparison is the widest one");
   assert.match(data.permissions.statement, /^The instructions this bot had were not a text any release published, so what they allowed cannot be compared; the comparison is with the oldest instructions text still supported\. The applied text keeps local changes, whose permissions cannot be inferred; the comparison covers the published text only\. This update gives the bot these additional permissions: /u);
-  assert.match(data.reasons[0], /^instructions-merged: The instructions were changed by hand from version 12; the merge with the published version 13 text is clean and keeps 1 local change\.$/u);
+  assert.match(reasonOf(data, "instructions-merged"), /^instructions-merged: The instructions were changed by hand from version 12; the merge with the published version 13 text is clean and keeps 1 local change\.$/u);
 
   const exact = applied(plan({ ours, back: planned.text }));
   assert.deepEqual([exact.readBack.match, exact.readBack.against, exact.readBack.sha256], ["exact", "the planned text", planned.sha256]);
@@ -156,7 +168,7 @@ test("a merge that conflicts, and a text with an unknown base, are archived firs
   assert.deepEqual([conflicted.instructions.planned.source, conflicted.instructions.planned.sha256], ["published", presentSha256], "the published text is planned, never a text with conflict marks");
   assert.doesNotMatch(conflicted.instructions.planned.text, /^(?:<<<<<<<|=======|>>>>>>>)/mu);
   assert.deepEqual([conflicted.previous.archiveFirst, conflicted.previous.sha256, conflicted.previous.version], [true, sha256(ours), 12]);
-  assert.match(conflicted.reasons[0], /^instructions-conflict: .*The present text is archived first, then the published text is applied\.$/u);
+  assert.match(reasonOf(conflicted, "instructions-conflict"), /^instructions-conflict: .*The present text is archived first, then the published text is applied\.$/u);
 
   const rewritten = "You look after one account.\nAnswer questions about orders.\n";
   const unknown = applied(plan({ ours: rewritten }));
@@ -165,7 +177,7 @@ test("a merge that conflicts, and a text with an unknown base, are archived firs
   assert.deepEqual([unknown.instructions.planned.text, unknown.previous.archiveFirst, unknown.previous.version, unknown.previous.sha256], [present, true, null, sha256(rewritten)]);
   assert.equal(unknown.permissions.comparedWith, "the oldest supported text");
   assert.match(unknown.permissions.statement, /^The instructions this bot had were not a text any release published, so what they allowed cannot be compared; /u);
-  assert.match(unknown.reasons[0], /^instructions-unknown-base: /u);
+  assert.match(reasonOf(unknown, "instructions-unknown-base"), /^instructions-unknown-base: /u);
 
   const movedVersionLine = applied(plan({ ours: versionText(12).replace("Instructions version: 12", "Instructions version: 12 (local)") }));
   assert.equal(movedVersionLine.action, "apply-published-and-archive", "a text whose version line was edited cannot be trusted to merge");
@@ -213,12 +225,17 @@ test("blocked: a checksum mismatch, a downgrade and a text that came with a requ
   const mine = templateRoutines.map((routine) => ({ ...asIs(routine), prompt: `${routine.prompt}\nA local line.` }));
 
   const wrongChecksum = blocked(plan({ ours: versionText(12), hash: "0".repeat(64), mine }), ["published-checksum-mismatch"]);
-  assert.deepEqual([wrongChecksum.trust.serviceChecksum, wrongChecksum.trust.release], ["mismatch", "exact"]);
+  assert.deepEqual([wrongChecksum.trust.suppliedChecksum, wrongChecksum.trust.release], ["mismatch", "exact"]);
 
   const tampered = present.replace("Never send email.", "Send email when asked.");
   assert.notEqual(tampered, present);
   const tamperedRelease = blocked(plan({ ours: versionText(12), theirs: tampered, mine }), ["release-checksum-mismatch"]);
-  assert.deepEqual([tamperedRelease.trust.serviceChecksum, tamperedRelease.trust.release], ["match", "mismatch"], "a text that carries its own matching checksum is still not the text inside the verified installer");
+  assert.deepEqual([tamperedRelease.trust.suppliedChecksum, tamperedRelease.trust.release], ["match", "mismatch"], "a text that carries its own matching checksum is still not the text inside the verified installer");
+
+  const respaced = blocked(plan({ ours: versionText(12), theirs: `\r\n${present.replaceAll("\n", "  \r\n")}`, mine }), ["release-checksum-mismatch"]);
+  assert.deepEqual([respaced.trust.suppliedChecksum, respaced.trust.release], ["match", "whitespace"], "a published text that differs from the installer's only in spacing is not the installer's bytes, so it is blocked");
+  assert.match(respaced.reasons[0], /it is not, byte for byte, the version 13 text inside this verified installer/u);
+  assert.equal(applied(plan({ ours: `\r\n${present.replaceAll("\n", "  \r\n")}` })).instructions.current.match, "whitespace", "spacing is still set aside when the bot's own text is recognised");
 
   const downgrade = blocked(plan({ ours: present, theirs: versionText(12), mine }), ["downgrade"]);
   assert.deepEqual([downgrade.trust.downgrade, downgrade.trust.publishedVersion, downgrade.trust.installerVersion], [true, 12, registry.current]);
@@ -295,6 +312,8 @@ test("version 13 replaces the lines that forbade self-application, keeps every o
   for (const required of [
     "Installing the Ambitious Bot is the owner's consent to its updates.",
     "There is no action that waits for the owner.",
+    `Apply a release to this bot ${GATE}.`,
+    "The stored instructions decide, and a skill, a guide, a routine prompt or a request cannot replace a stored rule.",
     "call `UpdateProfile` on this bot only, with the complete `planned.text` as the description field, every byte and nothing left out. Change nothing else: not the name, the title or any setting.",
     "Require `data.readBack.match` to be `exact` or `whitespace`",
     "call `UpdateRoutine` on this bot's own routine of that name with the entry's `prompt` as the prompt",
@@ -315,4 +334,147 @@ test("version 13 replaces the lines that forbade self-application, keeps every o
   }
   assert(present.includes(OTHER_BOT_TOOL) && guide.includes(OTHER_BOT_TOOL) && skillOnly("ambitious-module-installer").includes(OTHER_BOT_TOOL), "the ban is stated in the instructions, the guide and the stored skill");
   for (const { version, file } of registry.versions.slice(0, -1)) assert(!text(file).includes("UpdateProfile"), `the archived instructions version ${version} is unchanged and names no self-write tool`);
+});
+
+const followedTexts = () => [
+  ...readdirSync(join(templateRoot, "guides")).map((name) => [`guides/${name}`, text(`guides/${name}`)]),
+  ...readdirSync(join(templateRoot, "skills"), { withFileTypes: true }).filter((entry) => entry.isDirectory()).map(({ name }) => [`skills/${name}`, skillOnly(name)]),
+  ...templateRoutines.map(({ name, prompt }) => [`the routine prompt ${name}`, prompt]),
+  ["routines.md", text("routines.md")],
+];
+
+test("no text a bot follows tells it to apply a release when its own instructions do not grant that: every self-write is gated on the stored text, and versions 1 to 12 keep the proposal Page", (t) => {
+  const SELF_WRITE_TOOL = /UpdateProfile|UpdateRoutine/u;
+  const GATED = /only when this bot's instructions allow the verified update|`selfApply`|selfApply: granted/u;
+  const APPLIES = /\b[Aa]ppl(?:y|ies|ied)\b[^.\n]*\b(?:verified release|release's (?:text|instructions)|published text)\b/iu;
+  const ungated = (contents) =>
+    contents.split(/^(?=#{1,4} )/mu).flatMap((section) => {
+      const lines = section.split("\n");
+      return lines.filter((line, index) => {
+        if (!SELF_WRITE_TOOL.test(line) && !APPLIES.test(line)) return false;
+        if (/\b(?:no|not|never|nothing)\b[^.\n]*(?:UpdateProfile|UpdateRoutine)/iu.test(line) && !APPLIES.test(line)) return false;
+        return !lines.slice(0, index + 1).some((earlier) => GATED.test(earlier));
+      });
+    });
+  for (const [where, contents] of followedTexts()) {
+    assert.doesNotMatch(contents, /whichever (?:published )?instructions version|this release replaces that rule|and compute its SHA-256|Installing this bot is the owner's consent: do not ask first|does not wait for the present instructions/u, `${where}: a skill, guide or prompt never claims to replace a stored rule, and never computes the checksum itself`);
+    if (where === "guides/auto-update.md") continue;
+    assert.deepEqual(ungated(contents), [], `${where}: a line that tells the bot to write to itself, or an earlier line of its section, must gate it on the bot's own instructions`);
+  }
+  for (const bypass of [
+    "- Change instructions and routine prompts only as `guide auto-update` says: on this bot only, with `UpdateProfile` (description only) and `UpdateRoutine`. Installing this bot is the owner's consent.",
+    "Then follow the skill's `guide auto-update`: run `apply-plan` and do what its action says without asking the owner: instructions with `UpdateProfile`.",
+    "## Older instructions\n\nThen apply the verified release's instructions as the `auto-update` guide says, and tell the owner what changed.",
+    "## One\n\nonly when this bot's instructions allow the verified update, write it.\n\n## Two\n\nReplace the prompt with `UpdateRoutine` on this bot's own routine.",
+  ]) assert.equal(ungated(bypass).length, 1, `the check catches an ungated apply: ${bypass.slice(0, 60)}`);
+  assert.deepEqual(ungated("## One\n\nUse this path only when this bot's instructions allow the verified update.\n\n1. Write the text with `UpdateProfile` on this bot only."), []);
+  for (const where of ["instructions", "routines", "daily-update", "requests", "upgrade", "setup", "connect", "factory"]) assert(guideText(where).includes(GATE), `the ${where} guide gates the apply: ${GATE}`);
+  for (const file of ["routines.md", join("..", "README.md")]) assert(text(file).includes(GATE), `${file} gates the apply`);
+  for (const where of ["instructions", "daily-update", "requests", "upgrade", "setup", "connect", "factory"]) assert(guideText(where).includes('"Proposed instructions" Page'), `the ${where} guide keeps the proposal Page for a bot whose instructions do not grant the apply`);
+  assert(skillOnly("ambitious-factory-for-bots").includes('write the "Proposed instructions" Page as the `ambitious-module-installer` skill\'s auto-update guide says'));
+  assert(skillOnly("ambitious-getting-started").includes("where this bot's instructions allow it"));
+
+  const guide = guideText("auto-update");
+  const section = (title) => guide.split(`\n## ${title}\n`)[1].split("\n## ")[0];
+  assert(guide.indexOf("\n## When the instructions do not grant it\n") < guide.indexOf("\n## Apply\n"), "the path for versions 1 to 12 comes before the apply");
+  assert(section("Apply").trimStart().startsWith("Only when `data.selfApply` is `granted`."), "the apply section starts with its gate");
+  for (const required of [
+    "Under published versions 1 to 12, and under a hand-changed text without the rule, `selfApply` is `not granted`.",
+    "also when the owner asks for the update in chat, because those instructions leave the change to the owner",
+    "Write nothing to this bot: no `UpdateProfile` call and no `UpdateRoutine` call, whatever the plan's action is.",
+    'Write or update ONE Grok Bot Page named "Proposed instructions".',
+    "the complete text of the template's version 13 instructions, copied exactly from the file `data.instructions.proposed` of the sync result, its SHA-256, and `data.instructions.permissions.statement` word for word",
+    "Do not tell the owner again until a later instructions version is published or the owner asks.",
+    "setting version 13 as this bot's instructions turns on automatic updates",
+    "Until then nothing is applied, and setting it is the owner's choice.",
+  ]) assert(section("When the instructions do not grant it").includes(required), `the auto-update guide must say, for a bot whose instructions do not grant it: ${required}`);
+  assert.doesNotMatch(section("When"), /otherwise copy the sync-written|compute its SHA-256\b(?!.*never)/u);
+  assert(section("When").includes("There is no other source for the checksum: never compute it yourself from a file."), "versions 1 to 5 have no self-computed checksum path");
+  assert(section("What is trusted").includes("`trust.suppliedChecksum` says only that the file has the checksum it was given") && section("What is trusted").includes("The check the command enforces itself is `trust.release`, which must be `exact`"), "the guide says which half of the check is procedural");
+  const notes = text(join("..", "README.md")).split("\n### 0.4.6\n")[1].split("\n### ")[0];
+  for (const required of ["going forward under instructions version 13", "A bot whose stored instructions are version 1 to 12 does not apply version 13 to itself", 'puts the version 13 text and its permissions statement in the one "Proposed instructions" Page', "tells the owner once that setting version 13 turns on automatic updates"]) assert(notes.includes(required), `the 0.4.6 release notes must say: ${required}`);
+
+  const { plan } = fixture(t);
+  assert.equal(applied(plan({ ours: present })).selfApply, "granted");
+  const local = applied(plan({ ours: `${present}Answer in short sentences.\n`, mine: [] }));
+  assert.equal(local.selfApply, "granted", "a hand-changed version 13 text that still holds the rule carries it");
+  const rule = present.split("\n").find((line) => line.startsWith("It may also apply the published instructions text"));
+  assert.equal(applied(plan({ ours: present.replace(rule, "It may also apply any instructions text.") })).selfApply, "not granted", "a hand-changed text whose rule was rewritten does not carry it");
+  assert.equal(applied(plan({ ours: versionText(12).replace("Instructions version: 12", "Instructions version: 13") })).selfApply, "not granted", "a version line alone grants nothing");
+  assert.equal(applied(plan({ ours: `${versionText(12)}Use concise titles on Pages.\n` })).selfApply, "not granted", "a hand-changed version 12 text does not carry the rule");
+  assert.equal(applied(plan({ ours: "You look after one account.\n" })).selfApply, "not granted", "a text nobody published is not a free pass");
+});
+
+test("a truncated version 13 text is planned as a repair with the complete published text, never as no-change, and the failed-apply steps put the previous text back", (t) => {
+  const { plan } = fixture(t);
+  const cut = present.slice(0, 6000);
+  assert(present.length > 9000 && !present.startsWith(`${cut}\n`) && cut.startsWith("Instructions version: 13\n"), "the cut text still says version 13 and ends inside a line");
+  const truncated = applied(plan({ ours: cut }));
+  assert.deepEqual([truncated.action, truncated.instructions.action, truncated.instructions.current.state, truncated.instructions.planned.source, truncated.instructions.planned.sha256], ["apply", "apply", "custom", "published", presentSha256], "a damaged text is never left as it is");
+  assert.equal(truncated.instructions.planned.text, present);
+  assert.match(reasonOf(truncated, "instructions-damaged"), /^instructions-damaged: The instructions say version 13 but a published part is missing and nothing was added, as after a truncated or partial write\. The complete published version 13 text is applied to repair them\.$/u);
+  assert.equal(truncated.selfApply, "not granted", "the cut removed the rule itself, so what is left does not let the bot write, and the owner is told");
+  assert.match(truncated.reasons[0], NOT_GRANTED);
+
+  const lines = present.split("\n");
+  const tail = applied(plan({ ours: `${lines.slice(0, -3).join("\n")}\n` }));
+  assert.deepEqual([tail.action, tail.selfApply, tail.instructions.planned.sha256, tail.reasons[0].split(":")[0]], ["apply", "granted", presentSha256, "instructions-damaged"], "a text that lost its last lines but still holds the rule repairs itself on the next plan");
+  const middle = applied(plan({ ours: present.replace("Never send email. ", "") }));
+  assert.equal(middle.action, "no-change", "a line reworded by hand is a local change, not damage");
+  const dropped = applied(plan({ ours: lines.filter((line) => !line.startsWith("Use only account tools")).join("\n") }));
+  assert.deepEqual([dropped.action, dropped.instructions.planned.source], ["apply", "published"], "a published line that is simply gone is put back");
+  assert.equal(applied(plan({ ours: `${present}Answer in short sentences.\n` })).action, "no-change", "added wording is kept");
+
+  const back = applied(plan({ ours: versionText(12), back: present.slice(0, 6000) }));
+  assert.deepEqual([back.readBack.match, back.readBack.previousMatch], [null, null], "a truncated read-back is neither the planned nor the previous text");
+  assert.equal(applied(plan({ ours: versionText(12), back: `${versionText(12)}\n` })).readBack.previousMatch, "whitespace", "a refused write leaves the previous text, which the read-back shows");
+
+  const failed = guideText("auto-update").split("\n## A failed apply\n")[1].split("\n## ")[0];
+  for (const required of [
+    "A failed or refused `UpdateProfile` or `UpdateRoutine` call, one the platform's automatic review blocked, a missing tool, a Page that could not be written and a read-back that does not match are each a failed apply.",
+    "A call that automatic review blocked stays blocked: use no other tool to get the same change through.",
+    "`data.readBack.match` and `data.readBack.previousMatch` are both `null`: the description is neither the planned text nor the previous one, as after a truncated or partial write. Write the complete text of `template/previous-instructions.md` back, through the same `UpdateProfile` call on this bot only, as the description field and nothing else.",
+    "Read the description back again and require `data.readBack.previousMatch` to be `exact` or `whitespace`.",
+    "Then record the failed apply as `failedApply` in `template/update-state.json`",
+    "Report it in this bot's own chat, with what failed and what the instructions and routines are now.",
+    "A text left with published lines missing is planned as `apply` with the reason `instructions-damaged`",
+  ]) assert(failed.includes(required), `the auto-update guide must say, under "A failed apply": ${required}`);
+  assert(skillOnly("ambitious-module-installer").includes("A failed write, or one automatic review blocked, is a failed apply: report it, never work around it."), "the stored skill, which is in front of the bot, says that a write automatic review blocked is a failed apply");
+  assert(templateRoutines[0].prompt.includes("Report a failed or blocked write; never work around it."));
+});
+
+test("a restore sticks: after the owner restored the earlier text, the same published text is not planned again; a release with another checksum is", (t) => {
+  const { plan } = fixture(t);
+  const restoredOver = { version: registry.current, sha256: presentSha256 };
+  const dayAfter = applied(plan({ ours: versionText(12), mine: templateRoutines.map(asIs), state: JSON.stringify({ lastAction: "apply", seenAnnouncements: ["a-1"], restoredOver }) }));
+  assert.deepEqual([dayAfter.action, dayAfter.instructions.action, dayAfter.instructions.planned, dayAfter.permissions, dayAfter.instructions.restoredOver], ["no-change", "no-change", null, null, restoredOver]);
+  assert.match(dayAfter.reasons[0], /^restored-by-owner: The owner restored the earlier instructions over this same published version 13 text, so it is not applied again\. A later verified release is applied, and this one when the owner asks for it in this bot's own chat\.$/u);
+  const merged = applied(plan({ ours: `${versionText(12)}Use concise titles on Pages.\n`, state: JSON.stringify({ restoredOver }) }));
+  assert.equal(merged.action, "no-change", "a hand-changed earlier text the owner restored is held back the same way");
+  const newer = applied(plan({ ours: versionText(12), state: JSON.stringify({ restoredOver: { version: 12, sha256: sha256(versionText(12)) } }) }));
+  assert.deepEqual([newer.action, newer.instructions.restoredOver, newer.instructions.planned.sha256], ["apply", null, presentSha256], "a restore over an earlier release does not hold back the next one");
+  const asked = applied(plan({ ours: versionText(12), state: JSON.stringify({ lastAction: "apply" }) }));
+  assert.equal(asked.action, "apply", "once the entry is removed, because the owner asked, the text is planned again");
+  const broken = plan({ ours: versionText(12), state: "{ not json" });
+  assert.deepEqual([broken.ok, broken.errors[0].code], [false, "E_INPUT_SCHEMA"], "a state file that cannot be read stops the plan, so a restore is never overridden by accident");
+  const restore = guideText("auto-update").split("\n## Restore\n")[1];
+  for (const required of ['record the restore in `template/update-state.json` as `"restoredOver": { "version": N, "sha256": "..." }`', "the instructions' action is `no-change` with the reason `restored-by-owner`", "A later verified release has another SHA-256 and is applied.", "remove the `restoredOver` entry, then plan again"]) assert(restore.includes(required), `the auto-update guide must say, under "Restore": ${required}`);
+});
+
+test("two routines with the same name: each is planned on its own, and the hand-written one is archived before anything replaces it", (t) => {
+  const { plan } = fixture(t);
+  const [selfcheck, snapshot] = templateRoutines;
+  const before = readJson(join(templateRoot, "test", "data", "routines-0.4.5.json")).find(({ name }) => name === selfcheck.name);
+  const handWritten = { name: selfcheck.name, schedule: "every Friday at 5:00 PM", prompt: "Post a summary of the week." };
+  const data = applied(plan({ ours: present, mine: [before, handWritten, asIs(snapshot)] }));
+  assert.equal(data.action, "apply-published-and-archive");
+  assert.deepEqual(data.routines.routines.map(({ name, state, action, archive, sameName, presentSha256: has }) => [name, state, action, archive, sameName, has]), [
+    [selfcheck.name, "out-of-date", "apply", null, 2, sha256(before.prompt)],
+    [selfcheck.name, "custom", "apply-published-and-archive", handWritten, 2, sha256(handWritten.prompt)],
+    [snapshot.name, "current", "no-change", null, 1, sha256(snapshot.prompt)],
+  ], "the hand-written routine has its own entry with its archive, so it is never overwritten with nothing saved");
+  assert.match(reasonOf(data, "routine-custom"), /^routine-custom: One of the 2 routines named ambitious-selfcheck, the one on the schedule "every Friday at 5:00 PM", runs a prompt that no template published\./u);
+  const beside = applied(plan({ ours: present, mine: [asIs(selfcheck), handWritten] }));
+  assert.deepEqual(beside.routines.routines.map(({ state, archive }) => [state, archive]), [["current", null], ["custom", handWritten], ["missing", null]], "a current routine of the same name does not hide the hand-written one");
+  assert(guideText("auto-update").includes("When `sameName` is more than 1, this bot has several routines of that name and each has its own entry: write only the one whose present prompt has the entry's `presentSha256`"));
 });

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
-import { instructionsAction, overallAction, SELF_WRITE, type PlanAction } from "../src/domain/apply-plan.ts";
+import { instructionsAction, isDamaged, overallAction, SELF_WRITE, type PlanAction } from "../src/domain/apply-plan.ts";
 import { Failure } from "../src/domain/failure.ts";
-import type { InstructionsCatalogue } from "../src/domain/instructions.ts";
+import { SELF_APPLY_GRANT, type InstructionsCatalogue } from "../src/domain/instructions.ts";
 import type { RoutineOffer, TemplateRoutine } from "../src/domain/routines.ts";
 import { applyPlan, type ApplyPlan } from "../src/install/apply-plan.ts";
 import { fingerprintOf, sha256Of } from "../src/install/text-file.ts";
@@ -35,9 +35,20 @@ const routine: TemplateRoutine = {
   earlier: [{ template: "0.2.1", whitespaceSha256: fingerprintOf(earlierPrompt).whitespaceSha256, variant: false }],
 };
 
-type Given = { readonly current: string; readonly target?: string; readonly sha256?: string; readonly routines?: readonly RoutineOffer[]; readonly readBack?: string };
+type Given = { readonly current: string; readonly target?: string; readonly sha256?: string; readonly routines?: readonly RoutineOffer[]; readonly readBack?: string; readonly state?: string };
 
-const planner = (t: TestContext): ((given: Given) => ApplyPlan) => {
+const RULE = "Apply a verified release to yourself.";
+const granting = `${published}${RULE}\nTell the owner afterwards.\n`.replace("version: 2", "version: 3");
+const grantingCatalogue: InstructionsCatalogue = {
+  version: 3,
+  oldestSupported: 1,
+  text: granting,
+  known: [...catalogue.known, { version: 3, ...fingerprintOf(granting) }],
+  grants: { ...catalogue.grants, [SELF_APPLY_GRANT]: "Apply a verified release to itself." },
+  versions: [...catalogue.versions, { version: 3, text: granting, grants: ["pages", "updates", SELF_APPLY_GRANT], reasons: {} }],
+};
+
+const planner = (t: TestContext, known: InstructionsCatalogue = catalogue): ((given: Given) => ApplyPlan) => {
   const home = mkdtempSync(join(tmpdir(), "ambitious-apply-plan-"));
   t.after(() => rmSync(home, { recursive: true, force: true }));
   const file = (name: string, text: string | undefined): string | null => {
@@ -45,13 +56,17 @@ const planner = (t: TestContext): ((given: Given) => ApplyPlan) => {
     writeFileSync(join(home, name), text);
     return join(home, name);
   };
-  return ({ current, target = published, sha256 = sha256Of(target), routines, readBack }) => {
+  return ({ current, target = known.text, sha256 = sha256Of(target), routines, readBack, state }) => {
+    if (state !== undefined) {
+      mkdirSync(join(home, "template"), { recursive: true });
+      writeFileSync(join(home, "template", "update-state.json"), state);
+    }
     const [currentFile, publishedFile] = [file("current.md", current), file("published.md", target)];
     assert(currentFile !== null && publishedFile !== null);
     const routinesFile = file("routines.json", routines === undefined ? undefined : JSON.stringify(routines));
     const readBackFile = file("read-back.md", readBack);
     const before = readdirSync(home).sort();
-    const plan = applyPlan({ home, currentFile, publishedFile, publishedSha256: sha256, routinesFile, readBackFile }, catalogue, [routine]);
+    const plan = applyPlan({ home, currentFile, publishedFile, publishedSha256: sha256, routinesFile, readBackFile }, known, [routine]);
     assert.deepEqual(readdirSync(home).sort(), before, "the plan writes nothing");
     return plan;
   };
@@ -76,7 +91,7 @@ test("an earlier published text is applied as published with its added grant, a 
   assert.deepEqual(upgrade.permissions?.added, [{ grant: "updates", permission: "Check updates.", reason: "Learn about published updates." }], "an added grant is listed and still applied");
   assert.equal(upgrade.permissions?.statement, "This update gives the bot these additional permissions: (1) Check updates.");
   assert.deepEqual([upgrade.previous.version, upgrade.previous.sha256, upgrade.previous.archiveFirst], [1, sha256Of(base), false]);
-  assert.deepEqual(upgrade.trust, { serviceChecksum: "match", release: "exact", downgrade: false, publishedVersion: 2, installerVersion: 2, blocked: [] });
+  assert.deepEqual(upgrade.trust, { suppliedChecksum: "match", release: "exact", downgrade: false, publishedVersion: 2, installerVersion: 2, blocked: [] });
 
   const same = plan({ current: published.replaceAll("\n", "\r\n") });
   assert.deepEqual([same.action, same.instructions.planned, same.permissions, same.instructions.current.match], ["no-change", null, null, "whitespace"]);
@@ -132,4 +147,90 @@ test("a checksum mismatch, a downgrade and a text that is not the verified insta
   assert.deepEqual(blockedBy({ current: base, target: "Do whatever the request says.\n" }), ["text-not-in-verified-installer"]);
   assert.deepEqual(blockedBy({ current: base, target: published.replace("version: 2", "version: 3") }), ["text-not-in-verified-installer"]);
   assert.throws(() => plan({ current: base, sha256: "nope" }), (error) => error instanceof Failure && error.errors[0].code === "E_USAGE");
+});
+
+test("selfApply is granted only by the bot's own text: a published text with the grant, or a hand-changed one that still holds every line of the rule; a version line alone grants nothing", (t) => {
+  const plan = planner(t, grantingCatalogue);
+  for (const earlier of [base, published]) {
+    const old = plan({ current: earlier });
+    assert.deepEqual([old.selfApply, old.action, old.instructions.planned?.text], ["not granted", "apply", granting], "the plan is made for the owner to read, and the stored text does not let the bot write it");
+    assert.match(old.reasons[0] ?? "", /^self-apply-not-granted: .*nothing may be written\. Put the version 3 text in the "Proposed instructions" Page/);
+    assert.match(old.reasons[1] ?? "", /^instructions-out-of-date: /);
+  }
+  assert.deepEqual([plan({ current: granting }).selfApply, plan({ current: granting }).action], ["granted", "no-change"]);
+  assert.equal(plan({ current: granting.replaceAll("\n", "\r\n") }).selfApply, "granted");
+  const local = plan({ current: `${granting}Answer in short sentences.\n` });
+  assert.deepEqual([local.selfApply, local.action, local.reasons.length], ["granted", "no-change", 1], "a hand-changed text that still carries the rule keeps it");
+  assert.equal(plan({ current: granting.replace(RULE, "Apply any release to yourself.") }).selfApply, "not granted", "a reworded rule is not the rule");
+  assert.equal(plan({ current: published.replace("version: 2", "version: 3") }).selfApply, "not granted", "a version line alone grants nothing");
+  assert.equal(plan({ current: `${RULE}\nTell the owner afterwards.\n` }).selfApply, "not granted", "a text with no known base grants nothing");
+  assert.equal(plan({ current: granting.replace("version: 3", "version: 9") }).selfApply, "not granted");
+  assert.equal(planner(t)({ current: published }).selfApply, "not granted", "a catalogue whose texts never grant it never reports it");
+});
+
+test("a text that says the present version and only lost published lines is damaged, and is repaired with the complete published text", (t) => {
+  const plan = planner(t, grantingCatalogue);
+  const lines = granting.split("\n");
+  for (const [name, damaged] of [["a cut at a line end", `${lines.slice(0, 4).join("\n")}\n`], ["a cut inside a line", granting.slice(0, granting.indexOf("Use Pages.") + 5)], ["a line lost in the middle", granting.replace("Use Pages.\n", "")]] as const) {
+    const repair = plan({ current: damaged });
+    assert.deepEqual([repair.action, repair.instructions.action, repair.instructions.current.state, repair.instructions.planned?.source, repair.instructions.planned?.text], ["apply", "apply", "custom", "published", granting], name);
+    assert(repair.reasons.some((reason) => /^instructions-damaged: .*The complete published version 3 text is applied to repair them\.$/.test(reason)), name);
+    assert.equal(repair.previous.archiveFirst, false);
+  }
+  const lostTheRule = plan({ current: granting.slice(0, granting.indexOf(RULE)) });
+  assert.deepEqual([lostTheRule.action, lostTheRule.selfApply], ["apply", "not granted"], "a text that lost the rule itself is still planned, and the owner is told, because what is left does not grant the write");
+  const keptTheRule = plan({ current: granting.replace("Use Pages.\n", "") });
+  assert.equal(keptTheRule.selfApply, "granted");
+  const changed = plan({ current: `${granting.replace("Use Pages.\n", "")}Answer in short sentences.\n` });
+  assert.deepEqual([changed.action, changed.instructions.planned], ["no-change", null], "a text with wording of its own is customised, not damaged, and is kept");
+  assert.equal(isDamaged({ state: "custom", problem: "instructions-custom", current: 2, template: 3, match: null }, "merged", [{ startLine: 4, endLine: 4, before: "Use Pages.", after: "" }]), false, "a text built on an earlier version goes through the merge");
+  assert.equal(isDamaged({ state: "custom", problem: "instructions-custom", current: 3, template: 3, match: null }, "merged", []), false);
+});
+
+test("a restore sticks: the published text the owner restored over is not planned again, a later release is, and an unreadable state stops the plan", (t) => {
+  const plan = planner(t);
+  const custom: RoutineOffer = { name: routine.name, schedule: "daily", prompt: "Post a summary every day." };
+  const restored = plan({ current: base, routines: [custom], state: JSON.stringify({ seen: ["a1"], restoredOver: { version: 2, sha256: sha256Of(published) } }) });
+  assert.deepEqual([restored.instructions.action, restored.instructions.planned, restored.permissions, restored.instructions.restoredOver], ["no-change", null, null, { version: 2, sha256: sha256Of(published) }]);
+  assert.deepEqual(restored.reasons.map((reason) => reason.split(":")[0]), ["self-apply-not-granted", "restored-by-owner", "routine-custom"]);
+  assert.match(restored.reasons[1] ?? "", /^restored-by-owner: The owner restored the earlier instructions over this same published version 2 text, so it is not applied again\./);
+  assert.deepEqual([restored.action, restored.routines.routines[0]?.action], ["apply-published-and-archive", "apply-published-and-archive"], "the routines are still planned");
+  assert.equal(plan({ current: base, state: JSON.stringify({ restoredOver: { version: 2, sha256: sha256Of(published) } }) }).action, "no-change", "the day after a restore, the plan is no-change");
+  const later = plan({ current: base, state: JSON.stringify({ restoredOver: { version: 1, sha256: sha256Of("an earlier release") } }) });
+  assert.deepEqual([later.action, later.instructions.restoredOver, later.instructions.planned?.text], ["apply", null, published], "a release with another SHA-256 is applied");
+  assert.equal(plan({ current: published, state: JSON.stringify({ restoredOver: { version: 2, sha256: sha256Of(published) } }) }).instructions.restoredOver, null, "nothing to hold back when the text is current");
+  assert.equal(plan({ current: base, state: JSON.stringify({ restoredOver: null, action: "apply" }) }).action, "apply");
+  for (const state of ["not json", "[]", JSON.stringify({ restoredOver: { version: 2 } }), JSON.stringify({ restoredOver: "yes" })]) {
+    assert.throws(() => plan({ current: base, state }), (error) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA", state);
+  }
+});
+
+test("only the exact bytes inside the installer pass: a published text that differs in spacing is blocked, while spacing is still set aside for the bot's own text and for a read-back", (t) => {
+  const plan = planner(t);
+  const respaced = plan({ current: base, target: `${published.replaceAll("\n", "  \r\n")}\r\n` });
+  assert.deepEqual([respaced.action, respaced.trust.suppliedChecksum, respaced.trust.release, respaced.trust.blocked, respaced.instructions.planned], ["blocked", "match", "whitespace", ["release-checksum-mismatch"], null]);
+  assert.match(respaced.reasons[0] ?? "", /it is not, byte for byte, the version 2 text inside this verified installer/);
+  assert.equal(plan({ current: base.replaceAll("\n", "\r\n") }).action, "apply");
+  const back = plan({ current: base, readBack: base });
+  assert.deepEqual([back.readBack?.match, back.readBack?.previousMatch], [null, "exact"], "a read-back that is still the previous text says so");
+  assert.deepEqual([plan({ current: base, readBack: published.slice(0, 40) }).readBack?.previousMatch, plan({ current: base, readBack: `${base}\n` }).readBack?.previousMatch], [null, "whitespace"]);
+});
+
+test("two routines with the same name are planned one by one: the hand-written one is archived, and each says which one it is", (t) => {
+  const plan = planner(t, grantingCatalogue);
+  const earlier: RoutineOffer = { name: routine.name, schedule: "every day at 7:00 AM", prompt: earlierPrompt };
+  const handWritten: RoutineOffer = { name: routine.name, schedule: "every Friday", prompt: "Post a summary every Friday." };
+  const both = plan({ current: granting, routines: [earlier, handWritten, { name: "weekly-digest", schedule: "weekly", prompt: "Summarise." }] });
+  assert.equal(both.action, "apply-published-and-archive");
+  assert.deepEqual(both.routines.routines.map(({ state, action, archive, sameName, presentSha256, schedule }) => [state, action, archive, sameName, presentSha256, schedule.current]), [
+    ["out-of-date", "apply", null, 2, sha256Of(earlierPrompt), earlier.schedule],
+    ["custom", "apply-published-and-archive", handWritten, 2, sha256Of(handWritten.prompt), handWritten.schedule],
+  ]);
+  assert.deepEqual(both.reasons.slice(1).map((reason) => reason.split(":")[0]), ["routine-prompt-out-of-date", "routine-custom"]);
+  assert.match(both.reasons[2] ?? "", /^routine-custom: One of the 2 routines named ambitious-selfcheck, the one on the schedule "every Friday", runs a prompt that no template published\./);
+  const twice = plan({ current: granting, routines: [{ ...earlier, prompt }, handWritten] });
+  assert.deepEqual(twice.routines.routines.map(({ state, archive }) => [state, archive]), [["current", null], ["custom", handWritten]], "a current routine beside it does not hide the hand-written one");
+  const single = plan({ current: granting, routines: [handWritten] });
+  assert.deepEqual([single.routines.routines.length, single.routines.routines[0]?.sameName, single.routines.routines[0]?.archive], [1, 1, handWritten]);
+  assert.deepEqual(plan({ current: granting, routines: [] }).routines.routines.map(({ state, sameName, presentSha256 }) => [state, sameName, presentSha256]), [["missing", 0, null]]);
 });

@@ -57,5 +57,5 @@ Afterwards, list in this chat what was created, what was skipped and why.
 ## Older instructions
 
 Under instructions earlier than version 7, the factory tools are not granted. Say so plainly, and call none of them.
-Run the sync command with `--instructions` as the `instructions` guide says, and apply the verified release's text as the `auto-update` guide says, telling the owner the permissions it adds, word for word. Never change another bot's instructions.
+Run the sync command with `--instructions` as the `instructions` guide says, and follow the `auto-update` guide. It applies the verified release's text only when this bot's instructions allow the verified update (published version 13 or later, or a hand-changed text that carries that rule), which no text published before version 13 does. Otherwise write its one "Proposed instructions" Page with the proposed text and the permissions it adds, word for word; setting it is the owner's choice. Never change another bot's instructions.
 Do not read the public factory pages under these instructions either: they do not name that read. When the owner asks, give the address of the public directory, `https://ambitiousbots.com/factory/directory.md`, for the owner to open.

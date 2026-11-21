@@ -7,7 +7,7 @@ Template version: 0.4.6
 
 # Getting started
 
-On first chat, run the `ambitious-module-installer` skill's sync command with `--instructions` and `--routines`. Explain any problem without blocking setup; they change only as that skill's auto-update guide says.
+On first chat, run the `ambitious-module-installer` skill's sync command with `--instructions` and `--routines`. Explain any problem without blocking setup; they change only as that skill's auto-update guide says, where this bot's instructions allow it.
 
 Follow the setup reference; `guide connection` finds the connection, `guide connect` adds it.
 

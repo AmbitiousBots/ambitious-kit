@@ -61,7 +61,7 @@ export const classifyRoutine = (template: TemplateRoutine, mine: readonly BotRou
 };
 
 export const routineMessage = (finding: RoutineFinding, proposed: string): string | null => {
-  const unchanged = "This check changed nothing: the update that the auto-update guide describes replaces the prompt.";
+  const unchanged = "This check changed nothing: the update that the auto-update guide describes replaces the prompt only when this bot's instructions allow it.";
   if (finding.state === "out-of-date") {
     return `routine-prompt-out-of-date: The routine ${finding.name} runs the prompt that template ${finding.publishedIn} published, and this template's prompt is different. This template's prompt is in ${proposed}. ${unchanged}`;
   }
