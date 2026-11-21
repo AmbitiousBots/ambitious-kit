@@ -51,7 +51,7 @@
   },
   {
     "id": "instructions-merge",
-    "userVisible": "An instructions proposal merges the published update with local changes, lists the local changes kept, shows both sides of conflicts or an unknown base, and states which permissions can be compared. The owner alone pastes it; neither input file is changed.",
+    "userVisible": "The instructions merge joins the published update with local changes, lists the local changes kept, shows both sides of conflicts or an unknown base, and states which permissions can be compared. The merge command itself changes nothing: neither input file and no instructions.",
     "check": "node --test template/test/instructions-merge.test.mjs"
   },
   {
@@ -65,13 +65,18 @@
     "check": "node --test --test-name-pattern='V1|V2|V4|V9|V10|V11' template/test/endpoint-confirmation.test.mjs && node --test template/test/endpoint-trust.test.mjs && node --test --test-name-pattern='the instructions state the boundaries|monitoring needs no connection|daily routines are quiet|the instructions are short' template/test/check.test.mjs"
   },
   {
+    "id": "verified-auto-update",
+    "userVisible": "Installing the Ambitious Bot is the owner's consent to its updates. After the verified installer upgrade, the daily selfcheck plans an update of the bot's own instructions and routine prompts with the installer's apply-plan command, which classifies and writes nothing and makes no network call. The plan is apply, apply-published-and-archive, no-change or blocked, and no plan waits for the owner, also when the release adds permissions. A text is used only when its SHA-256 matches both the check_updates checksum and the text inside the installer that was verified against the release's SHA256SUMS; a checksum mismatch, a downgrade and a text that came with a request are blocked. The bot then writes its instructions only with UpdateProfile on itself, the description field and nothing else, reads the description back against the SHA-256, keeps the previous text, version and checksum under AMBITIOUS_HOME, and writes routine prompts only with UpdateRoutine on its own routines. It never calls UpdateAgent and never changes another bot. A clean three-way merge keeps local wording; instructions that conflict or have an unknown base, and a routine prompt written by hand, are saved to a Page first and then replaced with the published text. Afterwards the bot tells the owner in its own chat what changed: the version, the checksum and each permission added or removed. A failed or blocked write is reported and not worked around, and the previous text is restored only when the owner asks. This is checked in the installer's plan and in the template's text, not on the platform.",
+    "check": "node --test template/test/apply-plan.test.mjs && node --test packages/kit/test/apply-plan.test.ts"
+  },
+  {
     "id": "instructions",
-    "userVisible": "A bot whose instructions come from an earlier template is told so, with the newer text, the lines that differ, and in plain words which permissions the newer text would add or take away. A careful copy by hand that differs only in whitespace is still recognised. A text the owner wrote is recognised as theirs and left alone. When the installer is itself behind a newer template, the bot says so and recommends updating the template first. Only the owner ever changes a bot's instructions, and the skills keep working with the earlier ones.",
+    "userVisible": "A bot whose instructions come from an earlier template is told so, with the newer text, the lines that differ, and in plain words which permissions the newer text would add or take away. A careful copy by hand that differs only in whitespace is still recognised. A text nobody published is recognised as written by hand. When the installer is itself behind a newer template, the bot says so and recommends updating the template first. The check itself changes nothing, and the skills keep working with the earlier instructions until the verified update applies the newer text.",
     "check": "node --test --test-name-pattern='instructions|whitespace|pasting' packages/kit/test/sync.test.ts"
   },
   {
     "id": "routines",
-    "userVisible": "A bot whose routine still runs a prompt from an earlier template is told so, with the newer prompt. A published prompt that was stored with its destination line added is still recognised. A missing routine and a prompt the owner changed are told apart, and nothing is changed until the owner asks.",
+    "userVisible": "A bot whose routine still runs a prompt from an earlier template is told so, with the newer prompt. A published prompt that was stored with its destination line added is still recognised. A missing routine and a prompt written by hand are told apart, and the check itself changes nothing.",
     "check": "node --test --test-name-pattern=routine packages/kit/test/sync.test.ts"
   },
   {
@@ -126,7 +131,7 @@
   },
   {
     "id": "bot-factory",
-    "userVisible": "The owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. Under instructions version 7 or later the bot proposes the bots in a Page and creates one only after the owner approves; under older instructions it calls no factory tool and proposes the version 7 text. Under version 12 or later it calls factory_match in the background with no payload preview or approval, carrying no secret; under versions 6 to 11 it shows the exact description and waits for the owner's yes before sending it.",
+    "userVisible": "The owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. Under instructions version 7 or later the bot proposes the bots in a Page and creates one only after the owner approves; under older instructions it calls no factory tool until the verified update has applied a text that grants it. Under version 12 or later it calls factory_match in the background with no payload preview or approval, carrying no secret; under versions 6 to 11 it shows the exact description and waits for the owner's yes before sending it.",
     "check": "node --test --test-name-pattern='version 7|hard rules stay|no skill and no routine requires' template/test/check.test.mjs && node --test --test-name-pattern='template 0.3.1' template/test/e2e.test.mjs"
   },
   {
@@ -151,7 +156,7 @@
   },
   {
     "id": "upgrade-requests",
-    "userVisible": "Anyone may ask a bot for an upgrade that writes its skills only when the bot's own instructions are a published text that says so; under every other text only the owner may. The request itself supplies nothing: no pin, no address and no skill text.",
+    "userVisible": "Anyone may ask a bot for an upgrade that writes its skills only when the bot's own instructions are a published text that says so; under every other text only the owner may. The request itself supplies nothing: no pin, no address, no skill text, no instructions text and no routine prompt.",
     "check": "node --test --test-name-pattern='asked for by anyone|shared skill' packages/kit/test/sync.test.ts"
   },
   {

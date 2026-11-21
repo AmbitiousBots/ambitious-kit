@@ -15,6 +15,7 @@ import { decideSkillWrite, parseSkillOffers, skillChange, withTemplateBodies } f
 import { parseTemplateSkills, withInstallerPin, type TemplateSkill } from "../domain/template-skills.ts";
 import { placeGuideFile } from "../install/guide-files.ts";
 import { checkInstructions, PROPOSED_INSTRUCTIONS_FILE } from "../install/instructions.ts";
+import { applyPlan } from "../install/apply-plan.ts";
 import { mergeInstructions } from "../install/instructions-merge.ts";
 import { templateNote, templateStatus, type TemplateStatus } from "../install/newer-template.ts";
 import { INSTALLER_MODULE, releaseDownload } from "../install/release.ts";
@@ -30,9 +31,9 @@ import { ambitiousHome, refuseAgentData } from "../paths/refuse-agent-data.ts";
 import { embedded, embeddedGuides, embeddedInstructions, embeddedLock, embeddedRoutines, embeddedSkills, embeddedTemplateFiles } from "./embedded.ts";
 
 const USAGE =
-  "ambitious-modules sync [--json] [--from <mirror directory>] [--lock <lock file>] [--runtime <module whose pinned runtime to build>] [--instructions <file holding the bot's current instructions>] [--routines <file listing the bot's current routines>], ambitious-modules skill-files [--json], ambitious-modules skills [--json] [--in <file>], ambitious-modules connection [--json] [--in <file>], ambitious-modules self-update --version <version> --sha256 <hex> [--json], ambitious-modules instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json], ambitious-modules guide [<topic>] [--json], or ambitious-modules review-page [--built] [--in <file listing the ids of the high-priority findings>] [--json]";
+  "ambitious-modules sync [--json] [--from <mirror directory>] [--lock <lock file>] [--runtime <module whose pinned runtime to build>] [--instructions <file holding the bot's current instructions>] [--routines <file listing the bot's current routines>], ambitious-modules skill-files [--json], ambitious-modules skills [--json] [--in <file>], ambitious-modules connection [--json] [--in <file>], ambitious-modules self-update --version <version> --sha256 <hex> [--json], ambitious-modules instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json], ambitious-modules apply-plan --current <file> --published <file> --published-sha256 <hex> [--routines <file listing the bot's current routines>] [--read-back <file holding the text read after a write>] [--json], ambitious-modules guide [<topic>] [--json], or ambitious-modules review-page [--built] [--in <file listing the ids of the high-priority findings>] [--json]";
 
-const COMMANDS = ["sync", "skill-files", "skills", "connection", "self-update", "instructions-merge", "guide", "review-page"] as const;
+const COMMANDS = ["sync", "skill-files", "skills", "connection", "self-update", "instructions-merge", "apply-plan", "guide", "review-page"] as const;
 
 const OPTIONS = {
   from: { type: "string" },
@@ -46,6 +47,7 @@ const OPTIONS = {
   current: { type: "string" },
   published: { type: "string" },
   "published-sha256": { type: "string" },
+  "read-back": { type: "string" },
   built: { type: "boolean" },
   json: { type: "boolean" },
 } satisfies ParseArgsOptionsConfig;
@@ -65,6 +67,7 @@ type Wanted = {
   readonly currentFile: string;
   readonly publishedFile: string;
   readonly publishedSha256: string;
+  readonly readBackFile: string | null;
   readonly topic: string | null;
   readonly built: boolean;
 };
@@ -101,19 +104,19 @@ const wanted = (argv: readonly string[], environment: Environment): Wanted => {
     connection: ["in"],
     "self-update": ["version", "sha256"],
     "instructions-merge": ["current", "published", "published-sha256"],
+    "apply-plan": ["current", "published", "published-sha256", "routines", "read-back"],
     guide: [],
     "review-page": ["built", "in"],
   };
   for (const name of Object.keys(values)) {
     if (name !== "json" && !allowed[command].includes(name)) throw wrong(`The ${command} command takes no --${name}.`);
   }
-  if (command === "self-update" || command === "instructions-merge") {
-    for (const name of allowed[command]) {
-      if (!Object.entries(values).some(([key, value]) => key === name && typeof value === "string" && value !== "")) throw wrong(`The ${command} command needs --${name}.`);
-    }
+  const required: readonly string[] = command === "apply-plan" ? allowed["instructions-merge"] : command === "self-update" || command === "instructions-merge" ? allowed[command] : [];
+  for (const name of required) {
+    if (!Object.entries(values).some(([key, value]) => key === name && typeof value === "string" && value !== "")) throw wrong(`The ${command} command needs --${name}.`);
   }
   const mirror = values.from ?? environment.AMBITIOUS_MODULE_MIRROR ?? "";
-  return { command, mirror: mirror === "" ? null : mirror, lockFile: values.lock ?? null, inFile: values.in ?? null, instructionsFile: values.instructions ?? null, routinesFile: values.routines ?? null, runtimeModule: values.runtime ?? null, version: values.version ?? "", sha256: values.sha256 ?? "", currentFile: values.current ?? "", publishedFile: values.published ?? "", publishedSha256: values["published-sha256"] ?? "", topic: positionals[1] ?? null, built: values.built === true };
+  return { command, mirror: mirror === "" ? null : mirror, lockFile: values.lock ?? null, inFile: values.in ?? null, instructionsFile: values.instructions ?? null, routinesFile: values.routines ?? null, runtimeModule: values.runtime ?? null, version: values.version ?? "", sha256: values.sha256 ?? "", currentFile: values.current ?? "", publishedFile: values.published ?? "", publishedSha256: values["published-sha256"] ?? "", readBackFile: values["read-back"] ?? null, topic: positionals[1] ?? null, built: values.built === true };
 };
 
 const jsonFrom = (file: string | number, what: string, hint: string): unknown => {
@@ -229,6 +232,10 @@ const dataFor = async (request: Wanted, version: string, environment: Environmen
   if (request.command === "review-page") return reviewPageData(request, environment);
   if (request.command === "self-update") return { ...await selfUpdate({ home: ambitiousHome(environment), runningVersion: version, version: request.version, sha256: request.sha256 }) };
   if (request.command === "instructions-merge") return { ...mergeInstructions(request.currentFile, request.publishedFile, request.publishedSha256, parseInstructionsCatalogue(embeddedInstructions())) };
+  if (request.command === "apply-plan") {
+    const { currentFile, publishedFile, publishedSha256, routinesFile, readBackFile } = request;
+    return { ...applyPlan({ home: ambitiousHome(environment), currentFile, publishedFile, publishedSha256, routinesFile, readBackFile }, parseInstructionsCatalogue(embeddedInstructions()), parseTemplateRoutines(embeddedRoutines())) };
+  }
   return request.command === "skills" ? skillsData(request) : connectionData(request);
 };
 

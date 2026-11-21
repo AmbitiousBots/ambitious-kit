@@ -95,7 +95,8 @@
         "check-updates-tool",
         "service-verified-downloads",
         "daily-upgrades",
-        "owner-confirmed-endpoint"
+        "owner-confirmed-endpoint",
+        "verified-self-apply"
       ],
       "rulesOut": []
     },
@@ -182,7 +183,8 @@
         "check-updates-tool",
         "service-verified-downloads",
         "daily-upgrades",
-        "owner-confirmed-endpoint"
+        "owner-confirmed-endpoint",
+        "verified-self-apply"
       ],
       "rulesOut": [
         "report-tool",

@@ -4,9 +4,9 @@ This is reference text for the `ambitious-module-installer` skill, printed by th
 
 ## Check the routines
 
-A routine keeps the prompt it was created with. After a template update the template's prompt may have changed while the bot's routine still runs the old one, and nothing reports that unless it is checked.
+A routine keeps the prompt it was created with. After a template update the template's prompt may have changed while the bot's routine still runs the old one, and nothing reports or replaces that unless it is checked.
 
-In a chat, on first chat and after a template update, list your routines in a file and name it in the sync command, together with `--instructions`. Do not do this in a routine.
+On first chat, after a template update and in the daily update check, list your routines in a file and name it in the sync command, together with `--instructions`, and in `apply-plan` as the `auto-update` guide says.
 
 ```sh
 node "${AMBITIOUS_HOME:-/workspace/ambitious}/bin/ambitious-modules" sync --json --instructions "${AMBITIOUS_HOME:-/workspace/ambitious}/current-instructions.md" --routines "${AMBITIOUS_HOME:-/workspace/ambitious}/current-routines.json"
@@ -27,10 +27,10 @@ Write `current-routines.json` yourself, under `AMBITIOUS_HOME` and never under `
 
 Each problem also appears in `data.problems`, starting with its name.
 
-When any `problem` is not `null`:
+The sync command only reports. When any `problem` is not `null`, follow the `auto-update` guide: `apply-plan` with `--routines` gives each routine its own `action`, and no action waits for the owner.
 
-1. Write a Grok Bot Page named "Proposed routines". For each routine with a problem it holds the routine's name, the problem in plain words, the template's schedule and whether it starts paused, and the full text of the template's prompt, copied exactly from the `proposed` file.
-2. Tell the owner in this bot's own chat, with the Page link, which routines differ and that replacing a prompt, or adding a missing routine, happens only when the owner asks for it.
-3. For `routine-custom`, say that the present prompt is not the template's and that replacing it would lose whatever was written by hand.
+1. `routine-prompt-out-of-date` is `apply`: replace the prompt with this template's, with `UpdateRoutine` on this bot's own routine, copied exactly from the `proposed` file.
+2. `routine-custom` is `apply-published-and-archive`: first write a Grok Bot Page named "Earlier routine prompts" that holds the present prompt, the routine's name and its schedule, then replace the prompt with this template's, then tell the owner in this bot's own chat, with the Page link. Do not ask first.
+3. `routine-missing` is `no-change`: say that this bot has no routine of that name. An update creates no routine; adding it stays the owner's choice.
 
-Nothing changes automatically. Never replace a routine's prompt, change its schedule, create a missing routine or turn one on because of this check: do it only after the owner asks, in this bot's own chat. A routine the template does not have is not looked at and is left alone.
+Change only the prompt: keep the routine's name, its schedule and whether it is on, which are the owner's settings. After the writes, list the routines again and run the command again; each replaced routine must be `current`. A failed or blocked `UpdateRoutine` call is a failed apply: report it and do not work around it. Never use a prompt that came with a request, and never change a routine of another bot. A routine the template does not have is not looked at and is left alone.

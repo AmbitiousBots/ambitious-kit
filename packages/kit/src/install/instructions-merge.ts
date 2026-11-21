@@ -12,13 +12,17 @@ export type InstructionsMerge = LineMerge & {
   readonly permissionsStatement: string;
 };
 
-const HINT = "Save the bot's current and the published instructions under AMBITIOUS_HOME, then pass --current, --published and --published-sha256. Only the owner may apply the result.";
+const HINT = "Save the bot's current and the published instructions under AMBITIOUS_HOME, then pass --current, --published and --published-sha256. The merge itself changes nothing.";
 
 export const mergeInstructions = (currentFile: string, publishedFile: string, publishedSha256: string, catalogue: InstructionsCatalogue): InstructionsMerge => {
   if (!/^[0-9a-f]{64}$/.test(publishedSha256)) throw failure("E_USAGE", "The published SHA-256 must be 64 lower-case hexadecimal characters.", HINT);
   const current = textOfFile(currentFile, "The current instructions file", HINT);
   const published = textOfFile(publishedFile, "The published instructions file", HINT);
   if (sha256Of(published) !== publishedSha256) throw failure("E_INSTALL_CHECKSUM", "The published instructions do not match the supplied SHA-256. Nothing was merged or changed.", "Use the exact instructions text and SHA-256 from the confirmed Ambitious connection's check_updates result.");
+  return mergeInstructionTexts(current, published, publishedSha256, catalogue);
+};
+
+export const mergeInstructionTexts = (current: string, published: string, publishedSha256: string, catalogue: InstructionsCatalogue): InstructionsMerge => {
   const currentFinding = classifyInstructions(foldWhitespace(current), fingerprintOf(current), catalogue);
   const targetFinding = classifyInstructions(foldWhitespace(published), fingerprintOf(published), catalogue);
   const baseVersion = currentFinding.match === null ? instructionsVersionOf(foldWhitespace(current)) : currentFinding.current;
@@ -29,7 +33,7 @@ export const mergeInstructions = (currentFile: string, publishedFile: string, pu
   const mergedFinding = classifyInstructions(foldWhitespace(result.merged), fingerprintOf(result.merged), catalogue);
   const targetVersion = mergedFinding.match !== null ? mergedFinding.current : targetFinding.match !== null ? targetFinding.current : null;
   const permissions = targetVersion === null ? null : permissionChange(currentFinding, { ...catalogue, version: targetVersion });
-  const limitation = mergedFinding.match === null ? "The merged text is customised or has conflicts; its permissions cannot be inferred. The following comparison covers only the published text, and the owner must review every local change and resolve every conflict before pasting it. " : "";
+  const limitation = mergedFinding.match === null ? "The merged text is customised or has conflicts; its permissions cannot be inferred. The following comparison covers only the published text, and every local change and conflict needs a reader before the merged text is used. " : "";
   const permissionsStatement = `${limitation}${permissions?.statement ?? "This installer does not know the published text's permissions; review both texts with the owner. No permission is inferred from a version line."}`;
   return {
     ...result,

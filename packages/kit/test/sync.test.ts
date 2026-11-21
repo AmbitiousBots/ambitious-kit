@@ -520,8 +520,8 @@ test("instructions are told apart by what was published: the template's text is 
 
   assert.deepEqual([classify(first), classify("x\n"), classify(`${second}x\n`)].map(needsOwner), [true, true, true]);
   assert.deepEqual([classify(catalogue.text), classify(`${catalogue.text}x\n`), classify(instructionsOf(4, "x"))].map(needsOwner), [false, false, false]);
-  assert.match(instructionsMessage(classify(first), "template/instructions.md", null, null) ?? "", /^instructions-out-of-date: This bot's instructions are version 1 and this template's are version 3\. The template's text is in template\/instructions\.md\. Nothing was changed/);
-  assert.match(instructionsMessage(classify("x\n"), "/p", null, null) ?? "", /^instructions-custom: .*carry no version line, and this template's are version 3.*left as they are/);
+  assert.match(instructionsMessage(classify(first), "template/instructions.md", null, null) ?? "", /^instructions-out-of-date: This bot's instructions are version 1 and this template's are version 3\. The template's text is in template\/instructions\.md\. This check changed nothing: the update that the auto-update guide describes applies the template's text, and the owner is told what changed\.$/);
+  assert.match(instructionsMessage(classify("x\n"), "/p", null, null) ?? "", /^instructions-custom: .*carry no version line, and this template's are version 3.*This check changed nothing/);
   assert.match(instructionsMessage(classify(`${second}x\n`), "/p", null, null) ?? "", /^instructions-custom: .*they say version 2/);
   assert.equal(instructionsMessage(classify(catalogue.text), "/p", null, null), null);
 
@@ -604,30 +604,30 @@ test("what pasting the template's text would change is said in plain words: addi
     comparison: "more",
     added: [{ grant: "extra", permission: "Call the extra tool.", reason: "Why extra was added." }],
     removed: [],
-    statement: "Pasting this text gives the bot these additional permissions: (1) Call the extra tool.",
+    statement: "Applying this text gives the bot these additional permissions: (1) Call the extra tool.",
   });
   assert(more?.statement.startsWith(ADDITIONAL_PERMISSIONS));
-  assert.match(instructionsMessage(classifierFor(adding)(first), "/p", more, null) ?? "", /the owner's choice\. Pasting this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
+  assert.match(instructionsMessage(classifierFor(adding)(first), "/p", more, null) ?? "", /the owner is told what changed\. Applying this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
 
   const narrowing = catalogueOf([first, second], [["chat", "report"], ["chat", "report", "extra", "files"], ["chat", "report"]]);
   const fewer = permissionChange(classifierFor(narrowing)(second), narrowing);
   assert.equal(fewer?.comparison, "fewer");
   assert.deepEqual(fewer?.removed.map(({ grant }) => grant), ["extra", "files"]);
-  assert.equal(fewer?.statement, "Pasting this text gives the bot no additional permissions. It takes away these permissions: (1) Call the extra tool. (2) Read private reference files.");
+  assert.equal(fewer?.statement, "Applying this text gives the bot no additional permissions. It takes away these permissions: (1) Call the extra tool. (2) Read private reference files.");
   const same = permissionChange(classifierFor(narrowing)(first), narrowing);
   assert.deepEqual([same?.comparison, same?.added, same?.removed], ["same", [], []]);
-  assert.equal(same?.statement, "Pasting this text gives the bot no additional permissions and takes none away: it allows the same things as the bot's present text.");
+  assert.equal(same?.statement, "Applying this text gives the bot no additional permissions and takes none away: it allows the same things as the bot's present text.");
   assert.equal(permissionChange(classifierFor(narrowing)(narrowing.text), narrowing)?.comparison, "same");
 
   const both = catalogueOf([first], [["chat"], ["chat", "extra"]]);
   const swapped = { ...both, versions: [{ version: 1, grants: ["chat", "files"], reasons: {} }, { version: 2, grants: ["chat", "extra"], reasons: { extra: "Why." } }] };
   const mixed = permissionChange(classifierFor(swapped)(first), swapped);
   assert.equal(mixed?.comparison, "more and fewer");
-  assert.equal(mixed?.statement, "Pasting this text gives the bot these additional permissions: (1) Call the extra tool. It takes away these permissions: (1) Read private reference files.");
+  assert.equal(mixed?.statement, "Applying this text gives the bot these additional permissions: (1) Call the extra tool. It takes away these permissions: (1) Read private reference files.");
 
   const unknown = permissionChange(classifierFor(adding)("Written by hand.\n"), adding);
   assert.equal(unknown?.comparedWith, "the oldest supported text");
-  assert.match(unknown?.statement ?? "", /^This bot's present instructions are not a text this template published, so what they allow cannot be compared; the comparison is with the oldest instructions text still supported\. Pasting this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
+  assert.match(unknown?.statement ?? "", /^This bot's present instructions are not a text this template published, so what they allow cannot be compared; the comparison is with the oldest instructions text still supported\. Applying this text gives the bot these additional permissions: \(1\) Call the extra tool\.$/);
   assert.equal(permissionChange(classifierFor(adding)(""), adding)?.comparedWith, "the oldest supported text");
   assert.equal(permissionChange(classifierFor(adding)(instructionsOf(9, "Later.")), adding), null, "a text newer than this installer knows is not compared");
 });
@@ -784,9 +784,9 @@ test("a routine is compared with the template's by its prompt: the same prompt i
   assert.deepEqual([absent.starts, absent.schedule.current, absent.prompt], ["paused", null, now], "the proposal carries the template's prompt and how the routine starts");
 
   assert.equal(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", now)]), "/p"), null);
-  assert.match(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", before)]), "/p") ?? "", /^routine-prompt-out-of-date: The routine ambitious-selfcheck runs the prompt that template 0\.2\.1 published.*This template's prompt is in \/p\. Nothing was changed: a routine's prompt is replaced only when the owner asks for it\.$/);
+  assert.match(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", before)]), "/p") ?? "", /^routine-prompt-out-of-date: The routine ambitious-selfcheck runs the prompt that template 0\.2\.1 published.*This template's prompt is in \/p\. This check changed nothing: the update that the auto-update guide describes replaces the prompt\.$/);
   assert.match(routineMessage(classifyRoutine(routine, []), "/p") ?? "", /^routine-missing: This bot has no routine named ambitious-selfcheck\..*starts active\..*Nothing was created/);
-  assert.match(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", "x")]), "/p") ?? "", /^routine-custom: The routine ambitious-selfcheck runs a prompt that no template published.*left as it is/);
+  assert.match(routineMessage(classifyRoutine(routine, [mine("ambitious-selfcheck", "x")]), "/p") ?? "", /^routine-custom: The routine ambitious-selfcheck runs a prompt that no template published.*This check changed nothing: .* That update first saves the present prompt to a Page\.$/);
 
   const valid = { name: "ambitious-a", schedule: "", paused: false, prompt: "x", ...fingerprintOf("x"), variants: [], earlier: [] };
   assert.equal(parseTemplateRoutines([valid]).length, 1);

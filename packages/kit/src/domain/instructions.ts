@@ -39,7 +39,7 @@ export type NewerTemplate = { readonly own: string; readonly latest: string };
 
 export const UPGRADE_GRANT = "upgrade-on-any-request";
 
-export const ADDITIONAL_PERMISSIONS = "Pasting this text gives the bot these additional permissions:";
+export const ADDITIONAL_PERMISSIONS = "Applying this text gives the bot these additional permissions:";
 
 const VERSION_LINE = /^Instructions version: ([1-9][0-9]*)(?:\n|$)/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -81,8 +81,8 @@ const statementOf = (comparedWith: PermissionChange["comparedWith"], added: read
       : "This bot's present instructions are not a text this template published, so what they allow cannot be compared; the comparison is with the oldest instructions text still supported. ";
   const takesAway = removed.length === 0 ? "" : ` It takes away these permissions: ${numbered(removed)}`;
   if (added.length > 0) return `${basis}${ADDITIONAL_PERMISSIONS} ${numbered(added)}${takesAway}`;
-  if (removed.length > 0) return `${basis}Pasting this text gives the bot no additional permissions.${takesAway}`;
-  return `${basis}Pasting this text gives the bot no additional permissions and takes none away: it allows the same things as ${comparedWith}.`;
+  if (removed.length > 0) return `${basis}Applying this text gives the bot no additional permissions.${takesAway}`;
+  return `${basis}Applying this text gives the bot no additional permissions and takes none away: it allows the same things as ${comparedWith}.`;
 };
 
 export const permissionChange = (finding: InstructionsFinding, { version, oldestSupported, grants, versions }: InstructionsCatalogue): PermissionChange | null => {
@@ -102,7 +102,7 @@ export const permissionChange = (finding: InstructionsFinding, { version, oldest
 
 export const instructionsMessage = (finding: InstructionsFinding, proposed: string, change: PermissionChange | null, newer: NewerTemplate | null): string | null => {
   const { current, template } = finding;
-  const unchanged = "Nothing was changed: only the owner can replace a bot's instructions, and doing so is the owner's choice.";
+  const unchanged = "This check changed nothing: the update that the auto-update guide describes applies the template's text, and the owner is told what changed.";
   const permissions = change === null ? "" : ` ${change.statement}`;
   const behind =
     newer === null
@@ -117,7 +117,7 @@ export const instructionsMessage = (finding: InstructionsFinding, proposed: stri
       return `instructions-custom: This bot's instructions say version ${template}, the template's version, but their text is not the template's. They were left as they are.`;
     }
     const have = current === null ? "carry no version line" : `say version ${current}`;
-    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}.${behind} They were left as they are, so that nothing the owner wrote is lost. ${unchanged}${permissions}`;
+    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}.${behind} ${unchanged}${permissions}`;
   }
   if (finding.state === "newer") {
     return `This bot's instructions say version ${current}, which is newer than version ${template} that this installer knows. They were left as they are. Update the bot's skills to the template those instructions came from.`;

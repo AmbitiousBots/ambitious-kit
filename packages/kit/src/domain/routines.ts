@@ -61,7 +61,7 @@ export const classifyRoutine = (template: TemplateRoutine, mine: readonly BotRou
 };
 
 export const routineMessage = (finding: RoutineFinding, proposed: string): string | null => {
-  const unchanged = "Nothing was changed: a routine's prompt is replaced only when the owner asks for it.";
+  const unchanged = "This check changed nothing: the update that the auto-update guide describes replaces the prompt.";
   if (finding.state === "out-of-date") {
     return `routine-prompt-out-of-date: The routine ${finding.name} runs the prompt that template ${finding.publishedIn} published, and this template's prompt is different. This template's prompt is in ${proposed}. ${unchanged}`;
   }
@@ -69,7 +69,7 @@ export const routineMessage = (finding: RoutineFinding, proposed: string): strin
     return `routine-missing: This bot has no routine named ${finding.name}. The template has one, on the schedule "${finding.schedule.template}", that starts ${finding.starts}. Its prompt is in ${proposed}. Nothing was created: adding the routine is the owner's choice.`;
   }
   if (finding.state === "custom") {
-    return `routine-custom: The routine ${finding.name} runs a prompt that no template published, so someone wrote or changed it. This template's prompt is in ${proposed}. It was left as it is, so that nothing the owner wrote is lost. ${unchanged}`;
+    return `routine-custom: The routine ${finding.name} runs a prompt that no template published, so someone wrote or changed it. This template's prompt is in ${proposed}. ${unchanged} That update first saves the present prompt to a Page.`;
   }
   return null;
 };
