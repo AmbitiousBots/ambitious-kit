@@ -23,6 +23,9 @@ const GATE = "only when this bot's instructions allow the verified update (publi
 const reasonOf = (data, name) => data.reasons.find((reason) => reason.startsWith(`${name}: `)) ?? "";
 const NOT_GRANTED = /^self-apply-not-granted: This bot's present instructions do not let it apply an update to itself, so this plan is for the owner to read and nothing may be written\. Put the version 13 text in the "Proposed instructions" Page; once the owner sets it, verified updates are applied automatically\.$/u;
 
+const DAMAGED_OWNER = /^instructions-damaged: The instructions are the published version \d+ text cut off before its end, as after a truncated or partial write, so limits that text states are missing\. This bot may not repair them itself, and nothing may be written\. Tell the owner plainly, in this bot's own chat, that the instructions are damaged, on every daily run until they are repaired, with the kept previous text and the complete published version 13 text in a Page for the owner to set\. This is not the "Proposed instructions" proposal\.$/u;
+const ROLLBACK = "If the read-back is neither the planned text nor the previous one, the write landed damaged: write the kept previous text back with the same call and read it back, then report it. That is part of the verified update, not a workaround.";
+
 const fixture = (t) => {
   const installer = buildInstaller();
   const home = mkdtempSync(join(tmpdir(), "ambitious-apply-plan-"));
@@ -58,7 +61,9 @@ const applied = (answer) => {
   assert(ACTIONS.includes(answer.data.action), `${answer.data.action} is one of the four actions; none waits for the owner`);
   assert.deepEqual(Object.keys(answer.data), ["action", "selfApply", "reasons", "trust", "write", "instructions", "permissions", "merge", "routines", "previous", "readBack"]);
   assert(["granted", "not granted"].includes(answer.data.selfApply), "selfApply says whether the bot's own instructions let it write the plan");
-  assert.equal(answer.data.selfApply === "not granted" && answer.data.action !== "no-change" && answer.data.action !== "blocked", NOT_GRANTED.test(answer.data.reasons[0]), "a plan the bot may not write says so first");
+  const mayNotWrite = answer.data.selfApply === "not granted" && answer.data.action !== "no-change" && answer.data.action !== "blocked";
+  assert.equal(mayNotWrite && answer.data.instructions.damagedFrom === null, NOT_GRANTED.test(answer.data.reasons[0]), "a plan the bot may not write says so first, and a damaged text is never sent down that proposal path");
+  if (mayNotWrite && answer.data.instructions.damagedFrom !== null) assert.match(answer.data.reasons[0], DAMAGED_OWNER, "damaged instructions the bot may not repair are reported as damage");
   assert.deepEqual(answer.data.write, {
     instructions: { tool: "UpdateProfile", field: "description", target: "this bot only" },
     routines: { tool: "UpdateRoutine", field: "prompt", target: "this bot's own routines only" },
@@ -287,6 +292,8 @@ test("version 13 replaces the lines that forbade self-application, keeps every o
     "Installing this bot is the owner's consent to these updates, so do not ask for approval or show a preview first, also when a verified release adds permissions.",
     "Write your own instructions only with `UpdateProfile` on this bot, sending the complete planned text as the description field, which is where this platform stores the instructions, and changing nothing else: not the name, the title or a setting.",
     "Then read the description back and require a matching SHA-256. Keep the previous text, version and checksum under `AMBITIOUS_HOME`.",
+    ROLLBACK,
+    "Change your own instructions only through the verified update described below, to put the kept previous text back when a write of that update did not read back, as described below, or to restore a saved earlier text when the owner asks for that in this bot's own chat.",
     "Write routine prompts only with `UpdateRoutine`, on this bot's own routines: an earlier published prompt is replaced with the release's prompt.",
     "first save the old text to a Grok Bot Page, then apply the published text, then tell the owner with the Page link. Do not ask first.",
     "A failed or blocked `UpdateProfile` or `UpdateRoutine` call is a failed update: report it in this bot's own chat and do not work around it.",
@@ -405,42 +412,142 @@ test("no text a bot follows tells it to apply a release when its own instruction
   assert.equal(applied(plan({ ours: "You look after one account.\n" })).selfApply, "not granted", "a text nobody published is not a free pass");
 });
 
-test("a truncated version 13 text is planned as a repair with the complete published text, never as no-change, and the failed-apply steps put the previous text back", (t) => {
+test("a truncated version 13 text is planned as a repair with the complete published text, never as no-change; one that lost the rule is reported to the owner as damaged, not proposed; and the failed-apply steps put the previous text back", (t) => {
   const { plan } = fixture(t);
   const cut = present.slice(0, 6000);
   assert(present.length > 9000 && !present.startsWith(`${cut}\n`) && cut.startsWith("Instructions version: 13\n"), "the cut text still says version 13 and ends inside a line");
-  const truncated = applied(plan({ ours: cut }));
-  assert.deepEqual([truncated.action, truncated.instructions.action, truncated.instructions.current.state, truncated.instructions.planned.source, truncated.instructions.planned.sha256], ["apply", "apply", "custom", "published", presentSha256], "a damaged text is never left as it is");
+  const truncated = applied(plan({ ours: cut, mine: templateRoutines.map(asIs) }));
+  assert.deepEqual([truncated.action, truncated.instructions.action, truncated.instructions.current.state, truncated.instructions.planned.source, truncated.instructions.planned.sha256, truncated.instructions.damagedFrom], ["apply", "apply", "custom", "published", presentSha256, 13], "a damaged text is never left as it is");
   assert.equal(truncated.instructions.planned.text, present);
-  assert.match(reasonOf(truncated, "instructions-damaged"), /^instructions-damaged: The instructions say version 13 but a published part is missing and nothing was added, as after a truncated or partial write\. The complete published version 13 text is applied to repair them\.$/u);
-  assert.equal(truncated.selfApply, "not granted", "the cut removed the rule itself, so what is left does not let the bot write, and the owner is told");
-  assert.match(truncated.reasons[0], NOT_GRANTED);
+  assert.equal(truncated.selfApply, "not granted", "the cut removed the rule itself, so what is left does not let the bot write");
+  assert.deepEqual(truncated.reasons.map((reason) => reason.split(":")[0]), ["instructions-damaged"], "the owner is told the instructions are damaged; the proposal reason about turning on automatic updates is not given");
+  assert.match(truncated.reasons[0], DAMAGED_OWNER);
+  assert.deepEqual(applied(plan({ ours: cut })).reasons, truncated.reasons, "the same plan the next day says the same: nothing silences a repeat");
 
   const lines = present.split("\n");
-  const tail = applied(plan({ ours: `${lines.slice(0, -3).join("\n")}\n` }));
-  assert.deepEqual([tail.action, tail.selfApply, tail.instructions.planned.sha256, tail.reasons[0].split(":")[0]], ["apply", "granted", presentSha256, "instructions-damaged"], "a text that lost its last lines but still holds the rule repairs itself on the next plan");
-  const middle = applied(plan({ ours: present.replace("Never send email. ", "") }));
-  assert.equal(middle.action, "no-change", "a line reworded by hand is a local change, not damage");
-  const dropped = applied(plan({ ours: lines.filter((line) => !line.startsWith("Use only account tools")).join("\n") }));
-  assert.deepEqual([dropped.action, dropped.instructions.planned.source], ["apply", "published"], "a published line that is simply gone is put back");
-  assert.equal(applied(plan({ ours: `${present}Answer in short sentences.\n` })).action, "no-change", "added wording is kept");
+  for (const [name, ours] of [["at a line end", `${lines.slice(0, -3).join("\n")}\n`], ["inside the last line", present.slice(0, -40)], ["with other line endings", lines.slice(0, -3).join("\r\n")]]) {
+    const tail = applied(plan({ ours }));
+    assert.deepEqual([tail.action, tail.selfApply, tail.instructions.planned.sha256, tail.instructions.damagedFrom, tail.previous.archiveFirst, tail.merge.state], ["apply", "granted", presentSha256, 13, false, "not needed"], `a text cut ${name} that still holds the rule repairs itself on the next plan`);
+    assert.deepEqual(tail.reasons, ["instructions-damaged: The instructions are the published version 13 text cut off before its end, as after a truncated or partial write, so limits that text states are missing. The complete published version 13 text is applied to repair them."]);
+  }
+  const restoredOver = { version: registry.current, sha256: presentSha256 };
+  const afterRestore = applied(plan({ ours: `${lines.slice(0, -3).join("\n")}\n`, state: JSON.stringify({ restoredOver }) }));
+  assert.deepEqual([afterRestore.action, afterRestore.instructions.restoredOver, afterRestore.instructions.planned.sha256], ["apply", null, presentSha256], "a damaged text is repaired even when a restore over this same published text is recorded");
+  const older = applied(plan({ ours: versionText(12).slice(0, 5000), state: "{}" }));
+  assert.deepEqual([older.action, older.instructions.damagedFrom, older.instructions.planned.source, older.merge.state, older.selfApply], ["apply", 12, "published", "not needed", "not granted"], "a cut-off earlier published text is damage, not a merge whose missing end counts as local changes");
+  assert.match(older.reasons[0], DAMAGED_OWNER);
 
   const back = applied(plan({ ours: versionText(12), back: present.slice(0, 6000) }));
   assert.deepEqual([back.readBack.match, back.readBack.previousMatch], [null, null], "a truncated read-back is neither the planned nor the previous text");
   assert.equal(applied(plan({ ours: versionText(12), back: `${versionText(12)}\n` })).readBack.previousMatch, "whitespace", "a refused write leaves the previous text, which the read-back shows");
 
-  const failed = guideText("auto-update").split("\n## A failed apply\n")[1].split("\n## ")[0];
+  const guide = guideText("auto-update");
+  const section = (title) => guide.split(`\n## ${title}\n`)[1].split("\n## ")[0];
+  const failed = section("A failed apply");
   for (const required of [
     "A failed or refused `UpdateProfile` or `UpdateRoutine` call, one the platform's automatic review blocked, a missing tool, a Page that could not be written and a read-back that does not match are each a failed apply.",
     "A call that automatic review blocked stays blocked: use no other tool to get the same change through.",
     "`data.readBack.match` and `data.readBack.previousMatch` are both `null`: the description is neither the planned text nor the previous one, as after a truncated or partial write. Write the complete text of `template/previous-instructions.md` back, through the same `UpdateProfile` call on this bot only, as the description field and nothing else.",
     "Read the description back again and require `data.readBack.previousMatch` to be `exact` or `whitespace`.",
+    "The instructions allow exactly this, from version 13 on",
     "Then record the failed apply as `failedApply` in `template/update-state.json`",
     "Report it in this bot's own chat, with what failed and what the instructions and routines are now.",
-    "A text left with published lines missing is planned as `apply` with the reason `instructions-damaged`",
+    "otherwise the owner is told on every daily run, as \"When the instructions are damaged\" says.",
   ]) assert(failed.includes(required), `the auto-update guide must say, under "A failed apply": ${required}`);
+  assert(guide.indexOf("\n## When the instructions are damaged\n") < guide.indexOf("\n## Apply\n"), "the damaged path comes before the apply");
+  assert(section("When the instructions do not grant it").trimStart().startsWith('A damaged text is not this case: when `data.instructions.damagedFrom` is not `null`, follow "When the instructions are damaged" below, whatever `selfApply` says.'), "the proposal path sends a damaged text away first");
+  const damaged = section("When the instructions are damaged");
+  for (const required of [
+    "this bot may not repair itself and the owner has to",
+    "Write nothing to this bot: no `UpdateProfile` call and no `UpdateRoutine` call.",
+    'Write or update ONE Grok Bot Page named "Damaged instructions".',
+    "the kept previous text from `template/previous-instructions.md` under `AMBITIOUS_HOME`, complete",
+    "the complete published text from `template/published-instructions.md` with its version, its SHA-256",
+    "Tell the owner plainly, in this bot's own chat, with the Page link: this bot's instructions are damaged",
+    "Say this on every daily run until `damagedFrom` is `null` again",
+    "Do not record it as `proposed`, do not hold it back because the owner was already told for this version, and do not use the proposal message about turning on automatic updates",
+  ]) assert(damaged.includes(required), `the auto-update guide must say, under "When the instructions are damaged": ${required}`);
+  assert.doesNotMatch(damaged, /turns on automatic updates|Do not tell the owner again/u, "the damaged path never borrows the proposal's message or its once-only rule");
+  assert(section("Apply").includes("When `data.instructions.damagedFrom` is not `null`, skip this step: the present text is damaged, and the kept previous text stays the last complete one."), "a repair never replaces the kept previous text with the damaged one");
+  assert(guideText("daily-update").includes("Damaged instructions are the one exception: while the plan reports `data.instructions.damagedFrom`, tell the owner on every run"), "the daily routine's quiet rule does not silence damage");
   assert(skillOnly("ambitious-module-installer").includes("A failed write, or one automatic review blocked, is a failed apply: report it, never work around it."), "the stored skill, which is in front of the bot, says that a write automatic review blocked is a failed apply");
   assert(templateRoutines[0].prompt.includes("Report a failed or blocked write; never work around it."));
+});
+
+test("the version 13 text itself allows the rollback: a write that reads back as neither text is undone with the kept previous text, and the hard limit on self-change names it", () => {
+  const lines = present.split("\n");
+  const at = lines.indexOf(ROLLBACK);
+  assert(at > 0, `the version 13 instructions must carry the rollback sentence: ${ROLLBACK}`);
+  assert(lines[at - 1].startsWith("Write your own instructions only with `UpdateProfile` on this bot") && lines[at - 1].endsWith("Then read the description back and require a matching SHA-256. Keep the previous text, version and checksum under `AMBITIOUS_HOME`."), "it follows the write and read-back line");
+  const limit = lines.find((line) => line.startsWith("Never change another bot's instructions"));
+  assert(limit.includes("Change your own instructions only through the verified update described below, to put the kept previous text back when a write of that update did not read back, as described below, or to restore a saved earlier text when the owner asks for that in this bot's own chat."), "the hard limit allows the rollback, which is not a restore the owner asked for");
+  assert(!versionText(12).includes(ROLLBACK), "the rollback is new in version 13, so it is one of the lines a hand-changed text must hold to carry the rule");
+  assert(registry.grants[SELF_APPLY_GRANT].includes("a write that reads back as neither the planned text nor the previous one is undone by writing the kept previous text back through the same call"), "the grant's description says so too");
+  assert(guideText("auto-update").split("\n## A failed apply\n")[1].includes("Write the complete text of `template/previous-instructions.md` back, through the same `UpdateProfile` call on this bot only"), "so the guide's rollback step asks for nothing the stored text does not allow");
+});
+
+test("damage is truncation, not deletion: a published line the owner deleted is kept, on the day it is merged and on the day after", (t) => {
+  const { plan } = fixture(t);
+  const lines = present.split("\n");
+  for (const start of ["Run the template upgrade that the `ambitious-module-installer` skill documents", "You may add the Ambitious connection to this bot", "Use only account tools"]) {
+    assert(lines.some((line) => line.startsWith(start)), start);
+    const tightened = applied(plan({ ours: lines.filter((line) => !line.startsWith(start)).join("\n"), state: "{}" }));
+    assert.deepEqual([tightened.action, tightened.selfApply, tightened.instructions.planned, tightened.instructions.damagedFrom, tightened.previous.archiveFirst], ["no-change", "granted", null, null, false], `a version 13 text without the line "${start}…" is the owner's tightening: nothing is written back`);
+    assert.match(tightened.reasons[0], /^instructions-custom: The instructions are the version 13 text with 1 local change, which are kept\.$/u);
+  }
+  assert.equal(applied(plan({ ours: present.replace("Never send email. ", "") })).action, "no-change", "a line reworded by hand is a local change, not damage");
+  assert.equal(applied(plan({ ours: `${present}Answer in short sentences.\n` })).action, "no-change", "added wording is kept");
+
+  const earlier = versionText(12).split("\n").filter((line) => !line.startsWith("Use only account tools")).join("\n");
+  const dayOne = applied(plan({ ours: earlier }));
+  assert.deepEqual([dayOne.action, dayOne.instructions.planned.source, dayOne.merge.localChangesKept.length, dayOne.instructions.damagedFrom], ["apply", "merged", 1, null], "day 1: a hand-changed version 12 text is merged and keeps the deletion");
+  assert.match(reasonOf(dayOne, "instructions-merged"), /keeps 1 local change\.$/u);
+  assert(!dayOne.instructions.planned.text.includes("Use only account tools"));
+  const dayTwo = applied(plan({ ours: dayOne.instructions.planned.text }));
+  assert.deepEqual([dayTwo.action, dayTwo.instructions.planned, dayTwo.instructions.damagedFrom], ["no-change", null, null], "day 2: the merged text is still a kept local change, and is not reclassified as damage");
+  assert.equal(reasonOf(dayTwo, "instructions-damaged"), "");
+});
+
+test("a failed apply is held: apply-plan reads failedApply and does not plan the same published text again until a later release or the owner asks, except once after a plain refused call", (t) => {
+  const { plan } = fixture(t);
+  const failedApply = { time: "2026-01-01T07:00:00Z", step: "read-back", kind: "landed-wrong", attempts: 1, version: registry.current, sha256: presentSha256, previousInPlace: true };
+  const held = applied(plan({ ours: versionText(12), mine: templateRoutines.map(asIs), state: JSON.stringify({ lastAction: "apply", seenAnnouncements: ["a-1"], failedApply }) }));
+  assert.deepEqual([held.action, held.instructions.action, held.instructions.planned, held.permissions, held.instructions.failedApply.sha256, held.instructions.failedApply.kind], ["no-change", "no-change", null, null, presentSha256, "landed-wrong"]);
+  assert.deepEqual(held.reasons, ["failed-apply-held: An earlier write of this same published version 13 text to the instructions failed (landed-wrong), so it is not tried again. A later verified release is applied, and this one when the owner asks for it in this bot's own chat."]);
+  for (const again of [{ ...failedApply, kind: "blocked" }, { ...failedApply, kind: "refused", attempts: 2 }, { version: registry.current, sha256: presentSha256 }]) {
+    assert.equal(applied(plan({ ours: versionText(12), state: JSON.stringify({ failedApply: again }) })).action, "no-change", `held: ${JSON.stringify(again)}`);
+  }
+  const refused = applied(plan({ ours: versionText(12), state: JSON.stringify({ failedApply: { ...failedApply, kind: "refused" } }) }));
+  assert.deepEqual([refused.action, refused.instructions.failedApply, refused.instructions.planned.sha256], ["apply", null, presentSha256], "a plain refused call is planned once more, so a passing error recovers");
+  const later = applied(plan({ ours: versionText(12), state: JSON.stringify({ failedApply: { ...failedApply, version: 12, sha256: sha256(versionText(12)) } }) }));
+  assert.deepEqual([later.action, later.instructions.failedApply], ["apply", null], "a failure of an earlier release does not hold back the next one");
+  assert.equal(applied(plan({ ours: versionText(12), state: JSON.stringify({ lastAction: "no-change" }) })).action, "apply", "once the entry is removed, because the owner asked, the text is planned again");
+
+  const lines = present.split("\n");
+  const stillDamaged = applied(plan({ ours: `${lines.slice(0, -3).join("\n")}\n`, state: JSON.stringify({ failedApply }) }));
+  assert.deepEqual([stillDamaged.action, stillDamaged.selfApply, stillDamaged.instructions.damagedFrom, stillDamaged.instructions.planned], ["no-change", "granted", 13, null], "a repair that already failed is not written again every day");
+  assert.deepEqual(stillDamaged.reasons.map((reason) => reason.split(":")[0]), ["failed-apply-held", "instructions-damaged"]);
+  assert.match(stillDamaged.reasons[1], DAMAGED_OWNER, "and the owner is told it is damaged on every run");
+
+  const [selfcheck, snapshot] = templateRoutines;
+  const before = readJson(join(templateRoot, "test", "data", "routines-0.4.5.json")).find(({ name }) => name === selfcheck.name);
+  const routineFailed = { ...failedApply, step: "UpdateRoutine", kind: "blocked", routine: { name: selfcheck.name, sha256: sha256(selfcheck.prompt) } };
+  const routines = applied(plan({ ours: present, mine: [before, asIs(snapshot)], state: JSON.stringify({ failedApply: routineFailed }) }));
+  assert.deepEqual([routines.action, ...routines.routines.routines.map(({ state, action }) => `${state} ${action}`)], ["no-change", "out-of-date no-change", "current no-change"], "a routine write that failed is not repeated for the same published prompt");
+  assert.match(reasonOf(routines, "failed-apply-held"), /^failed-apply-held: An earlier write of this same published prompt to the routine ambitious-selfcheck failed, so it is not tried again\./u);
+  const otherPrompt = applied(plan({ ours: present, mine: [before, asIs(snapshot)], state: JSON.stringify({ failedApply: { ...routineFailed, routine: { name: selfcheck.name, sha256: sha256("an earlier prompt") } } }) }));
+  assert.equal(otherPrompt.action, "apply", "a release with another prompt is applied");
+  const broken = plan({ ours: versionText(12), state: JSON.stringify({ failedApply: { version: 13 } }) });
+  assert.deepEqual([broken.ok, broken.errors[0].code], [false, "E_INPUT_SCHEMA"], "a failed-apply record without its SHA-256 stops the plan");
+
+  const failed = guideText("auto-update").split("\n## A failed apply\n")[1].split("\n## ")[0];
+  for (const required of [
+    "`kind` is `refused` only when the call itself returned an error, automatic review did not block it and the read-back showed the previous text unchanged",
+    "`attempts` is 1, or one more than the `attempts` of a `failedApply` entry already recorded for the same `sha256`.",
+    "While the published SHA-256 equals `failedApply.sha256`, the instructions' action is `no-change` with the reason `failed-apply-held`",
+    "a `refused` failure with `attempts` 1 is planned once more, and a second failure, recorded with `attempts` 2, is held.",
+    "To try the same text again, the owner asks for it in this bot's own chat: remove the `failedApply` entry, then plan again.",
+  ]) assert(failed.includes(required), `the auto-update guide must say, under "A failed apply": ${required}`);
 });
 
 test("a restore sticks: after the owner restored the earlier text, the same published text is not planned again; a release with another checksum is", (t) => {

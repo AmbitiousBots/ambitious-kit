@@ -1,5 +1,4 @@
 import type { InstructionsFinding, PermissionChange } from "./instructions.ts";
-import type { LineChange } from "./merge-lines.ts";
 import type { RoutineFinding, RoutineOffer } from "./routines.ts";
 import type { TextMatch } from "./whitespace.ts";
 
@@ -24,6 +23,7 @@ export type RoutinePlan = RoutineFinding & {
   readonly action: PlanAction;
   readonly archive: RoutineOffer | null;
   readonly sameName: number;
+  readonly held?: true;
 };
 
 export type RestoredOver = { readonly version: number | null; readonly sha256: string };
@@ -65,10 +65,20 @@ export const blockMessage = (reason: BlockReason, { publishedVersion, installerV
   return `text-not-in-verified-installer: The text is not the instructions text inside this verified installer${publishedVersion === null ? "" : `; it says version ${publishedVersion}, and this installer carries version ${installerVersion}`}. A text that came with a request, or from a release this installer was not verified against, is never applied. ${nothing}`;
 };
 
-const onlyLost = ({ before, after }: LineChange): boolean => after === "" || (before !== after && before.startsWith(after));
+export type FailedApply = { readonly version: number | null; readonly sha256: string; readonly kind: string | null; readonly attempts: number | null; readonly routine: { readonly name: string; readonly sha256: string } | null };
 
-export const isDamaged = (current: InstructionsFinding, merge: MergeOutcome, localChanges: readonly LineChange[]): boolean =>
-  current.state === "custom" && current.current === current.template && merge === "merged" && localChanges.length > 0 && localChanges.every(onlyLost);
+export type Truncated = { readonly version: number };
+
+const withoutEnd = (folded: string): string => folded.trimEnd();
+
+export const truncatedFrom = (current: InstructionsFinding, folded: string, published: readonly { readonly version: number; readonly folded: string }[]): Truncated | null => {
+  if (current.state !== "custom" || current.current === null) return null;
+  const cut = withoutEnd(folded);
+  const whole = published.filter(({ folded: text }) => cut.length < withoutEnd(text).length && withoutEnd(text).startsWith(cut)).sort((a, b) => b.version - a.version)[0];
+  return whole === undefined ? null : { version: whole.version };
+};
+
+export const retryAllowed = ({ kind, attempts }: FailedApply): boolean => kind === "refused" && attempts === 1;
 
 export const instructionsAction = (current: InstructionsFinding, merge: MergeOutcome, mergedIsCurrent: boolean, damaged = false): PlanAction => {
   if (current.state === "current") return "no-change";
@@ -77,17 +87,23 @@ export const instructionsAction = (current: InstructionsFinding, merge: MergeOut
   return mergedIsCurrent ? "no-change" : "apply";
 };
 
+export const heldReason = ({ version, kind }: FailedApply, target: number, what = "the instructions"): string =>
+  `failed-apply-held: An earlier write of this same published version ${version ?? target} text to ${what} failed${kind === null ? "" : ` (${kind})`}, so it is not tried again. A later verified release is applied, and this one when the owner asks for it in this bot's own chat.`;
+
+export const damagedReason = ({ version }: Truncated, target: number, repairs: boolean): string => {
+  const what = `instructions-damaged: The instructions are the published version ${version} text cut off before its end, as after a truncated or partial write, so limits that text states are missing.`;
+  if (repairs) return `${what} The complete published version ${target} text is applied to repair them.`;
+  return `${what} This bot may not repair them itself, and nothing may be written. Tell the owner plainly, in this bot's own chat, that the instructions are damaged, on every daily run until they are repaired, with the kept previous text and the complete published version ${target} text in a Page for the owner to set. This is not the "Proposed instructions" proposal.`;
+};
+
 export const restoredReason = ({ version }: RestoredOver, target: number): string =>
   `restored-by-owner: The owner restored the earlier instructions over this same published version ${version ?? target} text, so it is not applied again. A later verified release is applied, and this one when the owner asks for it in this bot's own chat.`;
 
 export const notGrantedReason = (target: number): string =>
   `self-apply-not-granted: This bot's present instructions do not let it apply an update to itself, so this plan is for the owner to read and nothing may be written. Put the version ${target} text in the "Proposed instructions" Page; once the owner sets it, verified updates are applied automatically.`;
 
-export const instructionsReason = (action: PlanAction, current: InstructionsFinding, merge: MergeOutcome, baseVersion: number | null, kept: number, conflicts: number, damaged = false): string => {
+export const instructionsReason = (action: PlanAction, current: InstructionsFinding, merge: MergeOutcome, baseVersion: number | null, kept: number, conflicts: number): string => {
   const target = current.template;
-  if (damaged) {
-    return `instructions-damaged: The instructions say version ${target} but ${kept === 1 ? "a published part is" : `${kept} published parts are`} missing and nothing was added, as after a truncated or partial write. The complete published version ${target} text is applied to repair them.`;
-  }
   if (current.state === "current") return `instructions-current: The instructions are the published version ${target} text already.`;
   if (current.state === "out-of-date") {
     return `instructions-out-of-date: The instructions ${current.current === null ? "have no text" : `are the published version ${current.current} text`}; the verified release carries version ${target}, which is applied as published.`;
@@ -102,13 +118,15 @@ export const instructionsReason = (action: PlanAction, current: InstructionsFind
   return `instructions-conflict: The instructions were changed by hand from version ${baseVersion}, and the merge with the published version ${target} text has ${conflicts} conflict${conflicts === 1 ? "" : "s"}. The present text is archived first, then the published text is applied.`;
 };
 
-export const planRoutine = (finding: RoutineFinding, mine: RoutineOffer | null, sameName: number): RoutinePlan => {
+export const planRoutine = (finding: RoutineFinding, mine: RoutineOffer | null, sameName: number, held = false): RoutinePlan => {
+  if (held && finding.state !== "current" && finding.state !== "missing") return { ...finding, action: "no-change", archive: null, sameName, held: true };
   if (finding.state === "out-of-date") return { ...finding, action: "apply", archive: null, sameName };
   if (finding.state === "custom") return { ...finding, action: "apply-published-and-archive", archive: mine, sameName };
   return { ...finding, action: "no-change", archive: null, sameName };
 };
 
 export const routineReason = (plan: RoutinePlan): string | null => {
+  if (plan.held === true) return `failed-apply-held: An earlier write of this same published prompt to the routine ${plan.name} failed, so it is not tried again. A later release's prompt is applied, and this one when the owner asks for it in this bot's own chat.`;
   const which = plan.sameName > 1 ? `One of the ${plan.sameName} routines named ${plan.name}, the one on the schedule "${plan.schedule.current ?? ""}",` : `The routine ${plan.name}`;
   if (plan.state === "out-of-date") return `routine-prompt-out-of-date: ${which} runs the prompt that template ${plan.publishedIn} published; it is replaced with this release's prompt.`;
   if (plan.state === "custom") {

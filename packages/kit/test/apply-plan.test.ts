@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
-import { instructionsAction, isDamaged, overallAction, SELF_WRITE, type PlanAction } from "../src/domain/apply-plan.ts";
+import { instructionsAction, overallAction, SELF_WRITE, truncatedFrom, type PlanAction } from "../src/domain/apply-plan.ts";
 import { Failure } from "../src/domain/failure.ts";
 import { SELF_APPLY_GRANT, type InstructionsCatalogue } from "../src/domain/instructions.ts";
 import type { RoutineOffer, TemplateRoutine } from "../src/domain/routines.ts";
@@ -46,6 +46,14 @@ const grantingCatalogue: InstructionsCatalogue = {
   known: [...catalogue.known, { version: 3, ...fingerprintOf(granting) }],
   grants: { ...catalogue.grants, [SELF_APPLY_GRANT]: "Apply a verified release to itself." },
   versions: [...catalogue.versions, { version: 3, text: granting, grants: ["pages", "updates", SELF_APPLY_GRANT], reasons: {} }],
+};
+
+const ruleFirst = `Instructions version: 3\n\nKeep private data local.\n${RULE}\nUse Pages.\nAnswer briefly.\n`;
+const ruleFirstCatalogue: InstructionsCatalogue = {
+  ...grantingCatalogue,
+  text: ruleFirst,
+  known: [...catalogue.known, { version: 3, ...fingerprintOf(ruleFirst) }],
+  versions: [...catalogue.versions, { version: 3, text: ruleFirst, grants: ["pages", "updates", SELF_APPLY_GRANT], reasons: {} }],
 };
 
 const planner = (t: TestContext, known: InstructionsCatalogue = catalogue): ((given: Given) => ApplyPlan) => {
@@ -168,23 +176,85 @@ test("selfApply is granted only by the bot's own text: a published text with the
   assert.equal(planner(t)({ current: published }).selfApply, "not granted", "a catalogue whose texts never grant it never reports it");
 });
 
-test("a text that says the present version and only lost published lines is damaged, and is repaired with the complete published text", (t) => {
+test("damage is truncation, not deletion: a text cut off before the end of a published text is repaired with the complete published text, and a line deleted in the middle is a kept local change", (t) => {
   const plan = planner(t, grantingCatalogue);
-  const lines = granting.split("\n");
-  for (const [name, damaged] of [["a cut at a line end", `${lines.slice(0, 4).join("\n")}\n`], ["a cut inside a line", granting.slice(0, granting.indexOf("Use Pages.") + 5)], ["a line lost in the middle", granting.replace("Use Pages.\n", "")]] as const) {
-    const repair = plan({ current: damaged });
-    assert.deepEqual([repair.action, repair.instructions.action, repair.instructions.current.state, repair.instructions.planned?.source, repair.instructions.planned?.text], ["apply", "apply", "custom", "published", granting], name);
-    assert(repair.reasons.some((reason) => /^instructions-damaged: .*The complete published version 3 text is applied to repair them\.$/.test(reason)), name);
-    assert.equal(repair.previous.archiveFirst, false);
+  const repairing = planner(t, ruleFirstCatalogue);
+  const lines = ruleFirst.split("\n");
+  for (const [name, damaged] of [["a cut at a line end", `${lines.slice(0, 5).join("\n")}\n`], ["a cut inside the last line", ruleFirst.slice(0, ruleFirst.indexOf("Answer briefly.") + 8)], ["a cut with other spacing", `${lines.slice(0, 5).join("  \r\n")}  \r\n\r\n`]] as const) {
+    const repair = repairing({ current: damaged });
+    assert.deepEqual([repair.action, repair.instructions.action, repair.selfApply, repair.instructions.current.state, repair.instructions.planned?.source, repair.instructions.planned?.text, repair.instructions.damagedFrom], ["apply", "apply", "granted", "custom", "published", ruleFirst, 3], name);
+    assert.deepEqual(repair.reasons, ["instructions-damaged: The instructions are the published version 3 text cut off before its end, as after a truncated or partial write, so limits that text states are missing. The complete published version 3 text is applied to repair them."], name);
+    assert.deepEqual([repair.previous.archiveFirst, repair.merge.state], [false, "not needed"]);
   }
   const lostTheRule = plan({ current: granting.slice(0, granting.indexOf(RULE)) });
-  assert.deepEqual([lostTheRule.action, lostTheRule.selfApply], ["apply", "not granted"], "a text that lost the rule itself is still planned, and the owner is told, because what is left does not grant the write");
-  const keptTheRule = plan({ current: granting.replace("Use Pages.\n", "") });
-  assert.equal(keptTheRule.selfApply, "granted");
+  assert.deepEqual([lostTheRule.action, lostTheRule.selfApply, lostTheRule.instructions.damagedFrom, lostTheRule.instructions.planned?.text], ["apply", "not granted", 3, granting], "a text that lost the rule itself is still planned, for the owner to read");
+  assert.equal(lostTheRule.reasons.length, 1, "a damaged text is not sent down the proposal path: there is no self-apply-not-granted reason");
+  assert.match(lostTheRule.reasons[0] ?? "", /^instructions-damaged: The instructions are the published version 3 text cut off before its end, .* This bot may not repair them itself, and nothing may be written\. Tell the owner plainly, in this bot's own chat, that the instructions are damaged, on every daily run until they are repaired, with the kept previous text and the complete published version 3 text in a Page for the owner to set\. This is not the "Proposed instructions" proposal\.$/);
+
+  const deleted = plan({ current: granting.replace("Use Pages.\n", "") });
+  assert.deepEqual([deleted.action, deleted.selfApply, deleted.instructions.planned, deleted.instructions.damagedFrom, deleted.merge.localChangesKept.length], ["no-change", "granted", null, null, 1], "a published line the owner deleted is a local change that is kept, never damage");
+  assert.match(deleted.reasons[0] ?? "", /^instructions-custom: The instructions are the version 3 text with 1 local change, which are kept\.$/);
+  const earlierDeleted = `${published.replace("Use Pages.\n", "")}`;
+  const dayOne = plan({ current: earlierDeleted });
+  assert.deepEqual([dayOne.action, dayOne.instructions.planned?.source, dayOne.merge.localChangesKept.length, dayOne.instructions.damagedFrom], ["apply", "merged", 1, null], "day 1: a hand-changed earlier text is merged and keeps the deletion");
+  const dayTwo = plan({ current: dayOne.instructions.planned?.text ?? "" });
+  assert.deepEqual([dayTwo.action, dayTwo.instructions.planned, dayTwo.instructions.damagedFrom], ["no-change", null, null], "day 2: the merged text is still a kept local change, not damage");
   const changed = plan({ current: `${granting.replace("Use Pages.\n", "")}Answer in short sentences.\n` });
-  assert.deepEqual([changed.action, changed.instructions.planned], ["no-change", null], "a text with wording of its own is customised, not damaged, and is kept");
-  assert.equal(isDamaged({ state: "custom", problem: "instructions-custom", current: 2, template: 3, match: null }, "merged", [{ startLine: 4, endLine: 4, before: "Use Pages.", after: "" }]), false, "a text built on an earlier version goes through the merge");
-  assert.equal(isDamaged({ state: "custom", problem: "instructions-custom", current: 3, template: 3, match: null }, "merged", []), false);
+  assert.deepEqual([changed.action, changed.instructions.planned], ["no-change", null], "a text with wording of its own is kept");
+
+  const older = plan({ current: published.slice(0, published.indexOf("Answer briefly.") + 6) });
+  assert.deepEqual([older.action, older.instructions.damagedFrom, older.instructions.planned?.source, older.merge.state, older.selfApply], ["apply", 2, "published", "not needed", "not granted"], "a cut-off earlier published text is damage too: it is not merged with its missing end counted as a local change");
+  assert.match(older.reasons[0] ?? "", /^instructions-damaged: The instructions are the published version 2 text cut off before its end/);
+
+  const held = repairing({ current: `${lines.slice(0, 5).join("\n")}\n`, state: JSON.stringify({ restoredOver: { version: 3, sha256: sha256Of(ruleFirst) } }) });
+  assert.deepEqual([held.action, held.instructions.restoredOver, held.instructions.planned?.text], ["apply", null, ruleFirst], "a damaged text is repaired even when a restore over this same published text is recorded");
+
+  const custom = { state: "custom", problem: "instructions-custom", current: 3, template: 3, match: null } as const;
+  const texts = [{ version: 2, folded: "Instructions version: 2\nA\nB" }, { version: 3, folded: "Instructions version: 3\nA\nB\nC" }];
+  assert.deepEqual(truncatedFrom(custom, "Instructions version: 3\nA\nB", texts), { version: 3 });
+  assert.deepEqual(truncatedFrom(custom, "Instructions version: 3\nA\nB\n", texts), { version: 3 }, "a cut inside the last line or at a line end");
+  assert.equal(truncatedFrom(custom, "Instructions version: 3\nA\nC", texts), null, "an interior deletion is not a prefix");
+  assert.equal(truncatedFrom(custom, "Instructions version: 3\nA\nB\nC", texts), null, "the whole text is not a proper prefix");
+  assert.equal(truncatedFrom({ ...custom, current: null }, "Instr", texts), null, "a text without a version line is not classified as a cut-off published text");
+  assert.equal(truncatedFrom({ state: "current", problem: null, current: 3, template: 3, match: "exact" }, "Instructions version: 3\nA", texts), null);
+});
+
+test("a failed apply is held: the same published text is not written again until a later release, the owner asks, or once more after a plain refused call", (t) => {
+  const plan = planner(t, grantingCatalogue);
+  const failedApply = { time: "2026-01-01T07:00:00Z", step: "read-back", kind: "landed-wrong", attempts: 1, version: 3, sha256: sha256Of(granting), previousInPlace: true };
+  const held = plan({ current: granting, state: JSON.stringify({ failedApply }) });
+  assert.equal(held.action, "no-change", "nothing is held when the text is current");
+  assert.equal(held.instructions.failedApply, null);
+  const local = base.replace("Keep private data local.", "Keep private data on this computer.");
+  const again = plan({ current: local, state: JSON.stringify({ failedApply }) });
+  assert.deepEqual([again.action, again.instructions.action, again.instructions.planned, again.permissions, again.instructions.failedApply?.sha256], ["no-change", "no-change", null, null, sha256Of(granting)]);
+  assert.deepEqual(again.reasons, ["failed-apply-held: An earlier write of this same published version 3 text to the instructions failed (landed-wrong), so it is not tried again. A later verified release is applied, and this one when the owner asks for it in this bot's own chat."]);
+  assert.equal(plan({ current: base, state: JSON.stringify({ failedApply }) }).reasons.length, 1, "a no-change plan needs no self-apply reason");
+  const later = plan({ current: local, state: JSON.stringify({ failedApply: { ...failedApply, sha256: sha256Of("an earlier release") } }) });
+  assert.deepEqual([later.instructions.action, later.instructions.failedApply], ["apply", null], "a release with another SHA-256 is applied");
+  assert.equal(plan({ current: local, state: JSON.stringify({ lastAction: "apply" }) }).instructions.action, "apply", "once the owner asked and the entry is removed, it is planned again");
+  const refused = plan({ current: local, state: JSON.stringify({ failedApply: { ...failedApply, kind: "refused" } }) });
+  assert.deepEqual([refused.instructions.action, refused.instructions.failedApply], ["apply", null], "a plain refused call is tried once more");
+  for (const twice of [{ ...failedApply, kind: "refused", attempts: 2 }, { ...failedApply, kind: "blocked" }, { version: 3, sha256: sha256Of(granting) }]) {
+    assert.equal(plan({ current: local, state: JSON.stringify({ failedApply: twice }) }).instructions.action, "no-change", JSON.stringify(twice));
+  }
+
+  const cut = `${ruleFirst.split("\n").slice(0, 5).join("\n")}\n`;
+  const damaged = planner(t, ruleFirstCatalogue)({ current: cut, state: JSON.stringify({ failedApply: { ...failedApply, sha256: sha256Of(ruleFirst) } }) });
+  assert.deepEqual([damaged.action, damaged.selfApply, damaged.instructions.damagedFrom, damaged.instructions.planned], ["no-change", "granted", 3, null], "a damaged text whose repair already failed is not written again");
+  assert.deepEqual(damaged.reasons.map((reason) => reason.split(":")[0]), ["failed-apply-held", "instructions-damaged"]);
+  assert.match(damaged.reasons[1] ?? "", /This bot may not repair them itself, and nothing may be written\. Tell the owner plainly, .* on every daily run until they are repaired/, "the owner is told on every run, because nothing else repairs it");
+
+  const earlier: RoutineOffer = { name: routine.name, schedule: routine.schedule, prompt: earlierPrompt };
+  const routineFailed = { ...failedApply, step: "UpdateRoutine", kind: "blocked", routine: { name: routine.name, sha256: sha256Of(prompt) } };
+  const routines = plan({ current: granting, routines: [earlier], state: JSON.stringify({ failedApply: routineFailed }) });
+  assert.deepEqual([routines.action, routines.routines.routines[0]?.state, routines.routines.routines[0]?.action, routines.routines.routines[0]?.held], ["no-change", "out-of-date", "no-change", true]);
+  assert.match(routines.reasons[1] ?? "", /^failed-apply-held: An earlier write of this same published prompt to the routine ambitious-selfcheck failed, so it is not tried again\./);
+  const otherPrompt = plan({ current: granting, routines: [earlier], state: JSON.stringify({ failedApply: { ...routineFailed, routine: { name: routine.name, sha256: sha256Of("an earlier prompt") } } }) });
+  assert.equal(otherPrompt.routines.routines[0]?.action, "apply", "a release with another prompt is applied");
+  for (const state of [JSON.stringify({ failedApply: "yes" }), JSON.stringify({ failedApply: { version: 3 } }), JSON.stringify({ failedApply: { sha256: sha256Of(granting), routine: { name: routine.name } } })]) {
+    assert.throws(() => plan({ current: local, state }), (error) => error instanceof Failure && error.errors[0].code === "E_INPUT_SCHEMA", state);
+  }
 });
 
 test("a restore sticks: the published text the owner restored over is not planned again, a later release is, and an unreadable state stops the plan", (t) => {
