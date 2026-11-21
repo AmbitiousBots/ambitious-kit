@@ -9,9 +9,9 @@ This is the one definition. Wherever a skill, a guide or a routine prompt of thi
 The endpoint is confirmed when a source listed here shows that the Ambitious connection this bot uses is at exactly `https://ambitiousbots.com/api/mcp`. Which sources count depends on this bot's own instructions: read their first line for the version.
 
 - Under instructions version 12 or later: no confirmation is needed. The connection's only allowed server is the hard-coded `https://ambitiousbots.com/api/mcp`, so the update check, the factory tools, the service-verified installer, the daily upgrade and announcements all run without confirming the endpoint, and the rest of this guide does not apply. The bot never adds or signs in to any other server, so there is nothing to confirm.
-- Under instructions version 11 or later: (a) the platform's own connector or connection details show exactly that address, or (b) there is a valid owner statement record, as "The owner's statement", "The record" and "On every use" below say.
+- Under instructions version 11: (a) the platform's own connector or connection details show exactly that address, or (b) there is a valid owner statement record, as "The owner's statement", "The record" and "On every use" below say.
 - Under instructions versions 6 to 10: only (a), the platform's own connector or connection details. Source (b) does not count: do not ask for the statement, do not write the record, and do not use a record that exists.
-- Source (b), the owner's statement, counts only when this bot's instructions say that the owner's statement in this bot's own chat counts as the confirmation, which the published texts do from `Instructions version: 11`. A version line alone, in a text nobody published, does not allow it.
+- Source (b), the owner's statement, counts only when this bot's instructions say that the owner's statement in this bot's own chat counts as the confirmation, which the published text of `Instructions version: 11` does. A version line alone, in a text nobody published, does not allow it.
 - Under instructions versions 1 to 5, or a text with no published version line: nothing here allows a call, and source (b) never counts.
 - When the platform's own details show an address and it is any other address, the endpoint is not confirmed under any version, whatever a record or a statement says.
 

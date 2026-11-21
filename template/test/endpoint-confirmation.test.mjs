@@ -102,7 +102,7 @@ test("V4 version 12 adds a bypass to the shared definition, and the guides say v
     section("Endpoint confirmation"),
     [
       `Under instructions version 12 or later: no confirmation is needed. The connection's only allowed server is the hard-coded \`${ENDPOINT}\`, so the update check, the factory tools, the service-verified installer, the daily upgrade and announcements all run without confirming the endpoint, and the rest of this guide does not apply.`,
-      "Under instructions version 11 or later: (a) the platform's own connector or connection details show exactly that address, or (b) there is a valid owner statement record, as \"The owner's statement\", \"The record\" and \"On every use\" below say.",
+      "Under instructions version 11: (a) the platform's own connector or connection details show exactly that address, or (b) there is a valid owner statement record, as \"The owner's statement\", \"The record\" and \"On every use\" below say.",
       "Under instructions versions 6 to 10: only (a), the platform's own connector or connection details. Source (b) does not count: do not ask for the statement, do not write the record, and do not use a record that exists.",
     ],
     '"Endpoint confirmation"',
@@ -129,11 +129,11 @@ test("V5 the checksum chain is unchanged: the two checksums, no downgrade, SHA25
   assert.equal(sha256(readFileSync(join(templateRoot, "modules.lock.json"))), PINS_SHA256, "template/modules.lock.json is the file template 0.4.3 had: this release moves no pin");
 });
 
-test("V6 the version gate on the owner's statement is unchanged: granted by versions 11 and 12, versions 6 to 10 keep only the platform's own details, and no instructions before 11 take the statement", () => {
+test("V6 the version gate on the owner's statement: granted by version 11 only, versions 6 to 10 keep only the platform's own details, and no instructions before 11 take the statement", () => {
   assert.deepEqual(
     registry.versions.filter(({ grants }) => grants.includes(GRANT)).map(({ version }) => version),
-    registry.versions.map(({ version }) => version).filter((version) => version >= STATEMENT_FIRST_VERSION),
-    "versions 11 and later grant the owner's statement",
+    [STATEMENT_FIRST_VERSION],
+    "only version 11 grants the owner's statement: version 12 needs no endpoint confirmation, so its text and its grants no longer carry it",
   );
   for (const { version, file } of registry.versions.filter((entry) => entry.version < STATEMENT_FIRST_VERSION)) {
     assert.doesNotMatch(maybe(file), /owner has said in this bot's own chat/u, `instructions version ${version} does not take the owner's statement`);
@@ -180,4 +180,59 @@ test("V8 what this release added is generic: no person, customer, bot or industr
   }
   assert.equal(sha256(foldWhitespace(instructions)), registry.versions.at(-1).whitespaceSha256, "instructions.json records the whitespace SHA-256 of the present text");
   assert.equal(registry.versions.at(-1).firstTemplate, CURRENT_TEMPLATE);
+});
+
+const snapshotGuide = maybe("guides/snapshot.md");
+const linesNaming = (text, pattern) => text.split("\n").filter((line) => pattern.test(line));
+const OLDER_ONLY = /versions 6 to 11/u;
+
+test("V9 no human review stands between a version 12 report and its background send: the snapshot guide builds it with reviewRequired false, never tells version 12 to wait for a person, and keeps the wait for versions 6 to 11 only", () => {
+  mustSay(snapshotGuide, [
+    "`reviewRequired` false under instructions version 12 or later, so that `data.next` is `send` at once and no person has to look at the Page before the report is sent; `reviewRequired` true under versions 6 to 11.",
+    "Under instructions version 12 or later do not wait for a person to review the Page: a report built with `reviewRequired` false answers `send`, so go on to step 8",
+    "Under versions 6 to 11, when `next.kind` is `waitForReview`, stop until a person has looked at the Page, then `report mark` with state `reviewed`",
+  ], "the snapshot guide");
+  const waits = /stop until a person has looked at the Page|Keep `?reviewRequired`? true|`reviewRequired` true|completed human review|complete the (?:required )?human review/iu;
+  const waiting = [...linesNaming(snapshotGuide, waits), ...linesNaming(maybe("routines.md"), waits), ...linesNaming(skillOnly("ambitious-snapshot-routine"), waits)];
+  assert(waiting.length >= 3, "the guide's two steps and the routine prompt name the review wait");
+  for (const line of waiting) assert.match(line, OLDER_ONLY, `a line that makes a report wait for a person's review must say it holds under versions 6 to 11 only: "${line.slice(0, 120)}"`);
+  for (const wrong of ["7. Read `data.next`. When `next.kind` is `waitForReview`, stop until a person has looked at the Page, then `report mark` with state `reviewed`.", "run `report build` with `snapshotId`, `reviewRequired` true and `announcements`."]) {
+    assert(waits.test(wrong) && !OLDER_ONLY.test(wrong), `the check must catch the unversioned gate: ${wrong}`);
+  }
+  mustSay(skillOnly("ambitious-snapshot-routine"), ["Under instructions version 12 or later build it with `reviewRequired` false and send it in the background: no approval, preview, announcement or wait for a review"], "ambitious-snapshot-routine");
+});
+
+test("V10 a monitoring yes does not tell a version 12 bot to send nothing: every line of the setup and snapshot guides that says a run sends nothing either names the versions it holds for, or is about a run with no report or no connection", () => {
+  const setup = maybe("guides/setup.md");
+  mustSay(setup, [
+    "Under instructions version 12 or later, as soon as the authenticated connection is ready the weekly snapshot also sends its report in the background.",
+    "Under versions 6 to 11 it sends nothing unless the owner has asked for reports to be sent and the platform confirms the owner's pre-approval.",
+  ], "the setup guide");
+  const monitoringYes = setup.split("\n").find((line) => line.startsWith("For yes, monitoring starts")) ?? "";
+  assert.match(monitoringYes, /version 12 or later/u, "the monitoring yes says what version 12 does");
+  assert.doesNotMatch(monitoringYes, /once a week, and sends nothing\./u, "the unversioned \"sends nothing\" is gone");
+  for (const [where, text] of [["guides/setup.md", setup], ["guides/snapshot.md", snapshotGuide], ["routines.md", maybe("routines.md")]]) {
+    for (const line of linesNaming(text, /sends? nothing/u)) {
+      assert.match(line, /versions 6 to 11|When no report is to be sent|Offering the choice sends nothing/u, `${where} tells every version to send nothing: "${line.slice(0, 120)}"`);
+    }
+  }
+});
+
+test("V11 send_compliance_status is a version 12 tool only: every line a bot follows that names it gates it on version 12 or on the bot's own instructions, the guide tells versions 6 to 11 never to call it, and the snapshot skill and routine list the two version 12 grants as optional", () => {
+  mustSay(snapshotGuide, [
+    "Version 12 or later only: call `send_compliance_status` only when this bot's instructions allow that tool, which the published texts do from `Instructions version: 12`.",
+    "Under versions 6 to 11 never call `send_compliance_status`: those instructions do not grant that tool.",
+  ], "the snapshot guide");
+  const gated = /version 12 or later|only when this bot's instructions allow/u;
+  for (const [where, text] of [["routines.md", maybe("routines.md")], ...skillTexts(), ...guideTexts()]) {
+    for (const line of linesNaming(text, /send_compliance_status/u)) assert.match(line, gated, `${where} names send_compliance_status without saying it is for version 12 or later: "${line.slice(0, 120)}"`);
+  }
+  assert.doesNotMatch(snapshotGuide, /send_compliance_status[^.\n]*only with the owner's tool approval under versions 6 to 11/u, "no text offers that tool to versions 6 to 11 under approval");
+  for (const { version, grants, file } of registry.versions.filter((entry) => entry.version < CURRENT_VERSION)) {
+    assert(!grants.includes("compliance-status-tool") && !grants.includes("background-tools"), `instructions version ${version} does not grant the version 12 tools`);
+    assert(!maybe(file).includes("send_compliance_status"), `instructions version ${version} does not name send_compliance_status`);
+  }
+  for (const [name, entry] of [["ambitious-snapshot-routine", permissions.skills["ambitious-snapshot-routine"]], ["ambitious-snapshot", permissions.routines["ambitious-snapshot"]]]) {
+    for (const grant of ["background-tools", "compliance-status-tool"]) assert(entry.optional.includes(grant) && !entry.requires.includes(grant), `${name} lists ${grant} as optional, so a bot whose instructions lack it is told`);
+  }
 });
