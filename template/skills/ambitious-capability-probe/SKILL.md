@@ -3,7 +3,7 @@ name: ambitious-capability-probe
 description: For the Ambitious Bot only. Return observed audit visibility. Use before an Ambitious Bot audit or snapshot, and after an account, role, connector or computer change.
 ---
 
-Template version: 0.4.4
+Template version: 0.4.5
 
 # Capability probe
 

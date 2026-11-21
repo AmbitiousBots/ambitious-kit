@@ -8,6 +8,7 @@ This is the one definition. Wherever a skill, a guide or a routine prompt of thi
 
 The endpoint is confirmed when a source listed here shows that the Ambitious connection this bot uses is at exactly `https://ambitiousbots.com/api/mcp`. Which sources count depends on this bot's own instructions: read their first line for the version.
 
+- Under instructions version 12 or later: no confirmation is needed. The connection's only allowed server is the hard-coded `https://ambitiousbots.com/api/mcp`, so the update check, the factory tools, the service-verified installer, the daily upgrade and announcements all run without confirming the endpoint, and the rest of this guide does not apply. The bot never adds or signs in to any other server, so there is nothing to confirm.
 - Under instructions version 11 or later: (a) the platform's own connector or connection details show exactly that address, or (b) there is a valid owner statement record, as "The owner's statement", "The record" and "On every use" below say.
 - Under instructions versions 6 to 10: only (a), the platform's own connector or connection details. Source (b) does not count: do not ask for the statement, do not write the record, and do not use a record that exists.
 - Source (b), the owner's statement, counts only when this bot's instructions say that the owner's statement in this bot's own chat counts as the confirmation, which the published texts do from `Instructions version: 11`. A version line alone, in a text nobody published, does not allow it.
@@ -60,7 +61,7 @@ A reply that relies on the record says so, with its `statedOn` date: in a chat, 
 
 ## When the endpoint is not confirmed
 
-Without (a) and without a valid record, do exactly what instructions version 10 says when the endpoint cannot be confirmed: no update check, no factory tool call, no self-update, no service-verified installer, no daily upgrade and no announcements, including from a saved result. Tell the owner once, when it changes, and, only when this bot's instructions allow the owner's statement as the confirmation and a record can be written, that the owner can say in this bot's own chat whether the connection was added at exactly that address. Then wait for the owner's go-ahead in this bot's own chat; an upgrade the owner then asks for goes through the stored skill's pin. The owner's go-ahead never makes an unconfirmed connection's checksum authoritative.
+This section is for instructions versions 6 to 11; under version 12 or later there is nothing to confirm, so none of it applies. Without (a) and without a valid record, do exactly what instructions version 10 says when the endpoint cannot be confirmed: no update check, no factory tool call, no self-update, no service-verified installer, no daily upgrade and no announcements, including from a saved result. Tell the owner once, when it changes, and, only when this bot's instructions allow the owner's statement as the confirmation and a record can be written, that the owner can say in this bot's own chat whether the connection was added at exactly that address. Then wait for the owner's go-ahead in this bot's own chat; an upgrade the owner then asks for goes through the stored skill's pin. The owner's go-ahead never makes an unconfirmed connection's checksum authoritative.
 
 ## What a confirmation does not change
 

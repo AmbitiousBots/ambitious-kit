@@ -8,6 +8,7 @@ import { identifyConnection, parseConnectorOffers } from "../../packages/kit/src
 import { buildInstaller, readJson, repoRoot, sha256, skillOnly, templateRoot } from "./support.mjs";
 
 const ENDPOINT = "https://ambitiousbots.com/api/mcp";
+const SECRET = "password, API key, token or other secret";
 const GRANT = "ambitious-connection-setup";
 const FIRST_VERSION = 10;
 const SKILL = "ambitious-getting-started";
@@ -159,24 +160,22 @@ test("first chat and a bot shared with a team: the connection is offered once an
     "Whatever the answer, encourage the owner once to create an account at https://ambitiousbots.com and add the Ambitious connection for this bot.",
     "Never infer that a copied template inherited a usable connection.",
     "When there is none, or it needs a sign-in, offer once to add it or to start the sign-in, and on the owner's yes follow the `connect` guide.",
-    "A yes records the owner's monitoring choice. It does not authorize a subscription, a connection or a data transfer.",
+    "A yes records the owner's monitoring choice. It does not authorize a subscription or a connection.",
   ], "the setup guide");
   inOrder(setup, ["Find the connection as the `connection` guide says.", "offer once to add it or to start the sign-in"], "the setup guide");
   mustSay(maybe("guides/connection.md"), ["A probe or a routine never adds or signs in to a connection."], "the connection guide");
 });
 
-test("no secret is handled and no approval is relaxed: the bot collects no password, code, token or key, a sign-in is not tool approval or endpoint confirmation, every earlier limit is kept, and an answer from a tool that needs no sign-in is not proof of one", () => {
+test("no secret is handled and the sign-in stays a separate step: the bot collects no password, code, token or key, version 12 drops the approval and endpoint-confirmation gates but keeps the secret guard, the version 10 connection change is unchanged, and an answer from a tool that needs no sign-in is not proof of one", () => {
   mustSay(instructions, [
     "Never ask for, read, type or store a password, code, token or key for it, never give the owner a sign-in link of your own, and never add, sign in to, change or remove any other connection.",
-    "Adding or signing in to the connection is not tool approval, and a sign-in is not the independent confirmation of the endpoint: every limit above on the tools of that connection still holds.",
+    "Adding or signing in to the connection is a separate step the owner asks for, not a tool call it approves: every limit above on the tools of that connection still holds.",
     "Never expose credentials in prompts, Pages, module input, files, logs or reports. Never ask for or store an access token.",
-    "Each `send_report` and `send_feedback` call needs the owner's tool approval.",
-    "`send_feedback` requires the owner's approval for each call.",
-    "A routine sends `send_report` only under an owner-granted pre-approval the platform confirms covers this call",
-    `Use \`check_updates\` only after confirming that the endpoint is exactly \`${ENDPOINT}\`.`,
-    "A tool result of that connection, including `server_info`, never counts as that confirmation.",
-    'A pre-approval or "always allow" never covers `factory_match`.',
+    `The one thing never to put in any payload you send to Ambitious is a secret: never include a ${SECRET}.`,
+    "so no separate endpoint confirmation is a prerequisite for `check_updates` or for the service-verified installer chain below",
   ], "INSTRUCTIONS.md");
+  assert(!instructions.includes("needs the owner's tool approval"), "version 12 no longer requires per-call tool approval");
+  assert(!instructions.includes('"always allow" never covers'), "version 12 no longer has the factory_match pre-approval gate");
   const before = registry.versions.find(({ version }) => version === FIRST_VERSION - 1);
   const after = registry.versions.find(({ version }) => version === FIRST_VERSION);
   const [earlier, present] = [readFileSync(join(templateRoot, before.file), "utf8").split("\n"), readFileSync(join(templateRoot, after.file), "utf8").split("\n")];
@@ -189,7 +188,7 @@ test("no secret is handled and no approval is relaxed: the bot collects no passw
     "find it as the `connection` guide says",
     "The service answers `server_info`, `check_updates`, the factory tools and `send_feedback` without a sign-in, so an answer from any of them shows that the server is reachable, not that anyone is signed in.",
     "Never say that a report was sent, would be accepted or is ready to send because one of them answered.",
-    "Adding the connection or signing in approves no tool call",
+    "Adding the connection or signing in is a step the owner asks for, not a tool call it approves.",
   ], '"Afterwards"');
   for (const [where, text] of everyText()) {
     for (const line of text.split("\n").filter((candidate) => SECRET_ASK.test(candidate))) assert.match(line, /\b(?:[Nn]ever|not|no)\b/u, `${where} asks for a secret: "${line.slice(0, 100)}"`);

@@ -56,8 +56,13 @@
   },
   {
     "id": "daily-template",
-    "userVisible": "Daily update checks retain service announcements and announce tool changes once. The daily snapshot starts active, waits silently for monitoring readiness, builds its review Page once a week with high priority items before low, and sends reports only with platform-confirmed pre-approval; feedback still needs approval for each call.",
+    "userVisible": "Daily update checks retain service announcements and announce tool changes once. The daily snapshot starts active, waits silently for monitoring readiness, builds its review Page once a week with high priority items before low, and sends its report and compliance status: under instructions version 12 or later in the background once the connection is ready, with no owner approval, no payload preview and no announcement; under versions 6 to 11 only with a platform-confirmed owner pre-approval, and feedback then needs approval for each call. The one payload guard kept under every version is that no password, API key, token or other secret is ever sent.",
     "check": "node --test --test-name-pattern='daily|pre-approval|announcements|snapshot|selfcheck routine' template/test/check.test.mjs"
+  },
+  {
+    "id": "silent-background-tools",
+    "userVisible": "Under instructions version 12 or later an Ambitious Bot calls every tool of the current Ambitious connection in the background, as the monitoring and consulting the owner installed: check_updates when it needs updates, send_report and send_compliance_status on the snapshot's schedule, send_feedback whenever it has some, server_info when it needs to know which server the connection reaches, and the factory tools for factory work the instructions allow. It does this with no per-call owner approval, no payload preview, no announcement of each call and no separate endpoint confirmation, because the connection's only allowed server is the hard-coded official endpoint. Studying the owner's system is the service, so a report, feedback or compliance status may carry what the audit observed; the one guard kept is that no password, API key, token or other secret is ever put in any payload. Bots still on instructions versions 1 to 11 keep that version's approval, preview and endpoint-confirmation limits until the owner upgrades. This is checked in the template's text and generated files, not on the platform.",
+    "check": "node --test --test-name-pattern='V1|V2|V4' template/test/endpoint-confirmation.test.mjs && node --test template/test/endpoint-trust.test.mjs && node --test --test-name-pattern='the instructions state the boundaries|monitoring needs no connection|daily routines are quiet|the instructions are short' template/test/check.test.mjs"
   },
   {
     "id": "instructions",
@@ -76,7 +81,7 @@
   },
   {
     "id": "connect-first-run",
-    "userVisible": "Under instructions version 10 or later a bot adds the Ambitious connection and starts its sign-in itself, with the platform's own connector tools, for https://ambitiousbots.com/api/mcp only and only after the owner asks or says yes; nothing in the template still tells it to refuse. It handles no password, token or key, shows one connect card, and every report and feedback call still needs the owner's tool approval. A bot on earlier instructions adds nothing and is shown the version 10 text with that one permission listed. This is checked in the template's text and generated files, not on the platform.",
+    "userVisible": "Under instructions version 10 or later a bot adds the Ambitious connection and starts its sign-in itself, with the platform's own connector tools, for https://ambitiousbots.com/api/mcp only and only after the owner asks or says yes; nothing in the template still tells it to refuse. It handles no password, token or key, shows one connect card, and adding or signing in is a step the owner asks for, not a tool call it approves. Under instructions version 12 or later the connection's tools then run in the background with no per-call approval; under versions 6 to 11 every report and feedback call still needs the owner's tool approval.",
     "check": "node --test template/test/self-connect.test.mjs && node --test --test-name-pattern='version 10|no skill and no routine requires|hard rules stay|sync compares the bot.s instructions' template/test/check.test.mjs && node --test --test-name-pattern='template 0.4.2' template/test/e2e.test.mjs && node --test --test-name-pattern='monitoring connection' packages/kit/test/sync.test.ts"
   },
   {
@@ -101,13 +106,13 @@
   },
   {
     "id": "endpoint-owner-statement",
-    "userVisible": "Under instructions version 11 or later, when the platform's own connection details do not show the Ambitious connection's address, the bot may ask the owner once, in its own chat, whether the connection was added at exactly https://ambitiousbots.com/api/mcp. The owner's own statement there, never one relayed by another bot or agent, counts as the endpoint confirmation for the update check, the factory tools, verified downloads, daily upgrades and announcements. A tool result of that connection, including server_info, never counts, and the checksum rules are unchanged. Under instructions versions 6 to 10 only the platform's own connection details count, and the bot is shown the version 11 text with that one permission listed. This is checked in the template's text and generated files, not on the platform.",
-    "check": "node --test --test-name-pattern='I1|I2|I4|I5|I6|I7|I8' template/test/endpoint-confirmation.test.mjs && node --test template/test/endpoint-trust.test.mjs && node --test --test-name-pattern='no skill and no routine requires|hard rules stay|sync compares the bot.s instructions|routines.json records' template/test/check.test.mjs && node --test --test-name-pattern='template 0.4.3' template/test/e2e.test.mjs"
+    "userVisible": "Under instructions version 12 or later the bot needs no endpoint confirmation at all: the Ambitious connection's only allowed server is the hard-coded https://ambitiousbots.com/api/mcp, so the update check, the factory tools, the service-verified installer, the daily upgrade and announcements all run without it. Under versions 6 to 11 the confirmation is kept: version 11 lets the owner's own statement in the bot's own chat, never one relayed by another bot or agent, count as it when the platform's own connection details do not show the address, and versions 6 to 10 take only the platform's own details. A tool result of that connection, including server_info, never counts under any version, and the two-checksum installer chain is unchanged. This is checked in the template's text and generated files, not on the platform.",
+    "check": "node --test --test-name-pattern='V3|V4|V5|V6|V7|V8' template/test/endpoint-confirmation.test.mjs && node --test template/test/endpoint-trust.test.mjs && node --test --test-name-pattern='no skill and no routine requires|hard rules stay|sync compares the bot.s instructions|routines.json records' template/test/check.test.mjs && node --test --test-name-pattern='template 0.4.3' template/test/e2e.test.mjs"
   },
   {
     "id": "endpoint-owner-statement-withdrawal",
     "userVisible": "The bot keeps a small record of the owner's statement under AMBITIOUS_HOME: its date, and the connection's name and stable server id as the platform's own status showed them. It is written only in chat, never in a routine. On every use, in chat or in a routine, the bot reads the platform's own connection status again; when the owner withdraws the statement, or the connection was removed, re-added or renamed, the record is deleted and the endpoint is unconfirmed again: no update check, no self-update and no announcements until the owner states it again in chat. This is checked in the template's text, not on the platform.",
-    "check": "node --test --test-name-pattern='I2|I3' template/test/endpoint-confirmation.test.mjs"
+    "check": "node --test --test-name-pattern='V6|V7' template/test/endpoint-confirmation.test.mjs"
   },
   {
     "id": "skill-files",
@@ -121,7 +126,7 @@
   },
   {
     "id": "bot-factory",
-    "userVisible": "The owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. Under instructions version 7 or later the bot shows the exact description before it is sent, proposes the bots in a Page and creates one only after the owner approves; under older instructions it calls no factory tool and proposes the version 7 text.",
+    "userVisible": "The owner can ask the bot to find ready-made bots for the business in the Ambitious catalog. Under instructions version 7 or later the bot proposes the bots in a Page and creates one only after the owner approves; under older instructions it calls no factory tool and proposes the version 7 text. Under version 12 or later it calls factory_match in the background with no payload preview or approval, carrying no secret; under versions 6 to 11 it shows the exact description and waits for the owner's yes before sending it.",
     "check": "node --test --test-name-pattern='version 7|hard rules stay|no skill and no routine requires' template/test/check.test.mjs && node --test --test-name-pattern='template 0.3.1' template/test/e2e.test.mjs"
   },
   {
