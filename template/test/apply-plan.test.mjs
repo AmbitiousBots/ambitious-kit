@@ -399,7 +399,8 @@ test("no text a bot follows tells it to apply a release when its own instruction
   assert(section("When").includes("There is no other source for the checksum: never compute it yourself from a file."), "versions 1 to 5 have no self-computed checksum path");
   assert(section("What is trusted").includes("`trust.suppliedChecksum` says only that the file has the checksum it was given") && section("What is trusted").includes("The check the command enforces itself is `trust.release`, which must be `exact`"), "the guide says which half of the check is procedural");
   const notes = text(join("..", "README.md")).split("\n### 0.4.6\n")[1].split("\n### ")[0];
-  for (const required of ["going forward under instructions version 13", "A bot whose stored instructions are version 1 to 12 does not apply version 13 to itself", 'puts the version 13 text and its permissions statement in the one "Proposed instructions" Page', "tells the owner once that setting version 13 turns on automatic updates"]) assert(notes.includes(required), `the 0.4.6 release notes must say: ${required}`);
+  for (const required of ["going forward under instructions version 13", "A bot whose stored instructions are version 1 to 12 does not apply version 13 to itself", 'puts the version 13 text and its permissions statement in the one "Proposed instructions" Page', "tells the owner once that setting version 13 turns on automatic updates", "A published text cut off before its end is repaired with the complete published text; a line deleted in the middle is local wording and is kept.", "`failed-apply-held`", "tells the owner on every daily run that its instructions are damaged"]) assert(notes.includes(required), `the 0.4.6 release notes must say: ${required}`);
+  assert.doesNotMatch(notes, /only lost published lines|lost published lines is repaired/u, "the 0.4.6 release notes must not state the rejected rule that any text missing published lines is repaired: only a cut-off end is damage");
 
   const { plan } = fixture(t);
   assert.equal(applied(plan({ ours: present })).selfApply, "granted");
@@ -472,6 +473,21 @@ test("a truncated version 13 text is planned as a repair with the complete publi
   assert(guideText("daily-update").includes("Damaged instructions are the one exception: while the plan reports `data.instructions.damagedFrom`, tell the owner on every run"), "the daily routine's quiet rule does not silence damage");
   assert(skillOnly("ambitious-module-installer").includes("A failed write, or one automatic review blocked, is a failed apply: report it, never work around it."), "the stored skill, which is in front of the bot, says that a write automatic review blocked is a failed apply");
   assert(templateRoutines[0].prompt.includes("Report a failed or blocked write; never work around it."));
+});
+
+test("the stored selfcheck prompt and installer skill do not make a once-only proposal the only outcome when the apply is not granted: damaged instructions are told to the owner every day, as the guide says", () => {
+  const prompt = templateRoutines[0].prompt;
+  const rule = skillOnly("ambitious-module-installer").split("\n").find((line) => line.startsWith("- Change instructions and routine prompts only when"));
+  const NOT_GRANTED = "Otherwise write nothing; tell the owner as the guide says, daily if damaged.";
+  for (const [name, stored] of [["the selfcheck prompt", prompt], ["the installer skill's hard rule", rule]]) {
+    assert(stored.includes(NOT_GRANTED), `${name} must say, for a bot whose instructions do not grant the apply: ${NOT_GRANTED}`);
+    assert(stored.indexOf("`selfApply: granted`") < stored.indexOf(NOT_GRANTED) && stored.indexOf("`guide auto-update`") < stored.indexOf(NOT_GRANTED), `${name}: "the guide" is the auto-update guide named before it, after the gate`);
+    assert.doesNotMatch(stored, /propose the text in a Page|Otherwise[^.]*\bonce\b/u, `${name} must not give the once-only proposal as what a bot without the grant does: a bot with damaged instructions is in that case too`);
+  }
+  assert.match(prompt, /Do not repeat an unchanged update, tool notice, announcement or waiting state, except damage\./u, "the prompt's rule against repeating has the damage exception");
+  assert.doesNotMatch(prompt, /waiting state\.(?:\n|$)/u, "the rule against repeating is never left without its exception");
+  const guide = guideText("auto-update");
+  assert(guide.includes("Say this on every daily run until `damagedFrom` is `null` again") && guide.includes("Do not tell the owner again until a later instructions version is published or the owner asks."), "the guide the stored texts defer to holds both rules: damage daily, the proposal once");
 });
 
 test("the version 13 text itself allows the rollback: a write that reads back as neither text is undone with the kept previous text, and the hard limit on self-change names it", () => {
