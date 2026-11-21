@@ -15,9 +15,7 @@
         "account-read-tools",
         "pages"
       ],
-      "optional": [
-        "owner-confirmed-endpoint"
-      ],
+      "optional": [],
       "rulesOut": []
     },
     "ambitious-capability-probe": {
@@ -58,8 +56,7 @@
         "factory-tools",
         "factory-description",
         "factory-pages",
-        "owner-approved-bots",
-        "owner-confirmed-endpoint"
+        "owner-approved-bots"
       ],
       "rulesOut": []
     },
@@ -138,7 +135,8 @@
       ],
       "optional": [
         "active-snapshot",
-        "owner-confirmed-endpoint"
+        "background-tools",
+        "compliance-status-tool"
       ],
       "rulesOut": []
     },
@@ -202,7 +200,9 @@
         "feedback-tool"
       ],
       "optional": [
-        "active-snapshot"
+        "active-snapshot",
+        "background-tools",
+        "compliance-status-tool"
       ],
       "rulesOut": []
     },
