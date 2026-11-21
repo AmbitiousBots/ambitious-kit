@@ -1,5 +1,5 @@
 import { isRecord } from "./json.ts";
-import { matchOf, type Fingerprint, type TextMatch } from "./whitespace.ts";
+import { foldWhitespace, matchOf, type Fingerprint, type TextMatch } from "./whitespace.ts";
 
 export type KnownInstructions = Fingerprint & { readonly version: number };
 
@@ -35,11 +35,15 @@ export type PermissionChange = {
 
 export type UpgradeAuthority = "any request" | "the owner's request";
 
+export type SelfApply = "granted" | "not granted";
+
 export type NewerTemplate = { readonly own: string; readonly latest: string };
 
 export const UPGRADE_GRANT = "upgrade-on-any-request";
 
-export const ADDITIONAL_PERMISSIONS = "Pasting this text gives the bot these additional permissions:";
+export const SELF_APPLY_GRANT = "verified-self-apply";
+
+export const ADDITIONAL_PERMISSIONS = "Applying this text gives the bot these additional permissions:";
 
 const VERSION_LINE = /^Instructions version: ([1-9][0-9]*)(?:\n|$)/;
 const SHA256 = /^[0-9a-f]{64}$/;
@@ -72,6 +76,24 @@ export const upgradeAuthority = (finding: InstructionsFinding, { versions }: Ins
   return published?.grants.includes(UPGRADE_GRANT) === true ? "any request" : "the owner's request";
 };
 
+const ruleLinesOf = (finding: InstructionsFinding, { version, text, versions }: InstructionsCatalogue): readonly string[] => {
+  const base = versions.find((entry) => entry.version === finding.current);
+  if (base?.grants.includes(SELF_APPLY_GRANT) !== true) return [];
+  const before = versions.filter((entry) => entry.version < base.version && !entry.grants.includes(SELF_APPLY_GRANT)).sort((a, b) => a.version - b.version).at(-1);
+  const granting = base.text ?? (base.version === version ? text : undefined);
+  if (before?.text === undefined || granting === undefined) return [];
+  const earlier = new Set(foldWhitespace(before.text).split("\n"));
+  return foldWhitespace(granting).split("\n").slice(1).filter((line) => !earlier.has(line));
+};
+
+export const selfApplyAuthority = (finding: InstructionsFinding, folded: string, catalogue: InstructionsCatalogue): SelfApply => {
+  if (finding.match !== null) return catalogue.versions.find((entry) => entry.version === finding.current)?.grants.includes(SELF_APPLY_GRANT) === true ? "granted" : "not granted";
+  if (finding.state !== "custom") return "not granted";
+  const rule = ruleLinesOf(finding, catalogue);
+  const present = new Set(folded.split("\n"));
+  return rule.length > 0 && rule.every((line) => present.has(line)) ? "granted" : "not granted";
+};
+
 const numbered = (permissions: readonly Permission[]): string => permissions.map(({ permission }, index) => `(${index + 1}) ${permission}`).join(" ");
 
 const statementOf = (comparedWith: PermissionChange["comparedWith"], added: readonly Permission[], removed: readonly Permission[]): string => {
@@ -81,8 +103,8 @@ const statementOf = (comparedWith: PermissionChange["comparedWith"], added: read
       : "This bot's present instructions are not a text this template published, so what they allow cannot be compared; the comparison is with the oldest instructions text still supported. ";
   const takesAway = removed.length === 0 ? "" : ` It takes away these permissions: ${numbered(removed)}`;
   if (added.length > 0) return `${basis}${ADDITIONAL_PERMISSIONS} ${numbered(added)}${takesAway}`;
-  if (removed.length > 0) return `${basis}Pasting this text gives the bot no additional permissions.${takesAway}`;
-  return `${basis}Pasting this text gives the bot no additional permissions and takes none away: it allows the same things as ${comparedWith}.`;
+  if (removed.length > 0) return `${basis}Applying this text gives the bot no additional permissions.${takesAway}`;
+  return `${basis}Applying this text gives the bot no additional permissions and takes none away: it allows the same things as ${comparedWith}.`;
 };
 
 export const permissionChange = (finding: InstructionsFinding, { version, oldestSupported, grants, versions }: InstructionsCatalogue): PermissionChange | null => {
@@ -102,7 +124,7 @@ export const permissionChange = (finding: InstructionsFinding, { version, oldest
 
 export const instructionsMessage = (finding: InstructionsFinding, proposed: string, change: PermissionChange | null, newer: NewerTemplate | null): string | null => {
   const { current, template } = finding;
-  const unchanged = "Nothing was changed: only the owner can replace a bot's instructions, and doing so is the owner's choice.";
+  const unchanged = "This check changed nothing: the update that the auto-update guide describes applies the template's text only when this bot's instructions allow it, and otherwise proposes it to the owner.";
   const permissions = change === null ? "" : ` ${change.statement}`;
   const behind =
     newer === null
@@ -117,7 +139,7 @@ export const instructionsMessage = (finding: InstructionsFinding, proposed: stri
       return `instructions-custom: This bot's instructions say version ${template}, the template's version, but their text is not the template's. They were left as they are.`;
     }
     const have = current === null ? "carry no version line" : `say version ${current}`;
-    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}.${behind} They were left as they are, so that nothing the owner wrote is lost. ${unchanged}${permissions}`;
+    return `instructions-custom: This bot's instructions are not a text this template published; they ${have}, and this template's are version ${template}. The template's text is in ${proposed}.${behind} ${unchanged}${permissions}`;
   }
   if (finding.state === "newer") {
     return `This bot's instructions say version ${current}, which is newer than version ${template} that this installer knows. They were left as they are. Update the bot's skills to the template those instructions came from.`;

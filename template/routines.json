@@ -1,17 +1,28 @@
 {
   "ambitious-selfcheck": {
     "current": {
-      "firstTemplate": "0.4.5",
-      "whitespaceSha256": "46827b41bbcc7f85241cc5489ce021854c252bf0161a9e46c88288aed2435b40",
+      "firstTemplate": "0.4.6",
+      "whitespaceSha256": "f1b74f91df36f142084771624ec9f11e98b0ffb831b5f6d834051c51b2412639",
       "variants": [
         {
-          "template": "0.4.5",
-          "whitespaceSha256": "d583a2a4b617fe45e497d9111e34014722fb4a3dae0383cf0002c26fc2b69b0b",
+          "template": "0.4.6",
+          "whitespaceSha256": "700faf40fd189173cca23a152abacbbb6c011a75959956bbc1e5600e43c44e73",
           "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
         }
       ]
     },
     "earlier": [
+      {
+        "firstTemplate": "0.4.5",
+        "whitespaceSha256": "46827b41bbcc7f85241cc5489ce021854c252bf0161a9e46c88288aed2435b40",
+        "variants": [
+          {
+            "template": "0.4.5",
+            "whitespaceSha256": "d583a2a4b617fe45e497d9111e34014722fb4a3dae0383cf0002c26fc2b69b0b",
+            "difference": "Ends with the added line \"Destination: the run's reply, in this bot's own chat\"."
+          }
+        ]
+      },
       {
         "firstTemplate": "0.4.4",
         "whitespaceSha256": "c97e825b9f6ab6ef54482cdd04a326e7bf55ed711386a3ea5bcd3bcfcea2b07c",

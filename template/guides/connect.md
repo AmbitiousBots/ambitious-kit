@@ -55,6 +55,6 @@ This is the fallback, never the usual way: do not offer it while the platform's 
 
 The permission is granted from `Instructions version: 10`. The texts published before it do not let the bot add a connection: they leave that to the owner. A text the owner wrote may say either.
 
-Under a text that does not grant it, call neither `AddMcpServer` nor `AuthenticateMcpServer`, even when the owner asks: say that this bot's instructions do not let it add the connection, and give the owner the steps of the section above. Then write the "Proposed instructions" Page as the `ambitious-module-installer` skill's `instructions` guide says, because the present text adds this permission; pasting it is the owner's choice.
+Under a text that does not grant it, call neither `AddMcpServer` nor `AuthenticateMcpServer`, even when the owner asks: say that this bot's instructions do not let it add the connection, and give the owner the steps of the section above. The present text adds this permission. Apply it as the `ambitious-module-installer` skill's `auto-update` guide says only when this bot's instructions allow the verified update (published version 13 or later, or a hand-changed text that carries that rule), which no text published before version 13 does; otherwise write the "Proposed instructions" Page as that guide says, and setting it is the owner's choice.
 
 Looking for an existing connection, as the `connection` guide says, is allowed under every version.

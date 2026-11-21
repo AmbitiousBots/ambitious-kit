@@ -3,11 +3,11 @@ name: ambitious-getting-started
 description: For the Ambitious Bot only. Ask three setup questions, schedule the routines in the owner's time zone, check capabilities, write the first audit Page and find or add the Ambitious connection. Use on the Ambitious Bot's first chat and when the owner asks about setup, monitoring, connecting or signing up.
 ---
 
-Template version: 0.4.5
+Template version: 0.4.6
 
 # Getting started
 
-On first chat, run the `ambitious-module-installer` skill's sync command with `--instructions` and `--routines`. Explain any problem without blocking setup, and never change the instructions or a routine yourself.
+On first chat, run the `ambitious-module-installer` skill's sync command with `--instructions` and `--routines`. Explain any problem without blocking setup; they change only as that skill's auto-update guide says, where this bot's instructions allow it.
 
 Follow the setup reference; `guide connection` finds the connection, `guide connect` adds it.
 

@@ -13,7 +13,7 @@ export const proposedRoutineFile = (name: string): string => `routines/${name}.m
 
 export const proposedRoutinePath = (home: string, name: string): string => join(home, "template", proposedRoutineFile(name));
 
-const offersIn = (file: string): ReturnType<typeof parseRoutineOffers> => {
+export const routineOffersIn = (file: string): ReturnType<typeof parseRoutineOffers> => {
   const text = textOfFile(file, "The routines file", ROUTINES_HINT);
   try {
     return parseRoutineOffers(JSON.parse(text));
@@ -25,7 +25,7 @@ const offersIn = (file: string): ReturnType<typeof parseRoutineOffers> => {
 
 export const checkRoutines = (file: string | null, home: string, template: readonly TemplateRoutine[]): RoutinesReport => {
   if (file === null) return { state: "not checked", routines: [], messages: [] };
-  const mine = offersIn(file).map(({ name, schedule, prompt }) => ({ name, schedule, ...fingerprintOf(prompt) }));
+  const mine = routineOffersIn(file).map(({ name, schedule, prompt }) => ({ name, schedule, ...fingerprintOf(prompt) }));
   const routines = template.map((routine) => ({ ...classifyRoutine(routine, mine), proposed: proposedRoutinePath(home, routine.name) }));
   return { state: "checked", routines, messages: routines.flatMap((finding) => routineMessage(finding, finding.proposed) ?? []) };
 };

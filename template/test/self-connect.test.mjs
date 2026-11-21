@@ -125,7 +125,7 @@ test("the owner adding it by hand is the fallback only when a platform tool is n
     `The permission is granted from \`Instructions version: ${FIRST_VERSION}\`.`,
     `call neither \`${ADD}\` nor \`${SIGN_IN}\``,
     "say that this bot's instructions do not let it add the connection",
-    'write the "Proposed instructions" Page',
+    "Apply it as the `ambitious-module-installer` skill's `auto-update` guide says only when this bot's instructions allow the verified update (published version 13 or later, or a hand-changed text that carries that rule), which no text published before version 13 does; otherwise write the \"Proposed instructions\" Page as that guide says, and setting it is the owner's choice.",
   ], '"Older instructions"');
   const elsewhere = guide.replace(fallback, "").replace(older, "");
   assert(!elsewhere.includes("add a custom remote MCP server"), "the by-hand steps appear only in the two fallback sections");
