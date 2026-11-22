@@ -175,6 +175,12 @@ def _is_whole_number(value: object) -> bool:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
+def _same_listing(left: object, right: object) -> bool:
+    return json.dumps(left, sort_keys=True, ensure_ascii=False, separators=(",", ":")) == json.dumps(
+        right, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+    )
+
+
 def _envelope_shape(bench: Bench) -> list[str]:
     home = bench.fresh_home()
     selfcheck = bench.run(["selfcheck", *FIXED], home)
@@ -215,7 +221,7 @@ def _envelope_shape(bench: Bench) -> list[str]:
     if (
         help_listing.envelope is not None
         and help_listing.envelope.get("ok") is True
-        and _field(help_listing.envelope, "data", "commands") != listed
+        and not _same_listing(_field(help_listing.envelope, "data", "commands"), listed)
     ):
         problems.append(
             f"{help_listing.label}: --help with no command must list every command in data.commands "
@@ -238,7 +244,7 @@ def _envelope_shape(bench: Bench) -> list[str]:
         and focused.envelope.get("ok") is True
         and not (
             focused.envelope.get("command") == "selfcheck"
-            and _field(focused.envelope, "data", "commands") == selfcheck_entry
+            and _same_listing(_field(focused.envelope, "data", "commands"), selfcheck_entry)
         )
     ):
         problems.append(

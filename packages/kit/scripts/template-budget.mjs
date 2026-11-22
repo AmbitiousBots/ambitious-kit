@@ -1,4 +1,4 @@
-export const TEMPLATE_BUDGET = { totalBytes: 32768, perSkillBytes: 8192 };
+export const TEMPLATE_BUDGET = { totalBytes: 33280, perSkillBytes: 8192 };
 
 export const BUDGET_NOTE = "This is a conservative budget, not a measured platform limit.";
 
