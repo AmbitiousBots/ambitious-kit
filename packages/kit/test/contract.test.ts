@@ -23,6 +23,10 @@ test("a wrapper that passes everything through unchanged passes, so the broken o
   assert.deepEqual(failing(broken("faithful")), []);
 });
 
+test("a wrapper whose --help answers the same entries with their keys in another order passes, because the contract fixes no key order", () => {
+  assert.deepEqual(failing(broken("help-reorders-keys")), []);
+});
+
 const BROKEN: readonly (readonly [name: string, mustCatch: string, alsoFails: readonly string[]])[] = [
   ["extra-envelope-field", "envelope-shape", ["exit-codes", "now-determinism", "agent-data-refusal", "read-only-analysis", "no-stdout-noise", "listed-shapes"]],
   ["always-exit-zero", "exit-codes", ["agent-data-refusal", "read-only-analysis", "no-stdout-noise", "listed-shapes"]],

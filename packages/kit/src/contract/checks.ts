@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { envelopeProblems, INTERNAL_ERROR_CODES } from "../domain/envelope.ts";
 import { FIELD_TYPES } from "../domain/input-shape.ts";
 import { isRecord } from "../domain/json.ts";
@@ -167,7 +168,7 @@ const envelopeShape = ({ binary, run, freshHome }: Bench): readonly string[] => 
   const created = filesUnder(untouched);
   const selfcheckEntry = Array.isArray(listed) ? listed.filter((entry: unknown) => field(entry, "name") === "selfcheck") : [];
   const describesSelfcheck =
-    focused.envelope?.command === "selfcheck" && JSON.stringify(field(focused.envelope, "data", "commands")) === JSON.stringify(selfcheckEntry);
+    focused.envelope?.command === "selfcheck" && isDeepStrictEqual(field(focused.envelope, "data", "commands"), selfcheckEntry);
   return [
     ...mustSucceed(selfcheck),
     ...(selfcheck.envelope === null ? [] : expectations.filter(([, holds]) => !holds).map(([rule]) => `${selfcheck.label}: ${rule}.`)),
@@ -176,7 +177,7 @@ const envelopeShape = ({ binary, run, freshHome }: Bench): readonly string[] => 
       ? []
       : [`${listing.label}: data.commands must list every command, including selfcheck and commands, each as { name, access, input }.`]),
     ...mustSucceed(help),
-    ...(help.envelope === null || help.envelope.ok !== true || JSON.stringify(field(help.envelope, "data", "commands")) === JSON.stringify(listed)
+    ...(help.envelope === null || help.envelope.ok !== true || isDeepStrictEqual(field(help.envelope, "data", "commands"), listed)
       ? []
       : [`${help.label}: --help with no command must list every command in data.commands exactly as \`commands\` does.`]),
     ...mustSucceed(focused),

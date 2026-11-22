@@ -20,6 +20,7 @@ BROKEN = REPO / "packages" / "kit" / "test" / "fixtures" / "broken"
 
 EXPECTED_FAILURES = {
     "faithful": [],
+    "help-reorders-keys": [],
     "extra-envelope-field": [
         "agent-data-refusal",
         "envelope-shape",
