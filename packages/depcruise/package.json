@@ -9,7 +9,7 @@
   },
   "exports": "./src/config.ts",
   "peerDependencies": {
-    "dependency-cruiser": "18.8.0",
+    "dependency-cruiser": "18.7.2",
     "typescript": "6.0.3"
   }
 }

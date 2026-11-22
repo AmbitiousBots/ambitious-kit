@@ -9,6 +9,28 @@ const hello = readJson(join(repoRoot, "examples", "hello", "package.json"));
 const tarballs = ["kit", "lint", "depcruise"].map((name) => `ambitious-${name}-${kit.version}.tgz`);
 const scratch = mkdtempSync(join(tmpdir(), "ambitious-verify-adopt-"));
 
+const readmePins = JSON.parse(`{${/```json\n([^`]*"devDependencies"[^`]*)```/.exec(readFileSync(join(repoRoot, "README.md"), "utf8"))[1]}}`);
+const manifestPins = ["package.json", "packages/kit/package.json", "packages/lint/package.json", "packages/depcruise/package.json"].map((file) => {
+  const manifest = readJson(join(repoRoot, file));
+  return [file, { ...manifest.devDependencies, ...manifest.dependencies, ...manifest.peerDependencies }];
+});
+for (const [name, version] of Object.entries(readmePins.devDependencies)) {
+  const pins = name.startsWith("@ambitious/")
+    ? [["the version in package.json", `file:vendor/${name.slice(1).replace("/", "-")}-${kit.version}.tgz`]]
+    : manifestPins.filter(([, pinned]) => name in pinned).map(([file, pinned]) => [file, pinned[name]]);
+  const wrong = pins.find(([, pin]) => pin !== version);
+  must(
+    pins.length > 0 && wrong === undefined,
+    wrong === undefined
+      ? `the README pin ${name} ${version} is the pin in ${pins.map(([file]) => file).join(", ") || "no manifest: remove it from README.md"}`
+      : `README.md pins ${name} ${version} but ${wrong[0]} needs ${wrong[1]}, so a module that follows the README cannot install: fix README.md, or move ${wrong[0]} with a kit release`,
+  );
+}
+must(
+  JSON.stringify(readmePins.overrides) === JSON.stringify(kit.overrides),
+  `the README overrides block is the one in package.json, ${JSON.stringify(kit.overrides)}; if it is not, fix README.md`,
+);
+
 try {
   const release = join(scratch, "release");
   const module = join(scratch, "ambitious-hello");
