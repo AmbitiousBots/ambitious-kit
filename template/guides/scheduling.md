@@ -77,7 +77,7 @@ When a commit is refused, do what the code says and ask again. `E_STALE`: someon
 To try an alternative without touching the approved plan, run `plan clone` with a `new_id` and commit there. `plan history` and `plan diff` show what changed between versions.
 
 Every write takes an `idem_key`. Choose one stable key per intended action and keep the key and the input unchanged for a retry. `E_IDEM_CONFLICT` means the key was used for a different request: look at the original action.
-A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule.
+A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule. When the installed module refuses such an actor, it has its own older rule: follow its message.
 
 Never compute free time, block times, time zone conversions or durations by hand. `start` and `end` are UTC; `local_start` and `local_end` carry the calendar's offset. A proposed plan is not a commitment, and a committed plan is not a calendar event: say which of the three the owner is looking at.
 

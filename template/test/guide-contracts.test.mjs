@@ -6,7 +6,7 @@ import { ACTOR_MAX_CHARACTERS, ACTOR_RULE } from "../../packages/kit/src/domain/
 import { guideText, repoRoot, skillOnly } from "./support.mjs";
 
 const ACTOR_SENTENCE =
-  "A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule.";
+  "A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule. When the installed module refuses such an actor, it has its own older rule: follow its message.";
 const ACTOR_GUIDES = ["records", "compliance", "tasks", "contracts", "scheduling"];
 const NOT_GENERIC = /Alexander|\bDash\b|\bHAL\b|Aristapoint/u;
 
@@ -20,6 +20,7 @@ test("each guide that names a write actor states the actor rule once, in the sam
     assert.match(guide, /`actor`/u, `${topic} names actor`);
     assert.equal(count(guide, ACTOR_SENTENCE), 1, `${topic} states the actor rule exactly once`);
     assert.equal(count(guide, "Nothing is trimmed."), 1, `${topic} does not restate the rule in other words`);
+    assert.equal(count(guide, "it has its own older rule: follow its message."), 1, `${topic} says once what to do when the installed module still has an older actor rule`);
   }
   assert.equal(ACTOR_MAX_CHARACTERS, 200);
   for (const part of ["1 to 200 Unicode characters", "no control characters or line breaks", "no leading or trailing whitespace", "Nothing is trimmed."]) {
@@ -53,10 +54,13 @@ test("the compliance guide says what evidence weight is, what can turn a control
     "| Proof was collected | `evidence add` | `id`, `controlId`, `kind`, `summary`, `collectedAt`, `expiresAt`, optional `weight`, optional `page` |",
     "| The owner asks where things stand | `status` | `programId`, optional `withinDays` |",
     "| Planning renewals | `expiring` | `programId`, optional `withinDays` |",
+    "When the installed module refuses `weight` on `evidence add` or `withinDays` on `status` with `E_INPUT_SCHEMA`, it does not have them yet: leave the field out and tell the owner so.",
+    "When it refuses `expiring` without `withinDays`, it still requires the field: send `withinDays`, 30 for the default window.",
     "report its statuses as the state of the register, never as a compliance opinion",
   ]) {
     assert.ok(guide.includes(required), `the compliance guide says: ${required}`);
   }
+  assert.doesNotMatch(guide, /refuses `weight` or `withinDays`/u, "the fallback never tells the bot to leave out a field that `expiring` still requires");
   assert.doesNotMatch(guide, /\b(?:is|are|stay|stays|become|becomes|makes? (?:you|it|them)) compliant\b|\bcertified\b|\bguarantee/iu, "the guide claims no compliance");
   const skill = skillOnly("ambitious-compliance-for-bots");
   assert.ok(skill.includes("report its statuses as the state of the register, never as a compliance opinion"));

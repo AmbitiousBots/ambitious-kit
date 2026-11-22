@@ -6,7 +6,7 @@ Use the installed `ambitious-compliance` binary in `/workspace/ambitious/bin`. I
 The module records what the owner tells it. It does not judge whether the business meets any law, standard or certification, and neither do you: report its statuses as the state of the register, never as a compliance opinion.
 
 Pass JSON on stdin or a file path with `--in`. Every write needs non-empty `actor` and `reason` beside the fields below. Times are ISO 8601 with a time zone. `commands` lists every command.
-A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule.
+A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule. When the installed module refuses such an actor, it has its own older rule: follow its message.
 
 | When | Command | Input |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ A `page` is a Grok Bot Page reference: `pageId`, `version` and the `sha256` of i
 Evidence may carry a `weight` of `official`, `draft` or `decision`. `kind` is not the weight, and omitting `weight` stores official evidence. Only current official evidence, or a current attestation, can turn a control green or yellow. Draft and decision rows stay in `gaps`, stay out of the official `expiring` clock, and are reported as documented, not as official support.
 The expires-soon window defaults to 30 days, is configurable with `withinDays` on `status` and `expiring`, and is reported in the result. Say which window a result used.
 Status colors describe only what is on record; never state that a requirement is met.
-When the installed module refuses `weight` or `withinDays` with `E_INPUT_SCHEMA`, it does not have them yet: leave the field out and tell the owner so.
+When the installed module refuses `weight` on `evidence add` or `withinDays` on `status` with `E_INPUT_SCHEMA`, it does not have them yet: leave the field out and tell the owner so. When it refuses `expiring` without `withinDays`, it still requires the field: send `withinDays`, 30 for the default window.
 Each item from `expiring` carries a `task` payload. Pass it unchanged to `ambitious-tasks add` when the owner wants a reminder; the module does not create tasks itself.
 `doc check` answers `E_DOC_CHANGED` when the Page differs from the record. Show the owner the difference before recording a new revision with `doc record`.
 

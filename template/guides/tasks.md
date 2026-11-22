@@ -9,7 +9,7 @@ Create a task with `add` when there is a concrete outcome to track. Include a us
 Move a task to another list with `list move`, input `{id, list, idem_key?, actor?}`: the task keeps its id and the move is recorded in its history. `update` with `patch.list` remains valid. When the installed module answers `list move` with `E_USAGE`, it does not have the command yet: use `update` with `patch.list`.
 
 Always pass an `idem_key` for a write. Choose one stable key per intended action and keep both the key and input unchanged for a retry. Use a new key for a new action. If a call fails with `E_IDEMPOTENCY`, inspect the original action instead of changing its payload under the same key. Do not repeat a timed-out write with a new key before checking whether the original succeeded.
-A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule.
+A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule. When the installed module refuses such an actor, it has its own older rule: follow its message.
 
 Finish a task only after its acceptance evidence is available. Record a short status note with that evidence. A done task reopens only with `status` and `reopen:true`, targeting `todo`; do not try to bypass that rule through update or import. Reopening is a deliberate user-visible action.
 
