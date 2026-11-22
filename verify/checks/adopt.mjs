@@ -23,15 +23,33 @@ for (const name of Object.keys(readmePins.devDependencies)) {
 for (const pkg of packages) {
   const file = `packages/${pkg}/package.json`;
   const manifest = readJson(join(repoRoot, file));
-  for (const [name, pin] of Object.entries({ ...manifest.devDependencies, ...manifest.dependencies, ...manifest.peerDependencies })) {
+  for (const [name, pin] of Object.entries({ ...manifest.devDependencies, ...manifest.dependencies })) {
     if (Object.hasOwn(expectedPins, name)) checkPin(name, pin, file);
   }
+  for (const [name, pin] of Object.entries(manifest.peerDependencies ?? {})) checkPin(name, pin, file);
 }
 must(
   JSON.stringify(readmePins.overrides) === JSON.stringify(kit.overrides),
-  `the README overrides block is the one in package.json, ${JSON.stringify(kit.overrides)}; if it is not, fix README.md`,
+  "README.md and package.json specify the same npm overrides",
 );
 
+const checkInstalledTree = (directory) => {
+  must(sh("npm", ["ls", "--all"], { cwd: directory }).status === 0, "npm ls --all accepts the installed tree");
+  const { packages: locked } = readJson(join(directory, "package-lock.json"));
+  const unexpected = Object.entries(locked).filter(([path, entry]) => {
+    const name = entry.name ?? path.split("node_modules/").at(-1);
+    const typescript = name === "typescript" || name.startsWith("@typescript/");
+    return entry.extraneous || (typescript && entry.version.includes("-"));
+  });
+  const entries = unexpected.map(([path, entry]) => `${path}@${entry.version}`);
+  must(entries.length === 0, `Lockfile entries with an extraneous package or prerelease TypeScript: ${entries.join(", ") || "none"}`);
+  for (const [bin, expected] of [["tsc", "7.0.2"], ["tsc6", "6.0.3"]]) {
+    const result = sh(join(directory, "node_modules", ".bin", bin), ["--version"], { cwd: directory });
+    must(result.status === 0 && result.stdout.trim() === `Version ${expected}`, `${bin} runs TypeScript ${expected}`);
+  }
+};
+
+checkInstalledTree(repoRoot);
 if (process.exitCode) process.exit(process.exitCode);
 
 const scratch = mkdtempSync(join(tmpdir(), "ambitious-verify-adopt-"));
@@ -44,7 +62,7 @@ try {
   sh("git", ["init", "--quiet", module]);
   must(sh(process.execPath, [join(repoRoot, "scripts", "apply-template.mjs"), module]).status === 0, "the repo template is applied to an empty repository");
 
-  for (const entry of ["src", "migrations", "test", "scripts/build.mjs", "eslint.config.js", ".dependency-cruiser.mjs", "tsconfig.json"]) {
+  for (const entry of ["src", "migrations", "test", "scripts", "eslint.config.js", ".dependency-cruiser.mjs", "tsconfig.json"]) {
     cpSync(join(repoRoot, "examples", "hello", entry), join(module, entry), { recursive: true });
   }
   mkdirSync(join(module, "vendor"));
@@ -68,15 +86,14 @@ try {
   writeFileSync(join(module, ".gitignore"), "node_modules/\ndist/\n");
 
   const npm = (...args) => sh("npm", args, { cwd: module, env: { ...process.env, npm_config_workspaces: undefined } });
-  must(npm("install", "--prefer-offline", "--no-audit", "--no-fund").status === 0, "npm installs the three kit tarballs as devDependencies");
-  const minimatchCopies = npm("ls", "minimatch", "--all", "--parseable").stdout.trim().split("\n");
-  must(
-    minimatchCopies.length === 1 && readJson(join(minimatchCopies[0], "package.json")).version === kit.overrides["@typescript-eslint/typescript-estree"].minimatch,
-    "the module installs one minimatch, the fixed version named in overrides",
-  );
+  for (const command of ["install", "ci"]) {
+    must(npm(command, "--strict-peer-deps", "--no-audit", "--no-fund").status === 0, `npm ${command} accepts the kit tarballs with strict peers`);
+    checkInstalledTree(module);
+    must(npm("run", "--silent", "typecheck").status === 0, `both tools load the supported API and the module typechecks after npm ${command}`);
+  }
+  must(npm("audit", "--audit-level=low").status === 0, "npm reports no vulnerabilities in the installed module");
   sh("git", ["-C", module, "add", "--all"]);
   for (const [script, claim] of [
-    ["typecheck", "the module typechecks against the type declarations in the kit tarball"],
     ["lint", "the module passes the kit lint rules and the standalone check"],
     ["depcruise", "the module passes the kit dependency rules"],
     ["build", "the module bundles into one file"],
@@ -85,7 +102,9 @@ try {
   ]) {
     must(npm("run", "--silent", script).status === 0, claim);
   }
-  const selfcheck = sh(process.execPath, [join(module, "dist", "ambitious-hello.mjs"), "selfcheck", "--now", "2026-01-01T00:00:00Z"]);
+  const selfcheck = sh(process.execPath, [join(module, "dist", "ambitious-hello.mjs"), "selfcheck", "--now", "2026-01-01T00:00:00Z"], {
+    env: { ...process.env, AMBITIOUS_HOME: join(scratch, "home") },
+  });
   must(selfcheck.status === 0 && JSON.parse(selfcheck.stdout).ok === true, "the module built outside the kit repository answers selfcheck with ok");
 
   const greeting = join(module, "src", "domain", "greeting.ts");
@@ -102,6 +121,20 @@ try {
     crossed.status !== 0 && crossed.output.includes("src/domain may not import src/db, src/cli, src/ai or src/install"),
     "importing the kit's database helper from src/domain fails the installed dependency rules",
   );
+  const manifest = readJson(join(module, "package.json"));
+  manifest.devDependencies.typescript = "6.0.2";
+  writeFileSync(join(module, "package.json"), JSON.stringify(manifest));
+  rmSync(join(module, "node_modules"), { recursive: true });
+  rmSync(join(module, "package-lock.json"));
+  const wrongInstall = npm("install", "--strict-peer-deps", "--no-audit", "--no-fund");
+  if (wrongInstall.status === 0) {
+    const wrong = npm("run", "--silent", "typecheck");
+    for (const tool of ["@typescript-eslint/parser", "dependency-cruiser"]) {
+      must(wrong.status === 1 && wrong.output.includes(`${tool} loaded TypeScript API 6.0.2. Install the README aliases`), `${tool} rejects the plain TypeScript 6.0.2 API`);
+    }
+  } else {
+    must(wrongInstall.output.includes("ERESOLVE") && wrongInstall.output.includes("typescript"), "strict peer resolution rejects plain TypeScript 6.0.2");
+  }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

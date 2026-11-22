@@ -1,6 +1,6 @@
 {
   "name": "ambitious-hello",
-  "version": "0.4.8",
+  "version": "0.4.9",
   "private": true,
   "type": "module",
   "license": "Apache-2.0",
@@ -9,13 +9,13 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/check-typescript.mjs && tsc --noEmit",
     "lint": "eslint .",
     "depcruise": "depcruise src --output-type err-long",
     "test": "node --test \"test/**/*.test.ts\"",
     "contract": "ambitious-contract dist/ambitious-hello.mjs"
   },
   "devDependencies": {
-    "@ambitious/kit": "0.4.8"
+    "@ambitious/kit": "0.4.9"
   }
 }

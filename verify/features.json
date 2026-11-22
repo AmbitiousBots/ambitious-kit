@@ -176,7 +176,7 @@
   },
   {
     "id": "adopt",
-    "userVisible": "A new module repository can take the kit from the release files alone and pass every check from its first commit.",
+    "userVisible": "A new module can install the kit archives with strict peer checks, reproduce its dependency tree from the lockfile, and pass its checks with the documented compiler and tool API.",
     "check": "node verify/checks/adopt.mjs"
   },
   {

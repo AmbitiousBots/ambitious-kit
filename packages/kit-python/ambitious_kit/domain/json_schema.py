@@ -180,13 +180,23 @@ def _pattern(rule: object, value: object, context: _Context) -> list[SchemaProbl
 
 
 def _minimum(rule: object, value: object, context: _Context) -> list[SchemaProblem]:
-    if isinstance(value, int | float) and not isinstance(value, bool) and isinstance(rule, int | float) and value < rule:
+    if (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and isinstance(rule, int | float)
+        and value < rule
+    ):
         return _problem(context.pointer, "minimum", f"must be at least {rule}")
     return []
 
 
 def _maximum(rule: object, value: object, context: _Context) -> list[SchemaProblem]:
-    if isinstance(value, int | float) and not isinstance(value, bool) and isinstance(rule, int | float) and value > rule:
+    if (
+        isinstance(value, int | float)
+        and not isinstance(value, bool)
+        and isinstance(rule, int | float)
+        and value > rule
+    ):
         return _problem(context.pointer, "maximum", f"must be at most {rule}")
     return []
 

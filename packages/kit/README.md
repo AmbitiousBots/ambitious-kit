@@ -87,7 +87,7 @@ There are two installers. `ambitious-install` puts one named module release in p
 `src/cli/install-main.ts` is bundled to `ambitious-install-<version>.mjs` in a kit release:
 
 ```text
-node ambitious-install-0.4.8.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz] [--runtime]
+node ambitious-install-0.4.9.mjs <module> <version> --from <https address or directory of the release> [--kind mjs|pyz] [--runtime]
 ```
 
 It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then moves the file into `$AMBITIOUS_HOME/bin` by a rename, records the checksum and switches the link `ambitious-<module>`. Running it again for an installed version downloads and writes nothing. The checksum shows the file is the one the release lists; it does not show who published the release. Its own error codes are `E_INSTALL_DOWNLOAD` and `E_INSTALL_CHECKSUM`, both exit code 1. `spec/` holds a TLA+ model of these steps.
@@ -95,15 +95,15 @@ It downloads `SHA256SUMS` and the asset, compares the SHA-256, and only then mov
 `src/cli/modules-main.ts` is bundled to `ambitious-modules-<version>.mjs`, with the pins in `template/modules.lock.json` embedded:
 
 ```text
-node ambitious-modules-0.4.8.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>] [--runtime <module>] [--instructions <file>] [--routines <file>]
-node ambitious-modules-0.4.8.mjs skill-files [--json]
-node ambitious-modules-0.4.8.mjs skills [--json] [--in <file>]
-node ambitious-modules-0.4.8.mjs connection [--json] [--in <file>]
-node ambitious-modules-0.4.8.mjs self-update --version <version> --sha256 <hex> [--json]
-node ambitious-modules-0.4.8.mjs instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json]
-node ambitious-modules-0.4.8.mjs apply-plan --current <file> --published <file> --published-sha256 <hex> [--routines <file>] [--read-back <file>] [--json]
-node ambitious-modules-0.4.8.mjs guide [<topic>] [--json]
-node ambitious-modules-0.4.8.mjs review-page [--built] [--in <file>] [--json]
+node ambitious-modules-0.4.9.mjs sync [--json] [--from <mirror directory>] [--lock <lock file>] [--runtime <module>] [--instructions <file>] [--routines <file>]
+node ambitious-modules-0.4.9.mjs skill-files [--json]
+node ambitious-modules-0.4.9.mjs skills [--json] [--in <file>]
+node ambitious-modules-0.4.9.mjs connection [--json] [--in <file>]
+node ambitious-modules-0.4.9.mjs self-update --version <version> --sha256 <hex> [--json]
+node ambitious-modules-0.4.9.mjs instructions-merge --current <file> --published <file> --published-sha256 <hex> [--json]
+node ambitious-modules-0.4.9.mjs apply-plan --current <file> --published <file> --published-sha256 <hex> [--routines <file>] [--read-back <file>] [--json]
+node ambitious-modules-0.4.9.mjs guide [<topic>] [--json]
+node ambitious-modules-0.4.9.mjs review-page [--built] [--in <file>] [--json]
 ```
 
 For every pinned module, `sync` runs the same install steps with one more check: the asset's SHA-256 must match the pin as well as the release's `SHA256SUMS`, so a release that was changed after it was pinned is refused. It then runs the module's `selfcheck --json` through the link in `$AMBITIOUS_HOME/bin`, with Node for an `.mjs` module and Python 3.13 for a `.pyz` one. It prints one envelope:

@@ -42,7 +42,7 @@ python3 check_comments.py <repo-root> [--exclude DIRECTORY_NAME]
 
 It fails on `#` comments, docstrings and bare string statements. It allows `# WHY:` and `# SAFETY:` above code (10 per repo), a license header, a shebang, and `# type: ignore[code]  # reason`.
 
-`python/ruff.toml` and `python/mypy.ini` are starting configs, checked against ruff 0.17.5 and mypy 2.4.1, the latest stable releases when kit 0.1.1 was cut. The kit does not install either tool; a module gets the checked versions with `python3 -m pip install ruff==0.17.5 mypy==2.4.1`. Ruff cannot allow one banned API in one directory, so the `cli`, `ai`, `install` and `db` packages switch the whole banned-API rule off; the bans are enforced everywhere else.
+`python/ruff.toml` and `python/mypy.ini` are starting configs, checked against Ruff 0.17.6 and mypy 2.4.1. The kit does not install either tool; a module gets the checked versions with `python3 -m pip install ruff==0.17.6 mypy==2.4.1`. Ruff cannot allow one banned API in one directory, so the `cli`, `ai`, `install` and `db` packages switch the whole banned-API rule off; the bans are enforced everywhere else.
 
 ## The standalone check
 
