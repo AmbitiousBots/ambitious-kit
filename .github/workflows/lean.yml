@@ -14,7 +14,7 @@ permissions:
 jobs:
   lean:
     name: Build every Lean proof
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     steps:
       - name: Check out the repository (actions/checkout v7.0.1)

@@ -6,9 +6,35 @@ import { must, repoRoot, sh } from "./scratch.mjs";
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
 const kit = readJson(join(repoRoot, "package.json"));
 const hello = readJson(join(repoRoot, "examples", "hello", "package.json"));
-const tarballs = ["kit", "lint", "depcruise"].map((name) => `ambitious-${name}-${kit.version}.tgz`);
-const scratch = mkdtempSync(join(tmpdir(), "ambitious-verify-adopt-"));
+const packages = ["kit", "lint", "depcruise"];
+const tarballs = packages.map((name) => [`@ambitious/${name}`, `ambitious-${name}-${kit.version}.tgz`]);
+const archivePins = Object.fromEntries(tarballs.map(([name, filename]) => [name, `file:vendor/${filename}`]));
+const expectedPins = { ...kit.devDependencies, ...archivePins };
 
+const readmePins = JSON.parse(`{${/```json\n([^`]*"devDependencies"[^`]*)```/.exec(readFileSync(join(repoRoot, "README.md"), "utf8"))[1]}}`);
+const checkPin = (name, pin, file) => {
+  const actual = readmePins.devDependencies[name];
+  if (actual !== pin) must(false, `Fix ${name} in README.md. Expected ${pin} from ${file}, found ${JSON.stringify(actual) ?? "(missing)"}.`);
+};
+for (const [name, pin] of Object.entries(expectedPins)) checkPin(name, pin, "package.json");
+for (const name of Object.keys(readmePins.devDependencies)) {
+  if (!Object.hasOwn(expectedPins, name)) must(false, `Unexpected dependency ${name} in README.md. Remove it from the devDependencies block.`);
+}
+for (const pkg of packages) {
+  const file = `packages/${pkg}/package.json`;
+  const manifest = readJson(join(repoRoot, file));
+  for (const [name, pin] of Object.entries({ ...manifest.devDependencies, ...manifest.dependencies, ...manifest.peerDependencies })) {
+    if (Object.hasOwn(expectedPins, name)) checkPin(name, pin, file);
+  }
+}
+must(
+  JSON.stringify(readmePins.overrides) === JSON.stringify(kit.overrides),
+  `the README overrides block is the one in package.json, ${JSON.stringify(kit.overrides)}; if it is not, fix README.md`,
+);
+
+if (process.exitCode) process.exit(process.exitCode);
+
+const scratch = mkdtempSync(join(tmpdir(), "ambitious-verify-adopt-"));
 try {
   const release = join(scratch, "release");
   const module = join(scratch, "ambitious-hello");
@@ -22,7 +48,7 @@ try {
     cpSync(join(repoRoot, "examples", "hello", entry), join(module, entry), { recursive: true });
   }
   mkdirSync(join(module, "vendor"));
-  for (const tarball of tarballs) cpSync(join(release, tarball), join(module, "vendor", tarball));
+  for (const [, tarball] of tarballs) cpSync(join(release, tarball), join(module, "vendor", tarball));
   const template = readJson(join(module, "package.json"));
   writeFileSync(
     join(module, "package.json"),
@@ -32,13 +58,8 @@ try {
         name: hello.name,
         version: hello.version,
         scripts: { ...template.scripts, ...hello.scripts, lint: `${hello.scripts.lint} && ${template.scripts.lint}` },
-        devDependencies: {
-          "@ambitious/kit": `file:vendor/${tarballs[0]}`,
-          "@ambitious/lint": `file:vendor/${tarballs[1]}`,
-          "@ambitious/depcruise": `file:vendor/${tarballs[2]}`,
-          ...Object.fromEntries(["@types/node", "dependency-cruiser", "esbuild", "eslint", "typescript"].map((name) => [name, kit.devDependencies[name]])),
-        },
-        overrides: kit.overrides,
+        devDependencies: readmePins.devDependencies,
+        overrides: readmePins.overrides,
       },
       null,
       2,

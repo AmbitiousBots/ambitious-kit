@@ -12,7 +12,7 @@
     "ambitious-standalone": "./bin/ambitious-standalone.mjs"
   },
   "dependencies": {
-    "@typescript-eslint/parser": "8.72.2"
+    "@typescript-eslint/parser": "8.73.0"
   },
   "peerDependencies": {
     "eslint": "10.15.0",
