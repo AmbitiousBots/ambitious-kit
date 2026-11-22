@@ -47,13 +47,13 @@ For a TypeScript module:
      "@ambitious/lint": "file:vendor/ambitious-lint-0.4.8.tgz",
      "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.8.tgz",
      "@types/node": "24.19.2",
-     "dependency-cruiser": "18.7.2",
+     "dependency-cruiser": "18.8.0",
      "esbuild": "0.28.2",
      "eslint": "10.15.0",
      "typescript": "6.0.3"
    },
    "overrides": {
-     "@typescript-eslint/typescript-estree": { "minimatch": "11.0.8" }
+     "@typescript-eslint/typescript-estree": { "minimatch": "11.0.9" }
    }
    ```
 
