@@ -56,10 +56,12 @@ test("the compliance guide says what evidence weight is, what can turn a control
     "| Planning renewals | `expiring` | `programId`, optional `withinDays` |",
     "When the installed module refuses `weight` on `evidence add` or `withinDays` on `status` with `E_INPUT_SCHEMA`, it does not have them yet: leave the field out and tell the owner so.",
     "When it refuses `expiring` without `withinDays`, it still requires the field: send `withinDays`, 30 for the default window.",
+    "When the installed module refuses `withinDays` on `status`, or its `status` result reports no window outside a yellow reason, its `status` window is not 30 days: report the `withinDays` in each yellow reason, and do not state a window the result does not give.",
     "report its statuses as the state of the register, never as a compliance opinion",
   ]) {
     assert.ok(guide.includes(required), `the compliance guide says: ${required}`);
   }
+  assert.equal(guide.split("30 days").length - 1, 2, "30 days is stated once as the default and once where the installed module's `status` window is not that");
   assert.doesNotMatch(guide, /refuses `weight` or `withinDays`/u, "the fallback never tells the bot to leave out a field that `expiring` still requires");
   assert.doesNotMatch(guide, /\b(?:is|are|stay|stays|become|becomes|makes? (?:you|it|them)) compliant\b|\bcertified\b|\bguarantee/iu, "the guide claims no compliance");
   const skill = skillOnly("ambitious-compliance-for-bots");
