@@ -23,13 +23,23 @@ for (const name of Object.keys(readmePins.devDependencies)) {
 for (const pkg of packages) {
   const file = `packages/${pkg}/package.json`;
   const manifest = readJson(join(repoRoot, file));
-  for (const [name, pin] of Object.entries({ ...manifest.devDependencies, ...manifest.dependencies, ...manifest.peerDependencies })) {
+  for (const [name, pin] of Object.entries({ ...manifest.devDependencies, ...manifest.dependencies })) {
     if (Object.hasOwn(expectedPins, name)) checkPin(name, pin, file);
+  }
+  for (const [name, range] of Object.entries(manifest.peerDependencies ?? {})) {
+    if (!expectedPins[name]?.startsWith("npm:")) {
+      checkPin(name, range, file);
+      continue;
+    }
+    must(
+      sh("npm", ["ls", "--depth=0", "--workspaces=false", `${name}@${range}`], { cwd: repoRoot }).status === 0,
+      `the README install pin for ${name} satisfies ${range} in ${file}`,
+    );
   }
 }
 must(
   JSON.stringify(readmePins.overrides) === JSON.stringify(kit.overrides),
-  `the README overrides block is the one in package.json, ${JSON.stringify(kit.overrides)}; if it is not, fix README.md`,
+  "README.md and package.json specify the same npm overrides",
 );
 
 if (process.exitCode) process.exit(process.exitCode);
@@ -68,12 +78,10 @@ try {
   writeFileSync(join(module, ".gitignore"), "node_modules/\ndist/\n");
 
   const npm = (...args) => sh("npm", args, { cwd: module, env: { ...process.env, npm_config_workspaces: undefined } });
-  must(npm("install", "--prefer-offline", "--no-audit", "--no-fund").status === 0, "npm installs the three kit tarballs as devDependencies");
-  const minimatchCopies = npm("ls", "minimatch", "--all", "--parseable").stdout.trim().split("\n");
-  must(
-    minimatchCopies.length === 1 && readJson(join(minimatchCopies[0], "package.json")).version === kit.overrides["@typescript-eslint/typescript-estree"].minimatch,
-    "the module installs one minimatch, the fixed version named in overrides",
-  );
+  must(npm("install", "--strict-peer-deps", "--no-audit", "--no-fund").status === 0, "npm installs the three kit tarballs as devDependencies");
+  const compiler = readJson(join(module, "node_modules", "@typescript", "native", "package.json"));
+  must(npm("exec", "--", "tsc", "--version").stdout.trim() === `Version ${compiler.version}`, "tsc runs the native compiler from the README install");
+  must(npm("audit", "--audit-level=low").status === 0, "npm reports no vulnerabilities in the installed module");
   sh("git", ["-C", module, "add", "--all"]);
   for (const [script, claim] of [
     ["typecheck", "the module typechecks against the type declarations in the kit tarball"],
@@ -85,7 +93,9 @@ try {
   ]) {
     must(npm("run", "--silent", script).status === 0, claim);
   }
-  const selfcheck = sh(process.execPath, [join(module, "dist", "ambitious-hello.mjs"), "selfcheck", "--now", "2026-01-01T00:00:00Z"]);
+  const selfcheck = sh(process.execPath, [join(module, "dist", "ambitious-hello.mjs"), "selfcheck", "--now", "2026-01-01T00:00:00Z"], {
+    env: { ...process.env, AMBITIOUS_HOME: join(scratch, "home") },
+  });
   must(selfcheck.status === 0 && JSON.parse(selfcheck.stdout).ok === true, "the module built outside the kit repository answers selfcheck with ok");
 
   const greeting = join(module, "src", "domain", "greeting.ts");

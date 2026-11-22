@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { readJson, repoRoot, sha256, skillOnly, templateRoot } from "./support.mjs";
 
-const KIT_VERSION = "0.4.8";
+const KIT_VERSION = "0.4.9";
 const INSTRUCTIONS_VERSION = 13;
 const INSTRUCTIONS_FIRST_TEMPLATE = "0.4.6";
 const INSTRUCTIONS_SHA256 = "897ae5617ea294be7c76ec60c7c5baa9780d23b2765780b17080e798eb6d3d55";
@@ -42,7 +42,7 @@ test(`bot.json, every skill and the installer pin carry template version ${KIT_V
   assert.ok(bot.skills.every(({ body }) => body.startsWith(`Template version: ${KIT_VERSION}\n`)));
   const installerSkill = skillOnly("ambitious-module-installer");
   assert.ok(installerSkill.includes(`releases/download/kit-v${KIT_VERSION}/ambitious-modules-${KIT_VERSION}.mjs`));
-  assert.doesNotMatch(installerSkill, /ambitious-modules-0\.4\.6\.mjs/u, "the installer skill pins this release, not the one before");
+  assert.doesNotMatch(installerSkill, /ambitious-modules-0\.4\.8\.mjs/u, "the installer skill pins this release, not the one before");
 });
 
 test(`the instructions stay version ${INSTRUCTIONS_VERSION}, byte for byte the text template ${INSTRUCTIONS_FIRST_TEMPLATE} published, in the file and in bot.json`, () => {
@@ -61,7 +61,7 @@ test(`the instructions stay version ${INSTRUCTIONS_VERSION}, byte for byte the t
   assert.equal(versions.length, INSTRUCTIONS_VERSION);
 });
 
-test("this release changes no routine prompt, and it moves only the tasks, records and compliance pins", () => {
+test("the routine prompts and module pins match template 0.4.8", () => {
   assert.equal(sha256(text("template", "routines.md")), ROUTINES_SHA256, "template/routines.md is the file template 0.4.6 had");
   assert.equal(sha256(text("template", "modules.lock.json")), PINS_SHA256, "template/modules.lock.json pins tasks 0.1.3, records 0.1.1 and compliance 0.1.1");
   const versions = Object.fromEntries(readJson(join(templateRoot, "modules.lock.json")).map((row) => [row.module, row.version]));
@@ -80,10 +80,10 @@ test(`the README and the package guides name the ${KIT_VERSION} release files an
   for (const name of ["kit", "lint", "depcruise"]) assert.ok(readme.includes(`file:vendor/ambitious-${name}-${KIT_VERSION}.tgz`), name);
   assert.ok(readme.includes(`\`kit-v${KIT_VERSION}\``));
   const notes = readme.split(`\n### ${KIT_VERSION}\n`)[1]?.split("\n### ")[0] ?? "";
-  for (const required of ["tasks 0.1.3", "records 0.1.1", "compliance 0.1.1", "`ambitious-tasks-page`", "stay at version 13", "Other module pins are unchanged", "`--help`", "`input`"]) {
+  for (const required of ["TypeScript 7.0.2", "TypeScript 6.0 API", "dependency-cruiser 18.9.0", "Java 25", "instructions version 13", "routine prompts and module pins from 0.4.8"]) {
     assert.ok(notes.includes(required), `the ${KIT_VERSION} release notes say: ${required}`);
   }
-  assert.ok(readme.indexOf(`### ${KIT_VERSION}`) < readme.indexOf("### 0.4.6"), "the newest release notes come first, and the earlier ones stay as history");
+  assert.ok(readme.indexOf(`### ${KIT_VERSION}`) < readme.indexOf("### 0.4.8"), "the newest release notes come first, and the earlier ones stay as history");
   assert.ok(text("packages", "kit", "README.md").includes(`ambitious-modules-${KIT_VERSION}.mjs`));
   assert.ok(text("packages", "kit-python", "README.md").includes(`ambitious_kit-${KIT_VERSION}.pyz`));
   assert.ok(text("MODULE_CONTRACT.md").includes(`ambitious-install-${KIT_VERSION}.mjs`));

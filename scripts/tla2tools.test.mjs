@@ -41,7 +41,7 @@ const cached = (cache) => readdirSync(cache, { recursive: true });
 test("the kit pins an exact https address and a full SHA-256", () => {
   assert.match(kitPin, /^TLA2TOOLS_URL = "https:\/\/\S+\/[0-9a-f]{40}\/\S+\.jar"$/m);
   assert.match(kitPin, /^TLA2TOOLS_SHA256 = "[0-9a-f]{64}"$/m);
-  assert.match(kitPin, /^java = "temurin-21\.[0-9.+]+LTS"$/m);
+  assert.match(kitPin, /^java = "temurin-25\.[0-9.+]+LTS"$/m);
 });
 
 test("a download that matches the pinned hash is saved and its path printed", (t) => {
