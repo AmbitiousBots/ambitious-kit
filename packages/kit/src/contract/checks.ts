@@ -165,6 +165,9 @@ const envelopeShape = ({ binary, run, freshHome }: Bench): readonly string[] => 
   const untouched = freshHome();
   const focused = run({ args: ["selfcheck", "--help", ...FIXED], home: untouched });
   const created = filesUnder(untouched);
+  const selfcheckEntry = Array.isArray(listed) ? listed.filter((entry: unknown) => field(entry, "name") === "selfcheck") : [];
+  const describesSelfcheck =
+    focused.envelope?.command === "selfcheck" && JSON.stringify(field(focused.envelope, "data", "commands")) === JSON.stringify(selfcheckEntry);
   return [
     ...mustSucceed(selfcheck),
     ...(selfcheck.envelope === null ? [] : expectations.filter(([, holds]) => !holds).map(([rule]) => `${selfcheck.label}: ${rule}.`)),
@@ -178,6 +181,9 @@ const envelopeShape = ({ binary, run, freshHome }: Bench): readonly string[] => 
       : [`${help.label}: --help with no command must list every command in data.commands exactly as \`commands\` does.`]),
     ...mustSucceed(focused),
     ...(created.length === 0 ? [] : [`${focused.label}: --help must describe the command and not run it, but AMBITIOUS_HOME now holds ${created.join(", ")}.`]),
+    ...(focused.envelope === null || focused.envelope.ok !== true || describesSelfcheck
+      ? []
+      : [`${focused.label}: --help with a command name must answer with command set to that name and data.commands holding that one command's entry exactly as \`commands\` lists it.`]),
   ];
 };
 

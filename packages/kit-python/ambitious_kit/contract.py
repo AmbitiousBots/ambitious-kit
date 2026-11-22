@@ -230,6 +230,21 @@ def _envelope_shape(bench: Bench) -> list[str]:
             f"{focused.label}: --help must describe the command and not run it, "
             f"but AMBITIOUS_HOME now holds {', '.join(created)}."
         )
+    selfcheck_entry = (
+        [entry for entry in listed if _field(entry, "name") == "selfcheck"] if isinstance(listed, list) else []
+    )
+    if (
+        focused.envelope is not None
+        and focused.envelope.get("ok") is True
+        and not (
+            focused.envelope.get("command") == "selfcheck"
+            and _field(focused.envelope, "data", "commands") == selfcheck_entry
+        )
+    ):
+        problems.append(
+            f"{focused.label}: --help with a command name must answer with command set to that name "
+            "and data.commands holding that one command's entry exactly as `commands` lists it."
+        )
     return problems
 
 

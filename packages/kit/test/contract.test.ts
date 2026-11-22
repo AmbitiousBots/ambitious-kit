@@ -32,6 +32,7 @@ const BROKEN: readonly (readonly [name: string, mustCatch: string, alsoFails: re
   ["stdout-noise", "no-stdout-noise", ["envelope-shape", "exit-codes", "now-determinism", "agent-data-refusal", "listed-shapes"]],
   ["refuses-help", "envelope-shape", []],
   ["help-runs-the-command", "envelope-shape", []],
+  ["help-lists-every-command", "envelope-shape", []],
   ["example-is-refused", "listed-shapes", []],
   ["required-field-is-optional", "listed-shapes", []],
 ];
@@ -69,6 +70,9 @@ test("each shape and help failure says what is wrong in words a module author ca
   assert.deepEqual(problemsOf(broken("refuses-help"), "envelope-shape"), [
     "`--help --now 2026-01-01T00:00:00Z --seed 7`: must succeed, but failed with E_USAGE, E_USAGE.",
     "`selfcheck --help --now 2026-01-01T00:00:00Z --seed 7`: must succeed, but failed with E_USAGE.",
+  ]);
+  assert.deepEqual(problemsOf(broken("help-lists-every-command"), "envelope-shape"), [
+    "`selfcheck --help --now 2026-01-01T00:00:00Z --seed 7`: --help with a command name must answer with command set to that name and data.commands holding that one command's entry exactly as `commands` lists it.",
   ]);
   assert.match(problemsOf(broken("help-runs-the-command"), "envelope-shape").join("\n"), /^`selfcheck --help [^`]*`: --help must describe the command and not run it, but AMBITIOUS_HOME now holds hello/);
 });
