@@ -11,7 +11,7 @@ const GRANT = "owner-confirmed-endpoint";
 const STATEMENT_FIRST_VERSION = 11;
 const BACKGROUND_FIRST_VERSION = 12;
 const CURRENT_VERSION = 13;
-const CURRENT_TEMPLATE = "0.4.6";
+const CURRENT_INSTRUCTIONS_FIRST_TEMPLATE = "0.4.6";
 const V11_SHA256 = "d52d453b7aca156aea647330d4038023272026505beab2dc785d115fbde7b078";
 const PINS_SHA256 = "75cddb1b2935008b419c80d9a04c7efbe76f7e09fa3318817b5828edb7f5eb0e";
 const GUIDE = "endpoint";
@@ -186,7 +186,7 @@ test("V8 what this release added is generic: no person, customer, bot or industr
     assert(urls.every((url) => url === ENDPOINT), `${where} names one address, ${ENDPOINT}: ${urls.join(", ")}`);
   }
   assert.equal(sha256(foldWhitespace(instructions)), registry.versions.at(-1).whitespaceSha256, "instructions.json records the whitespace SHA-256 of the present text");
-  assert.equal(registry.versions.at(-1).firstTemplate, CURRENT_TEMPLATE);
+  assert.equal(registry.versions.at(-1).firstTemplate, CURRENT_INSTRUCTIONS_FIRST_TEMPLATE);
 });
 
 const snapshotGuide = maybe("guides/snapshot.md");
