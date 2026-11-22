@@ -3,6 +3,7 @@ export type Flags = {
   readonly db: string | null;
   readonly now: string | null;
   readonly seed: string | null;
+  readonly help: boolean;
 };
 
 export type ParsedArgs = { readonly words: readonly string[]; readonly flags: Flags; readonly problems: readonly string[] };
@@ -10,15 +11,20 @@ export type ParsedArgs = { readonly words: readonly string[]; readonly flags: Fl
 const VALUE_FLAGS = ["in", "db", "now", "seed"] as const;
 type ValueFlag = (typeof VALUE_FLAGS)[number];
 
+const SWITCHES = ["json", "help"] as const;
+type Switch = (typeof SWITCHES)[number];
+
+const isSwitch = (name: string): name is Switch => SWITCHES.some((flag) => flag === name);
+
 const isValueFlag = (name: string): name is ValueFlag => VALUE_FLAGS.some((flag) => flag === name);
 
-export const FLAG_USAGE = "[--in file] [--db path] [--now ISO8601] [--seed int] [--json]";
+export const FLAG_USAGE = "[--in file] [--db path] [--now ISO8601] [--seed int] [--json] [--help]";
 
 export const parseArgs = (argv: readonly string[]): ParsedArgs => {
   const words: string[] = [];
   const problems: string[] = [];
   const values = new Map<ValueFlag, string>();
-  let jsonSeen = false;
+  const switches = new Set<Switch>();
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index] ?? "";
     if (!token.startsWith("--")) {
@@ -27,9 +33,9 @@ export const parseArgs = (argv: readonly string[]): ParsedArgs => {
     }
     const equals = token.indexOf("=");
     const name = token.slice(2, equals === -1 ? undefined : equals);
-    if (name === "json" && equals === -1) {
-      if (jsonSeen) problems.push("The flag --json was given more than once.");
-      jsonSeen = true;
+    if (isSwitch(name) && equals === -1) {
+      if (switches.has(name)) problems.push(`The flag --${name} was given more than once.`);
+      switches.add(name);
       continue;
     }
     if (!isValueFlag(name)) {
@@ -47,5 +53,5 @@ export const parseArgs = (argv: readonly string[]): ParsedArgs => {
     values.set(name, value);
   }
   const flag = (name: ValueFlag): string | null => values.get(name) ?? null;
-  return { words, flags: { in: flag("in"), db: flag("db"), now: flag("now"), seed: flag("seed") }, problems };
+  return { words, flags: { in: flag("in"), db: flag("db"), now: flag("now"), seed: flag("seed"), help: switches.has("help") }, problems };
 };

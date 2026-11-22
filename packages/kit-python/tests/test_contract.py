@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -19,20 +20,44 @@ BROKEN = REPO / "packages" / "kit" / "test" / "fixtures" / "broken"
 
 EXPECTED_FAILURES = {
     "faithful": [],
+    "help-reorders-keys": [],
     "extra-envelope-field": [
         "agent-data-refusal",
         "envelope-shape",
         "exit-codes",
+        "listed-shapes",
         "no-stdout-noise",
         "now-determinism",
         "read-only-analysis",
     ],
-    "always-exit-zero": ["agent-data-refusal", "exit-codes", "no-stdout-noise", "read-only-analysis"],
+    "always-exit-zero": [
+        "agent-data-refusal",
+        "exit-codes",
+        "listed-shapes",
+        "no-stdout-noise",
+        "read-only-analysis",
+    ],
     "reads-the-clock": ["envelope-shape", "exit-codes", "now-determinism"],
     "allows-agent-data": ["agent-data-refusal"],
     "read-command-migrates": ["agent-data-refusal", "read-only-analysis"],
-    "stdout-noise": ["agent-data-refusal", "envelope-shape", "exit-codes", "no-stdout-noise", "now-determinism"],
+    "stdout-noise": [
+        "agent-data-refusal",
+        "envelope-shape",
+        "exit-codes",
+        "listed-shapes",
+        "no-stdout-noise",
+        "now-determinism",
+    ],
+    "refuses-help": ["envelope-shape"],
+    "help-runs-the-command": ["envelope-shape"],
+    "help-lists-every-command": ["envelope-shape"],
+    "example-is-refused": ["listed-shapes"],
+    "required-field-is-optional": ["listed-shapes"],
 }
+
+
+def problems_of(binary: Path, check_id: str) -> list[str]:
+    return [problem for result in run_contract(str(binary)) if result.id == check_id for problem in result.problems]
 
 
 def failing(binary: Path) -> list[str]:
@@ -72,6 +97,66 @@ class ContractTest(unittest.TestCase):
             with self.subTest(binary=name):
                 self.assertEqual(failing(BROKEN / f"{name}.mjs"), expected)
 
+    def test_each_shape_and_help_failure_says_what_is_wrong(self) -> None:
+        os.environ["AMBITIOUS_REAL_BINARY"] = str(self.python_hello)
+        self.addCleanup(os.environ.pop, "AMBITIOUS_REAL_BINARY")
+        self.assertEqual(
+            problems_of(BROKEN / "example-is-refused.mjs", "listed-shapes"),
+            [
+                '`commands`: the command "greet" lists an example that is refused with E_INPUT_SCHEMA. '
+                "The example is sent as input, so it must be valid input."
+            ],
+        )
+        self.assertEqual(
+            problems_of(BROKEN / "required-field-is-optional.mjs", "listed-shapes"),
+            [
+                '`commands`: the command "greet" lists the field "name" as required, so the example without it '
+                "must fail with E_INPUT_SCHEMA, but it answered ok."
+            ],
+        )
+        self.assertEqual(
+            problems_of(BROKEN / "refuses-help.mjs", "envelope-shape"),
+            [
+                "`--help --now 2026-01-01T00:00:00Z --seed 7`: must succeed, but failed with E_USAGE, E_USAGE.",
+                "`selfcheck --help --now 2026-01-01T00:00:00Z --seed 7`: must succeed, but failed with E_USAGE.",
+            ],
+        )
+        self.assertEqual(
+            problems_of(BROKEN / "help-lists-every-command.mjs", "envelope-shape"),
+            [
+                "`selfcheck --help --now 2026-01-01T00:00:00Z --seed 7`: --help with a command name must answer "
+                "with command set to that name and data.commands holding that one command's entry exactly as "
+                "`commands` lists it."
+            ],
+        )
+        self.assertRegex(
+            "\n".join(problems_of(BROKEN / "help-runs-the-command.mjs", "envelope-shape")),
+            r"^`selfcheck --help [^`]*`: --help must describe the command and not run it, "
+            r"but AMBITIOUS_HOME now holds hello",
+        )
+
+    def test_the_python_hello_module_lists_the_shape_of_greet(self) -> None:
+        listed = subprocess.run(
+            [sys.executable, str(self.python_hello), "commands"],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "AMBITIOUS_HOME": str(Path(self.scratch) / "does-not-exist")},
+            check=True,
+        )
+        greet = [entry for entry in json.loads(listed.stdout)["data"]["commands"] if entry["name"] == "greet"]
+        self.assertEqual(
+            greet,
+            [
+                {
+                    "name": "greet",
+                    "access": "write",
+                    "input": True,
+                    "fields": [{"name": "name", "type": "string", "required": True}],
+                    "example": {"name": "world"},
+                }
+            ],
+        )
+
     def test_the_zipapp_is_built_the_same_byte_for_byte_every_time(self) -> None:
         again = Path(self.scratch) / "again.pyz"
         build_zipapp(
@@ -94,7 +179,7 @@ class ContractTest(unittest.TestCase):
 
         passed = contract(str(self.python_hello))
         self.assertEqual(passed.returncode, 0, passed.stdout + passed.stderr)
-        self.assertRegex(passed.stdout, r"contract: ok\. 6 of 6 checks passed")
+        self.assertRegex(passed.stdout, r"contract: ok\. 7 of 7 checks passed")
         failed = contract(str(BROKEN / "allows-agent-data.mjs"))
         self.assertEqual(failed.returncode, 1)
         self.assertIn("FAIL  agent-data-refusal", failed.stdout)

@@ -1,0 +1,410 @@
+[
+  {
+    "title": "a field list with an example that fits is accepted",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "actor",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "example": {
+        "title": "Ship the release",
+        "actor": "owner"
+      }
+    },
+    "problems": []
+  },
+  {
+    "title": "a field list with no example is accepted",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        }
+      ]
+    },
+    "problems": []
+  },
+  {
+    "title": "every field type is accepted with a value of that type, and an optional field may be left out",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "s",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "n",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "i",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "o",
+          "type": "object",
+          "required": true
+        },
+        {
+          "name": "a",
+          "type": "array",
+          "required": true
+        },
+        {
+          "name": "later",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "example": {
+        "s": "",
+        "n": 1.5,
+        "i": -3,
+        "b": false,
+        "o": {},
+        "a": []
+      }
+    },
+    "problems": []
+  },
+  {
+    "title": "a null example value for a required field is refused",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "example": {
+        "title": null
+      }
+    },
+    "problems": [
+      "command \"add\": the example field \"title\" is null, but its type is string; null is never an example value, so give a string or leave the field out"
+    ]
+  },
+  {
+    "title": "a null example value for an optional field is refused, not skipped",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "due",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "example": {
+        "title": "x",
+        "due": null
+      }
+    },
+    "problems": [
+      "command \"add\": the example field \"due\" is null, but its type is integer; null is never an example value, so give an integer or leave the field out"
+    ]
+  },
+  {
+    "title": "an unknown field type is reported with the allowed types",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "text",
+          "required": true
+        }
+      ],
+      "example": {
+        "title": "x"
+      }
+    },
+    "problems": [
+      "command \"add\": field \"title\" has the unknown type \"text\"; use one of: string, number, integer, boolean, object, array"
+    ]
+  },
+  {
+    "title": "a field type that is a list is reported, not a crash",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": [
+            "string"
+          ],
+          "required": true
+        }
+      ],
+      "example": {
+        "title": "x"
+      }
+    },
+    "problems": [
+      "command \"add\": field \"title\" has a type that is not a string; use one of: string, number, integer, boolean, object, array"
+    ]
+  },
+  {
+    "title": "a field type that is a number, an object or missing is reported the same way",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "a",
+          "type": 7,
+          "required": true
+        },
+        {
+          "name": "b",
+          "type": {
+            "string": true
+          },
+          "required": false
+        },
+        {
+          "name": "c",
+          "required": false
+        }
+      ]
+    },
+    "problems": [
+      "command \"add\": field \"a\" has a type that is not a string; use one of: string, number, integer, boolean, object, array",
+      "command \"add\": field \"b\" has a type that is not a string; use one of: string, number, integer, boolean, object, array",
+      "command \"add\": field \"c\" has a type that is not a string; use one of: string, number, integer, boolean, object, array"
+    ]
+  },
+  {
+    "title": "required must be true or false",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": "yes"
+        },
+        {
+          "name": "note",
+          "type": "string"
+        }
+      ]
+    },
+    "problems": [
+      "command \"add\": field \"title\" must say required as true or false",
+      "command \"add\": field \"note\" must say required as true or false"
+    ]
+  },
+  {
+    "title": "a field needs a name and may be listed once",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "title",
+          "type": "integer",
+          "required": true
+        }
+      ]
+    },
+    "problems": [
+      "command \"add\": field 2 must have a name, a string that is not empty",
+      "command \"add\": field 3 must have a name, a string that is not empty",
+      "command \"add\": field \"title\" is listed more than once"
+    ]
+  },
+  {
+    "title": "the example may hold only listed fields and must hold every required one",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "list",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "example": {
+        "title": "x",
+        "colour": "red"
+      }
+    },
+    "problems": [
+      "command \"add\": the example has the field \"colour\", which is not a listed field",
+      "command \"add\": the example leaves out the required field \"list\""
+    ]
+  },
+  {
+    "title": "an example value of another type is reported with both types",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "s",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "n",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "i",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "b",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "o",
+          "type": "object",
+          "required": true
+        },
+        {
+          "name": "a",
+          "type": "array",
+          "required": true
+        }
+      ],
+      "example": {
+        "s": 7,
+        "n": "1",
+        "i": 1.5,
+        "b": 0,
+        "o": [],
+        "a": {}
+      }
+    },
+    "problems": [
+      "command \"add\": the example field \"s\" must be a string, but is a number",
+      "command \"add\": the example field \"n\" must be a number, but is a string",
+      "command \"add\": the example field \"i\" must be an integer, but is a number",
+      "command \"add\": the example field \"b\" must be a boolean, but is a number",
+      "command \"add\": the example field \"o\" must be an object, but is an array",
+      "command \"add\": the example field \"a\" must be an array, but is an object"
+    ]
+  },
+  {
+    "title": "a boolean is not a number or an integer",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "n",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "i",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "example": {
+        "n": true,
+        "i": false
+      }
+    },
+    "problems": [
+      "command \"add\": the example field \"n\" must be a number, but is a boolean",
+      "command \"add\": the example field \"i\" must be an integer, but is a boolean"
+    ]
+  },
+  {
+    "title": "a shape on a command that takes no input is reported",
+    "takesInput": false,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        }
+      ]
+    },
+    "problems": [
+      "command \"add\": an input shape is declared, but the command takes no input"
+    ]
+  },
+  {
+    "title": "the fields must be a list",
+    "takesInput": true,
+    "shape": {
+      "fields": {
+        "title": "string"
+      }
+    },
+    "problems": [
+      "command \"add\": the input shape must have a list of fields"
+    ]
+  },
+  {
+    "title": "the example must be an object",
+    "takesInput": true,
+    "shape": {
+      "fields": [
+        {
+          "name": "title",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "example": [
+        "x"
+      ]
+    },
+    "problems": [
+      "command \"add\": the example must be a JSON object"
+    ]
+  }
+]

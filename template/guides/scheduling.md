@@ -36,6 +36,30 @@ A module never starts, imports or reads another module. The bot carries each doc
 
 Busy time is what this bot read through its own read-only calendar tools, when the owner has connected a calendar and such a tool is available to this bot; otherwise ask the owner for the busy intervals. The module never contacts a calendar service.
 
+## A minimal sketch: one person, weekday hours, 14 days
+
+Three commands, each with its own input. Set the person up once:
+
+```json
+{"id":"desk-1","name":"Front desk","tz":"Europe/Paris","kind":"person","person_ref":"desk-1","idem_key":"add-desk-1"}
+```
+
+That is `calendar add`. The field is `tz`, an IANA zone name; `timezone` is refused. Then `availability set`, with weekday rules in the calendar's local wall time:
+
+```json
+{"calendar_id":"desk-1","expected_version":1,"rules":[{"days":["MO","TU","WE","TH","FR"],"start":"09:00","end":"17:00"}],"exceptions":[],"idem_key":"hours-desk-1"}
+```
+
+Then `plan propose`, with the task rows wrapped as a `tasks-snapshot.v1` and a 14-day `horizon` given as `start` and `end`:
+
+```json
+{"tasks":{"schema":"tasks-snapshot.v1","tasks":[]},"horizon":{"start":"2026-05-04T00:00:00Z","end":"2026-05-18T00:00:00Z"},"policy":{"block_minutes":120,"due":"soft"}}
+```
+
+Put the unchanged rows of `ambitious-tasks list` in `tasks`. A task is placed on the calendar whose `person_ref` is its assignee.
+
+`ambitious-tasks schedule suggest` is a different flow with a different input: `horizon_days` and a `people` roster of `id`, `capacity_days_per_week` and `windows`, sent with every call and never stored. `plan propose` refuses `horizon_days` and `people`, and `schedule suggest` knows no calendar. Do not mix the two inputs in one command; the tasks guide shows that one.
+
 ## Plan, approve, commit
 
 Follow this order every time.
@@ -53,6 +77,7 @@ When a commit is refused, do what the code says and ask again. `E_STALE`: someon
 To try an alternative without touching the approved plan, run `plan clone` with a `new_id` and commit there. `plan history` and `plan diff` show what changed between versions.
 
 Every write takes an `idem_key`. Choose one stable key per intended action and keep the key and the input unchanged for a retry. `E_IDEM_CONFLICT` means the key was used for a different request: look at the original action.
+A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule. When the installed module refuses such an actor, it has its own older rule: follow its message.
 
 Never compute free time, block times, time zone conversions or durations by hand. `start` and `end` are UTC; `local_start` and `local_end` carry the calendar's offset. A proposed plan is not a commitment, and a committed plan is not a calendar event: say which of the three the owner is looking at.
 

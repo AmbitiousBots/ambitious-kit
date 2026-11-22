@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { envelopeProblems, INTERNAL_ERROR_CODES } from "../domain/envelope.ts";
+import { FIELD_TYPES } from "../domain/input-shape.ts";
 import { isRecord } from "../domain/json.ts";
 import { AGENT_DATA_ROOT } from "../paths/refuse-agent-data.ts";
 
@@ -160,6 +162,13 @@ const envelopeShape = ({ binary, run, freshHome }: Bench): readonly string[] => 
   const listing = run({ args: ["commands", ...FIXED], home });
   const listed = field(listing.envelope, "data", "commands");
   const names = Array.isArray(listed) ? listed.map((entry: unknown) => field(entry, "name")) : [];
+  const help = run({ args: ["--help", ...FIXED], home });
+  const untouched = freshHome();
+  const focused = run({ args: ["selfcheck", "--help", ...FIXED], home: untouched });
+  const created = filesUnder(untouched);
+  const selfcheckEntry = Array.isArray(listed) ? listed.filter((entry: unknown) => field(entry, "name") === "selfcheck") : [];
+  const describesSelfcheck =
+    focused.envelope?.command === "selfcheck" && isDeepStrictEqual(field(focused.envelope, "data", "commands"), selfcheckEntry);
   return [
     ...mustSucceed(selfcheck),
     ...(selfcheck.envelope === null ? [] : expectations.filter(([, holds]) => !holds).map(([rule]) => `${selfcheck.label}: ${rule}.`)),
@@ -167,6 +176,15 @@ const envelopeShape = ({ binary, run, freshHome }: Bench): readonly string[] => 
     ...(names.includes("selfcheck") && names.includes("commands")
       ? []
       : [`${listing.label}: data.commands must list every command, including selfcheck and commands, each as { name, access, input }.`]),
+    ...mustSucceed(help),
+    ...(help.envelope === null || help.envelope.ok !== true || isDeepStrictEqual(field(help.envelope, "data", "commands"), listed)
+      ? []
+      : [`${help.label}: --help with no command must list every command in data.commands exactly as \`commands\` does.`]),
+    ...mustSucceed(focused),
+    ...(created.length === 0 ? [] : [`${focused.label}: --help must describe the command and not run it, but AMBITIOUS_HOME now holds ${created.join(", ")}.`]),
+    ...(focused.envelope === null || focused.envelope.ok !== true || describesSelfcheck
+      ? []
+      : [`${focused.label}: --help with a command name must answer with command set to that name and data.commands holding that one command's entry exactly as \`commands\` lists it.`]),
   ];
 };
 
@@ -284,6 +302,67 @@ const noStdoutNoise = ({ run, freshHome, commands }: Bench): readonly string[] =
   return invocations.flatMap((invocation) => run(invocation).problems);
 };
 
+const FIELD_RULE = `each field as { name, type, required }, with type one of ${FIELD_TYPES.join(", ")}`;
+
+type ListedField = { readonly name: string; readonly required: boolean };
+
+const listedFields = (fields: unknown): readonly ListedField[] | null => {
+  if (!Array.isArray(fields)) return null;
+  const read = fields.flatMap((entry: unknown) =>
+    isRecord(entry) &&
+    typeof entry.name === "string" &&
+    typeof entry.type === "string" &&
+    FIELD_TYPES.some((type) => type === entry.type) &&
+    typeof entry.required === "boolean"
+      ? [{ name: entry.name, required: entry.required }]
+      : [],
+  );
+  return read.length === fields.length ? read : null;
+};
+
+const without = (example: Readonly<Record<string, unknown>>, dropped: string): string =>
+  JSON.stringify(Object.fromEntries(Object.entries(example).filter(([key]) => key !== dropped)));
+
+const shapeProblemsOf = ({ run, freshHome }: Bench, entry: Readonly<Record<string, unknown>>): readonly string[] => {
+  const { name, input, fields, example } = entry;
+  if (typeof name !== "string" || (fields === undefined && example === undefined)) return [];
+  const label = `\`commands\`: the command "${name}"`;
+  if (input !== true) return [`${label} lists fields or an example, but its input is not true.`];
+  const read = listedFields(fields);
+  if (read === null) return [`${label} must list ${FIELD_RULE}.`];
+  if (example === undefined) return [];
+  if (!isRecord(example)) return [`${label} must give its example as one JSON object.`];
+  const required = read.filter((listed) => listed.required).map((listed) => listed.name);
+  const missing = required.filter((key) => !Object.hasOwn(example, key));
+  if (missing.length > 0) return [`${label} lists ${missing.join(", ")} as required, but its example leaves ${missing.length === 1 ? "it" : "them"} out.`];
+  const args = [...wordsOf(name), ...FIXED];
+  const sent = run({ args, home: freshHome(), stdin: JSON.stringify(example) });
+  return [
+    ...sent.problems,
+    ...(sent.envelope !== null && errorCodes(sent.envelope).includes("E_INPUT_SCHEMA")
+      ? [`${label} lists an example that is refused with E_INPUT_SCHEMA. The example is sent as input, so it must be valid input.`]
+      : []),
+    ...required.flatMap((key) => {
+      const outcome = run({ args, home: freshHome(), stdin: without(example, key) });
+      if (outcome.envelope === null) return outcome.problems;
+      const codes = errorCodes(outcome.envelope);
+      return [
+        ...outcome.problems,
+        ...(outcome.envelope.ok === false && codes.includes("E_INPUT_SCHEMA")
+          ? []
+          : [`${label} lists the field "${key}" as required, so the example without it must fail with E_INPUT_SCHEMA, but it answered ${outcome.envelope.ok === true ? "ok" : codes.join(", ")}.`]),
+      ];
+    }),
+  ];
+};
+
+const listedShapes = (bench: Bench): readonly string[] => {
+  const listing = bench.run({ args: ["commands", ...FIXED], home: bench.freshHome() });
+  const listed = field(listing.envelope, "data", "commands");
+  const entries: readonly unknown[] = Array.isArray(listed) ? listed : [];
+  return [...mustSucceed(listing), ...entries.flatMap((entry) => (isRecord(entry) ? shapeProblemsOf(bench, entry) : []))];
+};
+
 const CHECKS: readonly Check[] = [
   { id: "envelope-shape", title: "Every command prints one envelope that matches the schema", problems: envelopeShape },
   { id: "exit-codes", title: "Exit code is 0 for ok, 1 for a caller error, 2 for an internal error", problems: exitCodes },
@@ -291,6 +370,7 @@ const CHECKS: readonly Check[] = [
   { id: "agent-data-refusal", title: "Every path under the bot's private data directory is refused", problems: agentDataRefusal },
   { id: "read-only-analysis", title: "Read commands never create or change the database", problems: readOnlyAnalysis },
   { id: "no-stdout-noise", title: "Nothing but the envelope is ever written to stdout", problems: noStdoutNoise },
+  { id: "listed-shapes", title: "A listed example is valid input, and a field listed as required is required", problems: listedShapes },
 ];
 
 export const runContract = (binPath: string): readonly ContractResult[] => {

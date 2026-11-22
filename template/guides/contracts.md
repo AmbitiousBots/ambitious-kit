@@ -30,3 +30,5 @@ Use `in-force` on both sides of the effective date to inspect the change. Earlie
 ## Evidence and errors
 
 Command shapes, the recurrence grammar and error hints are documented at https://github.com/AmbitiousBots/ambitious-contracts#readme; that documentation is not a file on this computer, and every error also carries its own hint. Dates are calendar dates; stored quote offsets are UTF-16 indices into normalized text. The module stores history but does not render documents. A bot can use the returned data to write a document for review. The module makes no model call and needs no API key.
+
+Where a write takes an `actor`, the rule is the same in every module. A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule. When the installed module refuses such an actor, it has its own older rule: follow its message.

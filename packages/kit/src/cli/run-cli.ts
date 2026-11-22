@@ -15,6 +15,7 @@ import {
   type Identity,
 } from "../domain/envelope.ts";
 import { Failure, failure } from "../domain/failure.ts";
+import { listedShape, shapeProblems } from "../domain/input-shape.ts";
 import type { JsonObject } from "../domain/json.ts";
 import type { Migration } from "../domain/migrations.ts";
 import { requireCurrentSchema, migrate } from "../db/migrate.ts";
@@ -54,6 +55,7 @@ const checkedSpec = (spec: ModuleSpec): void => {
     ...(Number.isInteger(spec.schemaVersion) && spec.schemaVersion >= 1 ? [] : ["schemaVersion must be an integer, 1 or higher"]),
     ...names.filter((name) => !isCommandName(name)).map((name) => `command "${name}" must be lower-case words joined by one space`),
     ...names.filter((name) => BUILT_IN.includes(name)).map((name) => `command "${name}" is provided by the kit`),
+    ...Object.entries(spec.commands).flatMap(([name, { takesInput, shape }]) => (shape === undefined ? [] : shapeProblems(name, takesInput, shape))),
   ];
   if (wrong.length > 0) throw new Error(`The module spec is not valid: ${wrong.join("; ")}.`);
 };
@@ -126,21 +128,24 @@ export const cliEnvelope = async (spec: ModuleSpec, io: Io): Promise<Envelope> =
   const meta = { now: instant.toISOString(), seed: usedSeed, version: spec.version };
   const identity = (command: string): Identity => ({ schemaVersion: spec.schemaVersion, module: spec.module, command, meta });
 
-  const describeCommands = (): JsonObject => ({
+  const describeCommands = (only: string | null) => (): JsonObject => ({
     commands: Object.entries(commands)
-      .map(([name, { access, takesInput }]) => ({ name, access, input: takesInput }))
+      .filter(([name]) => only === null || name === only)
+      .map(([name, { access, takesInput, shape }]) => ({ name, access, input: takesInput, ...(shape === undefined ? {} : listedShape(shape)) }))
       .sort((a, b) => (a.name < b.name ? -1 : 1)),
   });
   const commands: Readonly<Record<string, Command>> = {
     ...spec.commands,
     selfcheck: { access: "write", takesInput: false, parse: () => () => ({}) },
-    commands: pureCommand({ run: describeCommands }),
+    commands: pureCommand({ run: describeCommands(null) }),
   };
-  const name = words.join(" ");
-  const command = Object.hasOwn(commands, name) ? commands[name] : undefined;
+  const asked = words.join(" ");
+  const name = flags.help && words.length === 0 ? "commands" : asked;
+  const known = Object.hasOwn(commands, name) ? commands[name] : undefined;
+  const command = flags.help && known !== undefined && words.length > 0 ? pureCommand({ run: describeCommands(name) }) : known;
   const valid = Object.keys(commands).sort().join(", ");
   const usageErrors: readonly Failure[] = [
-    ...(words.length === 0 ? [usage("No command was given.", `Use one of: ${valid}.`)] : []),
+    ...(words.length === 0 && !flags.help ? [usage("No command was given.", `Use one of: ${valid}.`)] : []),
     ...(words.length > 0 && command === undefined ? [usage(`Unknown command "${name}".`, `Use one of: ${valid}.`)] : []),
     ...problems.map((problem) => usage(problem, `Use only these flags: ${FLAG_USAGE}.`)),
     ...(now === null ? [usage(`The --now value "${flags.now}" is not a time with a time zone.`, "Use ISO 8601 with Z or an offset, for example 2026-01-01T00:00:00Z.")] : []),
@@ -148,7 +153,7 @@ export const cliEnvelope = async (spec: ModuleSpec, io: Io): Promise<Envelope> =
   ];
   const [firstUsage, ...moreUsage] = usageErrors.flatMap(({ errors }) => errors);
   if (firstUsage !== undefined || command === undefined) {
-    return envelope.err(identity(command === undefined ? "" : name), [
+    return envelope.err(identity(command === undefined ? "" : asked), [
       firstUsage ?? { code: "E_USAGE", message: "No command was given.", hint: `Use one of: ${valid}.` },
       ...moreUsage,
     ]);
@@ -159,8 +164,8 @@ export const cliEnvelope = async (spec: ModuleSpec, io: Io): Promise<Envelope> =
     const home = ambitiousHome(io.env);
     const dbPath = refuseAgentData(flags.db ?? join(home, spec.module, `${spec.module}.sqlite`));
     if (flags.in !== null) refuseAgentData(flags.in);
-    const run = command.parse(await readInput(name, command.takesInput, flags, io));
-    if (name === "selfcheck") {
+    const run = command.parse(flags.help ? undefined : await readInput(name, command.takesInput, flags, io));
+    if (name === "selfcheck" && !flags.help) {
       return envelope.ok(identity(name), selfcheck({ module: spec.module, dbPath, binaryPath: io.binaryPath, migrations: spec.migrations }));
     }
     const runtime = {

@@ -3,7 +3,7 @@ name: ambitious-module-installer
 description: For the Ambitious Bot only. Install, repair, upgrade and selfcheck every pinned Ambitious module with one sync command, check and update the instructions and routines from the verified template, upgrade the template, and decide whether a shared skill may be written. Use on the Ambitious Bot's first chat, at each routine start, for an upgrade, and before writing a skill.
 ---
 
-Template version: 0.4.6
+Template version: 0.4.7
 
 # Module installer
 
@@ -50,30 +50,30 @@ First get the file into `bin`, by exactly one of these three ways and no other:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}" && mkdir -p bin && cd bin &&
-curl -fsSLO https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.4.6/ambitious-modules-0.4.6.mjs
+curl -fsSLO https://github.com/AmbitiousBots/ambitious-kit/releases/download/kit-v0.4.7/ambitious-modules-0.4.7.mjs
 ```
 
 If that is refused and the GitHub CLI is signed in:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}" && mkdir -p bin && cd bin &&
-gh release download kit-v0.4.6 --repo AmbitiousBots/ambitious-kit --pattern ambitious-modules-0.4.6.mjs --clobber
+gh release download kit-v0.4.7 --repo AmbitiousBots/ambitious-kit --pattern ambitious-modules-0.4.7.mjs --clobber
 ```
 
 Or from a mirror directory the owner names, set as `AMBITIOUS_MODULE_MIRROR`:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}" && mkdir -p bin && cd bin &&
-cp "$AMBITIOUS_MODULE_MIRROR/kit-v0.4.6/ambitious-modules-0.4.6.mjs" .
+cp "$AMBITIOUS_MODULE_MIRROR/kit-v0.4.7/ambitious-modules-0.4.7.mjs" .
 ```
 
 Then check the pin and link it:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}/bin" &&
-echo "cb0c557292c07b1d28294d1b0369431c7cb1b4bf5c5da63b95376d1fde527e2c  ambitious-modules-0.4.6.mjs" | sha256sum -c - &&
-chmod 755 ambitious-modules-0.4.6.mjs && ln -sfn ambitious-modules-0.4.6.mjs ambitious-modules ||
-{ rm -f ambitious-modules-0.4.6.mjs; false; }
+echo "329e50743dbeb256c443ad85f3ac5133f298c7134d070f5b00f9c0d262172a1c  ambitious-modules-0.4.7.mjs" | sha256sum -c - &&
+chmod 755 ambitious-modules-0.4.7.mjs && ln -sfn ambitious-modules-0.4.7.mjs ambitious-modules ||
+{ rm -f ambitious-modules-0.4.7.mjs; false; }
 ```
 
 The `sha256sum` line is the pin. If it fails, the file is deleted and the link is not made: nothing is installed, so do not run the file, do not go on with an upgrade, and report the failure. Then run the sync command above.

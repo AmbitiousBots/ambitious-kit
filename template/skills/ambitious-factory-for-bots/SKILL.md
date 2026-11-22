@@ -3,7 +3,7 @@ name: ambitious-factory-for-bots
 description: For the Ambitious Bot only. Find ready-made bots for the owner's business in the Ambitious catalog, propose them in a Grok Bot Page, and create them only after the owner approves. Use when the owner asks the Ambitious Bot for ready-made bots, a suite or an industry pack.
 ---
 
-Template version: 0.4.6
+Template version: 0.4.7
 
 # Bot factory
 

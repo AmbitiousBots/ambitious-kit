@@ -23,7 +23,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.6`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.7`.
 
 | File | Use |
 |---|---|
@@ -43,9 +43,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.6.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.6.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.6.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.7.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.7.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.7.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -306,6 +306,16 @@ jobs:
 `tlc.yml` installs the toolchain from the calling repo's `.mise.toml` and runs its `scripts/tlc.mjs`; both come from the template. Input `spec-directory` defaults to `spec`. `lean.yml` installs the Lean version named in the `lean-toolchain` file and runs `lake build`; input `directory` (default `proofs`) is where the Lake package lives.
 
 ## Release notes
+
+### 0.4.7
+
+- Every module built on the kit accepts `--help`, with or without a command name, and answers with one successful envelope and nothing else on stdout: the same listing as `commands`, or the one named command's entry. It does not run the command, read stdin or open the database. Every other unknown flag is still `E_USAGE`.
+- `commands` and `--help` list a command's input shape when the module declares one: `fields`, each `{ name, type, required }`, and one `example`. `readCommand`, `writeCommand` and `pureCommand` take the shape beside `input`; in Python it is the third argument of `read_command`, `write_command` and `pure_command`. A wrong shape, such as a `null` example value, an unknown field type or a type that is not a string, is refused as a module spec problem that names the command. A command that declares no shape is listed as before.
+- The contract tests have a seventh check, `listed-shapes`: a listed example is sent to its command as input and must not be answered with `E_INPUT_SCHEMA`, and the example without each field listed as required must be. So a listed example must be safe to run against a fresh `AMBITIOUS_HOME`. `envelope-shape` also checks that `--help` succeeds, lists what `commands` lists, answers for a named command with that name and its one entry, and runs nothing.
+- New shared parser for a write's `actor`, `parseActor` and `parse_actor`, for modules to adopt when they next take the kit: 1 to 200 Unicode characters, no control characters or line breaks, no half of a surrogate pair, no leading or trailing whitespace, internal spaces allowed, nothing trimmed. The `E_INPUT_SCHEMA` hint states the rule. The rules for ids and `idem_key` are unchanged.
+- The installer's guides say more, and no skill rule changes. `records`: a type name is lower-case words joined by hyphens, and field and stage names use underscores. `compliance`: evidence may carry a weight of official, draft or decision, only current official evidence or a current attestation can turn a control green or yellow, the expires-soon window defaults to 30 days and is set with `withinDays`, and a color describes only what is on record. `tasks` and `scheduling`: one worked sketch each for one person, weekday hours and 14 days, which keeps `ambitious-tasks schedule suggest` (`horizon_days` and a `people` roster that is never stored) apart from `ambitious-scheduling` (`calendar add` with `tz`, `availability set`, `plan propose` with a `tasks-snapshot.v1` and a `horizon`). `tasks` also describes `list move` and the fields `next` returns. Every guide that names a write `actor` states the actor rule once.
+- The `compliance` and `tasks` guides describe evidence weights, `withinDays` on `status`, `list move` and the wider `next` result as the modules' intended contract. The modules pinned by this release, compliance 0.1.0 and tasks 0.1.2, do not have them yet, so each guide says what to do when the installed module refuses them.
+- The instructions stay at version 13, byte for byte, and the routine prompts and the automatic update are unchanged. The module pins are unchanged from 0.4.6.
 
 ### 0.4.6
 

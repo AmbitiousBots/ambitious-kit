@@ -11,8 +11,10 @@ from pathlib import Path
 
 from ambitious_kit.cli.command import Context, DbContext, no_input, pure_command, read_command, write_command
 from ambitious_kit.cli.runner import Io, ModuleSpec, cli_envelope
+from ambitious_kit.domain.args import FLAG_USAGE
 from ambitious_kit.domain.clock import format_instant
 from ambitious_kit.domain.envelope import Envelope, JsonObject, envelope_problems, failure
+from ambitious_kit.domain.input_shape import InputField, InputShape
 from ambitious_kit.domain.migrations import Migration
 
 NOW = "2026-01-01T00:00:00Z"
@@ -52,6 +54,35 @@ def dice_roll(context: Context[None]) -> JsonObject:
     return {"roll": context.rng.randint(1, 6), "at": format_instant(context.now)}
 
 
+ADD_SHAPE = InputShape(
+    [InputField("body", "string", True), InputField("actor", "string", False)],
+    {"body": "Ship the release", "actor": "owner"},
+)
+ADD_LISTING = {
+    "name": "add",
+    "access": "write",
+    "input": True,
+    "fields": [
+        {"name": "body", "type": "string", "required": True},
+        {"name": "actor", "type": "string", "required": False},
+    ],
+    "example": {"body": "Ship the release", "actor": "owner"},
+}
+FLAGS_HINT = "Use only these flags: [--in file] [--db path] [--now ISO8601] [--seed int] [--json] [--help]."
+
+
+def never_read() -> str:
+    raise AssertionError("stdin was read")
+
+
+def quiet_io(argv: Sequence[str]) -> Io:
+    return Io(argv, {}, __file__, lambda: "", lambda: datetime(2030, 1, 1, tzinfo=UTC), lambda: 0, lambda _text: None)
+
+
+def with_shape(shape: InputShape) -> ModuleSpec:
+    return ModuleSpec("notes", "0.1.0", 1, [], {"note": pure_command(lambda _context: {}, parse_note, shape)})
+
+
 SPEC = ModuleSpec(
     module="notes",
     version="0.1.0",
@@ -62,7 +93,7 @@ SPEC = ModuleSpec(
         )
     ],
     commands={
-        "add": write_command(add, parse_note),
+        "add": write_command(add, parse_note, ADD_SHAPE),
         "count": read_command(count, no_input),
         "count sneaky": read_command(count_sneaky, no_input),
         "dice roll": pure_command(dice_roll, no_input),
@@ -86,13 +117,13 @@ class RunnerTest(unittest.TestCase):
         self.addCleanup(scratch.cleanup)
         self.home = scratch.name
 
-    def run_cli(self, argv: Sequence[str], stdin: str = "", env: Mapping[str, str] | None = None) -> Run:
+    def run_cli(self, argv: Sequence[str], stdin: str | None = "", env: Mapping[str, str] | None = None) -> Run:
         stderr: list[str] = []
         io = Io(
             argv=argv,
             env={"AMBITIOUS_HOME": self.home, **(env or {})},
             binary_path=__file__,
-            read_stdin=lambda: stdin,
+            read_stdin=never_read if stdin is None else lambda: stdin,
             system_now=lambda: datetime(2030, 6, 1, 12, tzinfo=UTC),
             system_seed=lambda: 123,
             write_stderr=stderr.append,
@@ -215,7 +246,7 @@ class RunnerTest(unittest.TestCase):
             self.run_cli(["commands"]).envelope.data,
             {
                 "commands": [
-                    {"name": "add", "access": "write", "input": True},
+                    ADD_LISTING,
                     {"name": "commands", "access": "none", "input": False},
                     {"name": "count", "access": "read", "input": False},
                     {"name": "count sneaky", "access": "read", "input": False},
@@ -225,8 +256,124 @@ class RunnerTest(unittest.TestCase):
             },
         )
 
+    def test_help_with_no_command_answers_ok_with_the_same_listing_as_commands(self) -> None:
+        listed = self.run_cli(["commands", "--now", NOW, "--seed", "7"])
+        for argv in (["--help"], ["--help", "--json"], ["--json", "--help"]):
+            helped = self.run_cli([*argv, "--now", NOW, "--seed", "7"], None)
+            self.assertEqual(helped.envelope.serialize(), listed.envelope.serialize(), " ".join(argv))
+            self.assertEqual((helped.envelope.exit_code, helped.stderr), (0, ""))
+        self.assertEqual(self.run_cli(["commands", "--json"]).envelope.data, listed.envelope.data)
+        self.assertFalse(os.path.exists(os.path.join(self.home, "notes")))
+
+    def test_help_with_a_command_name_answers_ok_with_that_listing_and_does_not_run_it(self) -> None:
+        added = self.run_cli(["add", "--help"], None)
+        self.assertEqual(
+            (added.envelope.ok, added.envelope.identity.command, added.envelope.data),
+            (True, "add", {"commands": [ADD_LISTING]}),
+        )
+        file = os.path.join(self.home, "note.json")
+        Path(file).write_text('{"body":"from a file"}', encoding="utf-8")
+        self.assertEqual(self.run_cli(["--help", "add", "--in", file], None).envelope.data, {"commands": [ADD_LISTING]})
+        expected = {
+            ("selfcheck",): {"name": "selfcheck", "access": "write", "input": False},
+            ("dice", "roll"): {"name": "dice roll", "access": "none", "input": False},
+            ("count",): {"name": "count", "access": "read", "input": False},
+        }
+        for words, listing in expected.items():
+            focused = self.run_cli([*words, "--help"], None)
+            self.assertEqual(
+                (focused.envelope.ok, focused.envelope.identity.command, focused.envelope.data),
+                (True, " ".join(words), {"commands": [listing]}),
+            )
+        self.assertFalse(os.path.exists(os.path.join(self.home, "notes")))
+
+    def test_help_does_not_excuse_another_usage_problem_and_other_unknown_flags_still_fail(self) -> None:
+        cases: list[tuple[list[str], str, str]] = [
+            (["--help", "--verbose"], "", 'Unknown flag "--verbose".'),
+            (["add", "--help", "--verbose"], "add", 'Unknown flag "--verbose".'),
+            (["cuont", "--help"], "", 'Unknown command "cuont".'),
+            (["--help", "--help"], "", "The flag --help was given more than once."),
+            (["--help=yes"], "", "No command was given."),
+            (["add", "--help=yes"], "add", 'Unknown flag "--help=yes".'),
+            (["add", "-h"], "", 'Unknown command "add -h".'),
+            (["count", "--usage"], "count", 'Unknown flag "--usage".'),
+            (["--help", "--now", "noon"], "", 'The --now value "noon" is not a time with a time zone.'),
+        ]
+        for argv, command, message in cases:
+            result = self.run_cli(argv, None)
+            self.assertEqual(
+                (result.codes[0], result.envelope.identity.command, result.envelope.errors[0].message),
+                ("E_USAGE", command, message),
+                " ".join(argv),
+            )
+            self.assertEqual(result.envelope.exit_code, 1)
+        self.assertEqual(self.run_cli(["count", "--verbose"]).envelope.errors[0].hint, FLAGS_HINT)
+        self.assertEqual(FLAG_USAGE, "[--in file] [--db path] [--now ISO8601] [--seed int] [--json] [--help]")
+
+    def test_help_still_refuses_a_path_under_the_private_data_directory(self) -> None:
+        self.assertEqual(
+            self.run_cli(["--help", "--db", "/home/box/agent-data/notes.sqlite"]).codes, ["E_FORBIDDEN_PATH"]
+        )
+        self.assertEqual(
+            self.run_cli(["add", "--help"], env={"AMBITIOUS_HOME": "/home/box/agent-data"}).codes,
+            ["E_FORBIDDEN_PATH"],
+        )
+
+    def test_a_command_that_takes_input_and_declares_no_shape_is_listed_without_fields(self) -> None:
+        plain = ModuleSpec("notes", "0.1.0", 1, [], {"note": write_command(add, parse_note)})
+        io = Io(
+            ["commands"], {"AMBITIOUS_HOME": self.home}, __file__, lambda: "", quiet_io([]).system_now, lambda: 0, str
+        )
+        self.assertEqual(
+            cli_envelope(plain, io).data,
+            {
+                "commands": [
+                    {"name": "commands", "access": "none", "input": False},
+                    {"name": "note", "access": "write", "input": True},
+                    {"name": "selfcheck", "access": "write", "input": False},
+                ]
+            },
+        )
+
+    def test_a_declared_shape_that_is_wrong_is_a_reported_spec_problem_that_names_the_command(self) -> None:
+        body = InputField("body", "string", True)
+        due = InputField("due", "integer", False)
+        list_typed = InputField(**json.loads('{"name": "body", "type": ["string"], "required": true}'))
+        wrong: list[tuple[InputShape, str]] = [
+            (
+                InputShape([body], {"body": None}),
+                'The module spec is not valid: command "note": the example field "body" is null, but its type is '
+                "string; null is never an example value, so give a string or leave the field out.",
+            ),
+            (
+                InputShape([body, due], {"body": "x", "due": None}),
+                'command "note": the example field "due" is null, but its type is integer',
+            ),
+            (
+                InputShape([InputField("body", "text", True)]),
+                'command "note": field "body" has the unknown type "text"; '
+                "use one of: string, number, integer, boolean, object, array",
+            ),
+            (
+                InputShape([list_typed], {"body": "x"}),
+                'command "note": field "body" has a type that is not a string; '
+                "use one of: string, number, integer, boolean, object, array",
+            ),
+            (InputShape([body, body]), 'command "note": field "body" is listed more than once'),
+            (InputShape([body], {"body": 7}), 'the example field "body" must be a string, but is a number'),
+        ]
+        for shape, message in wrong:
+            with self.subTest(message=message), self.assertRaises(ValueError) as raised:
+                cli_envelope(with_shape(shape), quiet_io(["--help"]))
+            self.assertIn(message, str(raised.exception))
+        with self.assertRaisesRegex(ValueError, "an input shape is declared, but the command takes no input"):
+            cli_envelope(
+                ModuleSpec("notes", "0.1.0", 1, [], {"roll": pure_command(dice_roll, no_input, InputShape([body]))}),
+                quiet_io(["commands"]),
+            )
+
     def test_a_module_spec_that_breaks_the_naming_rules_is_refused(self) -> None:
-        io = Io([], {}, __file__, lambda: "", lambda: datetime(2030, 1, 1, tzinfo=UTC), lambda: 0, lambda _text: None)
+        io = quiet_io([])
         with self.assertRaisesRegex(ValueError, "lower-case name"):
             cli_envelope(ModuleSpec("Notes", "0.1.0", 1, [], {}), io)
         with self.assertRaisesRegex(ValueError, "provided by the kit"):

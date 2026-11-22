@@ -10,6 +10,7 @@ await runCli({
   commands: {
     greet: writeCommand({
       input: parseGreetingRequest,
+      shape: { fields: [{ name: "name", type: "string", required: true }], example: { name: "world" } },
       run: ({ input, clock, rng, db }) => ({ greeting: saveGreeting(db, greet(input, clock, rng)) }),
     }),
     list: readCommand({ run: ({ db }) => ({ greetings: listGreetings(db) }) }),

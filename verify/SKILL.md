@@ -60,7 +60,8 @@ The contract tests for any built module, `.mjs` or `.pyz`: `npm run contract -- 
 | `build` | `npm run build`, then the bundle answers `commands` | Both bundles exist and the module runs from the single file. |
 | `selfcheck` | The built module's `selfcheck` | The envelope has `"ok":true`. |
 | `greet-and-list` | `verify/checks/greet-and-list.mjs` writes twice, reads, sends a bad input | Stored rows come back in order; bad input exits 1 with `E_INPUT_SCHEMA`; the same read prints the same bytes. |
-| `contract` | `npm run contract` on the built module | All six contract checks print `ok`. |
+| `help` | `verify/checks/help.mjs` runs `commands --json`, `--help`, `greet --help` and an unknown flag | `--help` prints the same envelope as `commands`; `greet --help` lists its field and example; the unknown flag exits 1 with `E_USAGE`; no database is created. |
+| `contract` | `npm run contract` on the built module | All seven contract checks print `ok`. |
 | `contract-python` | Builds the Python example and runs both test suites on both binaries | Three `contract: ok` lines. |
 | `install` | `verify/checks/install.mjs` installs from a release directory, twice, then offers a damaged file | The link runs the module; the second install is `unchanged`; the damaged file is refused and the link is untouched. |
 | `sync` | The sync tests install fixture modules from a mirror directory, then remove a binary, alter one, remove a link, move a pin and offer a swapped file | Each module reports `installed`, `reinstalled`, `upgraded` or `unchanged` as expected; a file that does not match its pin is refused and the working version stays linked. |
