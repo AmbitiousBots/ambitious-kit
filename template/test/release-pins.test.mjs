@@ -75,7 +75,7 @@ test(`the README and the package guides name the ${KIT_VERSION} release files an
   for (const name of ["kit", "lint", "depcruise"]) assert.ok(readme.includes(`file:vendor/ambitious-${name}-${KIT_VERSION}.tgz`), name);
   assert.ok(readme.includes(`\`kit-v${KIT_VERSION}\``));
   const notes = readme.split(`\n### ${KIT_VERSION}\n`)[1]?.split("\n### ")[0] ?? "";
-  for (const required of ["`--help`", "`fields`", "`example`", "`listed-shapes`", "`parseActor`", "`parse_actor`", "stay at version 13", "unchanged from 0.4.6"]) {
+  for (const required of ["`--help`", "`fields`", "`example`", "`listed-shapes`", "`parseActor`", "`parse_actor`", "stay at version 13", "unchanged from 0.4.6", "no skill rule changes", "`withinDays`", "`list move`", "do not have them yet"]) {
     assert.ok(notes.includes(required), `the ${KIT_VERSION} release notes say: ${required}`);
   }
   assert.ok(readme.indexOf(`### ${KIT_VERSION}`) < readme.indexOf("### 0.4.6"), "the newest release notes come first, and the earlier ones stay as history");
