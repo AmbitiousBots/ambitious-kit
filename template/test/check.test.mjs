@@ -1963,3 +1963,5 @@ await import('./e2e.test.mjs');
 await import('./self-update.test.mjs');
 await import('./instructions-merge.test.mjs');
 await import('./apply-plan.test.mjs');
+await import('./release-pins.test.mjs');
+await import('./guide-contracts.test.mjs');
