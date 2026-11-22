@@ -67,7 +67,7 @@ The contract tests for any built module, `.mjs` or `.pyz`: `npm run contract -- 
 | `sync` | The sync tests install fixture modules from a mirror directory, then remove a binary, alter one, remove a link, move a pin and offer a swapped file | Each module reports `installed`, `reinstalled`, `upgraded` or `unchanged` as expected; a file that does not match its pin is refused and the working version stays linked. |
 | `comment-ban` | Copies the example, adds `// note`, runs ESLint | ESLint fails with the message that says what to do instead. |
 | `import-rule` | Copies the example, imports `node:sqlite` in `src/domain`, runs dependency-cruiser | It fails with the message that says where the code belongs. |
-| `adopt` | Builds the release files, creates a repository from the template, installs the tarballs with npm and runs that repository's own checks | Typecheck, lint, dependency rules, tests, build and contract all pass there, and both rule breaks are caught there too. |
+| `adopt` | Builds the release files, creates a repository from the template, checks the npm tree, lockfile and compiler after strict install and strict ci, then runs the module checks | Typecheck, lint, dependency rules, tests, build and contract all pass there, and both rule breaks are caught there too. |
 | `standalone` | `node scripts/check-standalone.mjs` | `standalone check: ok`. |
 | `models` | `npm run tlc` | Every model passes and every broken variant breaks its listed invariant. |
 

@@ -26,22 +26,30 @@ for (const pkg of packages) {
   for (const [name, pin] of Object.entries({ ...manifest.devDependencies, ...manifest.dependencies })) {
     if (Object.hasOwn(expectedPins, name)) checkPin(name, pin, file);
   }
-  for (const [name, range] of Object.entries(manifest.peerDependencies ?? {})) {
-    if (!expectedPins[name]?.startsWith("npm:")) {
-      checkPin(name, range, file);
-      continue;
-    }
-    must(
-      sh("npm", ["ls", "--depth=0", "--workspaces=false", `${name}@${range}`], { cwd: repoRoot }).status === 0,
-      `the README install pin for ${name} satisfies ${range} in ${file}`,
-    );
-  }
+  for (const [name, pin] of Object.entries(manifest.peerDependencies ?? {})) checkPin(name, pin, file);
 }
 must(
   JSON.stringify(readmePins.overrides) === JSON.stringify(kit.overrides),
   "README.md and package.json specify the same npm overrides",
 );
 
+const checkInstalledTree = (directory) => {
+  must(sh("npm", ["ls", "--all"], { cwd: directory }).status === 0, "npm ls --all accepts the installed tree");
+  const { packages: locked } = readJson(join(directory, "package-lock.json"));
+  const unexpected = Object.entries(locked).filter(([path, entry]) => {
+    const name = entry.name ?? path.split("node_modules/").at(-1);
+    const typescript = name === "typescript" || name.startsWith("@typescript/");
+    return entry.extraneous || (typescript && entry.version.includes("-"));
+  });
+  const entries = unexpected.map(([path, entry]) => `${path}@${entry.version}`);
+  must(entries.length === 0, `Lockfile entries with an extraneous package or prerelease TypeScript: ${entries.join(", ") || "none"}`);
+  for (const [bin, expected] of [["tsc", "7.0.2"], ["tsc6", "6.0.3"]]) {
+    const result = sh(join(directory, "node_modules", ".bin", bin), ["--version"], { cwd: directory });
+    must(result.status === 0 && result.stdout.trim() === `Version ${expected}`, `${bin} runs TypeScript ${expected}`);
+  }
+};
+
+checkInstalledTree(repoRoot);
 if (process.exitCode) process.exit(process.exitCode);
 
 const scratch = mkdtempSync(join(tmpdir(), "ambitious-verify-adopt-"));
@@ -54,7 +62,7 @@ try {
   sh("git", ["init", "--quiet", module]);
   must(sh(process.execPath, [join(repoRoot, "scripts", "apply-template.mjs"), module]).status === 0, "the repo template is applied to an empty repository");
 
-  for (const entry of ["src", "migrations", "test", "scripts/build.mjs", "eslint.config.js", ".dependency-cruiser.mjs", "tsconfig.json"]) {
+  for (const entry of ["src", "migrations", "test", "scripts", "eslint.config.js", ".dependency-cruiser.mjs", "tsconfig.json"]) {
     cpSync(join(repoRoot, "examples", "hello", entry), join(module, entry), { recursive: true });
   }
   mkdirSync(join(module, "vendor"));
@@ -78,13 +86,14 @@ try {
   writeFileSync(join(module, ".gitignore"), "node_modules/\ndist/\n");
 
   const npm = (...args) => sh("npm", args, { cwd: module, env: { ...process.env, npm_config_workspaces: undefined } });
-  must(npm("install", "--strict-peer-deps", "--no-audit", "--no-fund").status === 0, "npm installs the three kit tarballs as devDependencies");
-  const compiler = readJson(join(module, "node_modules", "@typescript", "native", "package.json"));
-  must(npm("exec", "--", "tsc", "--version").stdout.trim() === `Version ${compiler.version}`, "tsc runs the native compiler from the README install");
+  for (const command of ["install", "ci"]) {
+    must(npm(command, "--strict-peer-deps", "--no-audit", "--no-fund").status === 0, `npm ${command} accepts the kit tarballs with strict peers`);
+    checkInstalledTree(module);
+    must(npm("run", "--silent", "typecheck").status === 0, `both tools load the supported API and the module typechecks after npm ${command}`);
+  }
   must(npm("audit", "--audit-level=low").status === 0, "npm reports no vulnerabilities in the installed module");
   sh("git", ["-C", module, "add", "--all"]);
   for (const [script, claim] of [
-    ["typecheck", "the module typechecks against the type declarations in the kit tarball"],
     ["lint", "the module passes the kit lint rules and the standalone check"],
     ["depcruise", "the module passes the kit dependency rules"],
     ["build", "the module bundles into one file"],
@@ -112,6 +121,20 @@ try {
     crossed.status !== 0 && crossed.output.includes("src/domain may not import src/db, src/cli, src/ai or src/install"),
     "importing the kit's database helper from src/domain fails the installed dependency rules",
   );
+  const manifest = readJson(join(module, "package.json"));
+  manifest.devDependencies.typescript = "6.0.2";
+  writeFileSync(join(module, "package.json"), JSON.stringify(manifest));
+  rmSync(join(module, "node_modules"), { recursive: true });
+  rmSync(join(module, "package-lock.json"));
+  const wrongInstall = npm("install", "--strict-peer-deps", "--no-audit", "--no-fund");
+  if (wrongInstall.status === 0) {
+    const wrong = npm("run", "--silent", "typecheck");
+    for (const tool of ["@typescript-eslint/parser", "dependency-cruiser"]) {
+      must(wrong.status === 1 && wrong.output.includes(`${tool} loaded TypeScript API 6.0.2. Install the README aliases`), `${tool} rejects the plain TypeScript 6.0.2 API`);
+    }
+  } else {
+    must(wrongInstall.output.includes("ERESOLVE") && wrongInstall.output.includes("typescript"), "strict peer resolution rejects plain TypeScript 6.0.2");
+  }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

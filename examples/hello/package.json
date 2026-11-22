@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node scripts/check-typescript.mjs && tsc --noEmit",
     "lint": "eslint .",
     "depcruise": "depcruise src --output-type err-long",
     "test": "node --test \"test/**/*.test.ts\"",

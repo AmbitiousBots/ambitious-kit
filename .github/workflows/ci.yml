@@ -30,7 +30,12 @@ jobs:
         uses: jdx/mise-action@924e7c586e33d7d4bae9c14e26c5d22e2beb6e78
         with:
           version: 2026.11.12
-      - run: npm ci
+      - run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - run: npm install --strict-peer-deps
+      - run: git diff --exit-code -- package-lock.json
+      - run: npm ls --all
+      - run: npm ci --strict-peer-deps
+      - run: npm ls --all
       - run: npm run release:check
 
   tlc:

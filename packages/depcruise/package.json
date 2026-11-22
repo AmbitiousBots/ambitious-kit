@@ -10,6 +10,6 @@
   "exports": "./src/config.ts",
   "peerDependencies": {
     "dependency-cruiser": "18.9.0",
-    "typescript": ">=6.0.2 <6.1.0"
+    "typescript": "npm:@typescript/typescript6@6.0.2"
   }
 }

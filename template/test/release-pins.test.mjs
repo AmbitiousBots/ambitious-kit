@@ -78,9 +78,14 @@ test("the routine prompts and module pins match template 0.4.8", () => {
 test(`the README and the package guides name the ${KIT_VERSION} release files and carry its release notes`, () => {
   const readme = text("README.md");
   for (const name of ["kit", "lint", "depcruise"]) assert.ok(readme.includes(`file:vendor/ambitious-${name}-${KIT_VERSION}.tgz`), name);
+  const { devDependencies } = readJson(join(repoRoot, "package.json"));
+  const templateGuide = text("repo-template", "CONTRIBUTING.md");
+  for (const name of ["@ambitious/typescript7", "typescript"]) {
+    assert.ok(templateGuide.includes(`\`${name}\` to \`${devDependencies[name]}\``), `the template guide pins ${name}`);
+  }
   assert.ok(readme.includes(`\`kit-v${KIT_VERSION}\``));
   const notes = readme.split(`\n### ${KIT_VERSION}\n`)[1]?.split("\n### ")[0] ?? "";
-  for (const required of ["TypeScript 7.0.2", "TypeScript 6.0 API", "dependency-cruiser 18.9.0", "Java 25", "instructions version 13", "routine prompts and module pins from 0.4.8"]) {
+  for (const required of ["TypeScript 7.0.2", "@ambitious/typescript7", "TypeScript API 6.0.3", "dependency-cruiser 18.9.0", "Java 25", "instructions version 13", "routine prompts and module pins from 0.4.8"]) {
     assert.ok(notes.includes(required), `the ${KIT_VERSION} release notes say: ${required}`);
   }
   assert.ok(readme.indexOf(`### ${KIT_VERSION}`) < readme.indexOf("### 0.4.8"), "the newest release notes come first, and the earlier ones stay as history");

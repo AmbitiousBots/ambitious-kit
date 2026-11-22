@@ -46,8 +46,8 @@ For a TypeScript module:
      "@ambitious/kit": "file:vendor/ambitious-kit-0.4.9.tgz",
      "@ambitious/lint": "file:vendor/ambitious-lint-0.4.9.tgz",
      "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.9.tgz",
+     "@ambitious/typescript7": "npm:typescript@7.0.2",
      "@types/node": "24.19.2",
-     "@typescript/native": "npm:typescript@7.0.2",
      "dependency-cruiser": "18.9.0",
      "esbuild": "0.28.2",
      "eslint": "10.15.0",
@@ -55,9 +55,9 @@ For a TypeScript module:
    }
    ```
 
-   The `@typescript/native` alias provides the TypeScript 7 compiler (`tsc`). The `typescript` alias provides `tsc6` and the TypeScript 6.0 API that the lint parser and dependency-cruiser import.
+   The `@ambitious/typescript7` alias provides `tsc` 7.0.2 and leaves the parser’s optional native backend uninstalled. The `typescript` alias installs compatibility package 6.0.2, which provides `tsc6` and exports API 6.0.3 for the lint parser and dependency-cruiser. Run `npm install --strict-peer-deps` and `npm ls --all`, then commit the lockfile.
 
-4. Copy `eslint.config.js`, `.dependency-cruiser.mjs`, `tsconfig.json`, `scripts/build.mjs` and the `scripts` block of `package.json` from [examples/hello](examples/hello), and keep the template's standalone check in `lint`: `"lint": "eslint . && node scripts/check-standalone.mjs"`. Change the module name in `scripts/build.mjs`.
+4. Copy `eslint.config.js`, `.dependency-cruiser.mjs`, `tsconfig.json`, the files under `scripts/` and the `scripts` block of `package.json` from [examples/hello](examples/hello), and keep the template's standalone check in `lint`: `"lint": "eslint . && node scripts/check-standalone.mjs"`. Change the module name in `scripts/build.mjs`.
 5. Write the module in `src/` as the example does, add an entry to `verify/features.json` for each command, and run `npm run typecheck`, `npm run lint`, `npm run depcruise`, `npm test`, `npm run build`, `npm run contract`, `npm run tlc` and `node verify/run`.
 
 The `adopt` feature in [verify/features.json](verify/features.json) does exactly these steps in a scratch directory on every run, so they are known to work.
@@ -307,7 +307,7 @@ jobs:
 
 ### 0.4.9
 
-- TypeScript 7.0.2 checks module types and compiles the release packages. The lint and dependency rules use the TypeScript 6.0 API through the alias in the adopter instructions.
+- TypeScript 7.0.2 checks module types and compiles the release packages. The compiler alias is `@ambitious/typescript7`. The lint parser and dependency-cruiser load TypeScript API 6.0.3 through the `typescript` alias.
 - The depcruise archive requires dependency-cruiser 18.9.0. The lint archive includes the dependency on parser 8.73.0, which accepts minimatch 11 through typescript-estree. Modules adopting these archives can remove the minimatch override.
 - TLC runs on Temurin Java 25 in the kit and the repo template. The Python lint guide pins Ruff 0.17.6.
 - The template carries instructions version 13 and the routine prompts and module pins from 0.4.8.

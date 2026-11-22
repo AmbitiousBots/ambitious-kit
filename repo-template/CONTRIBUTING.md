@@ -26,7 +26,7 @@ mise trust && mise install
 npm ci
 ```
 
-`npm ci` installs the packages pinned in `package-lock.json`. Skip it if the repository has no `package-lock.json` yet.
+`npm ci` installs the packages pinned in `package-lock.json`. For a TypeScript module using kit 0.4.9, pin `@ambitious/typescript7` to `npm:typescript@7.0.2` and `typescript` to `npm:@typescript/typescript6@6.0.2`. Use `npm ci --strict-peer-deps` and check the installed tree with `npm ls --all`. Skip installation if the repository has no lockfile yet.
 
 ## Run the checks
 

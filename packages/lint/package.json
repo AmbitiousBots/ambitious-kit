@@ -16,6 +16,6 @@
   },
   "peerDependencies": {
     "eslint": "10.15.0",
-    "typescript": ">=6.0.2 <6.1.0"
+    "typescript": "npm:@typescript/typescript6@6.0.2"
   }
 }
