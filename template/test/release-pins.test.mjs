@@ -4,12 +4,12 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { readJson, repoRoot, sha256, skillOnly, templateRoot } from "./support.mjs";
 
-const KIT_VERSION = "0.4.7";
+const KIT_VERSION = "0.4.8";
 const INSTRUCTIONS_VERSION = 13;
 const INSTRUCTIONS_FIRST_TEMPLATE = "0.4.6";
 const INSTRUCTIONS_SHA256 = "897ae5617ea294be7c76ec60c7c5baa9780d23b2765780b17080e798eb6d3d55";
 const ROUTINES_SHA256 = "33d424e85eb6f9a3bfd2a2f021e741f43aa330101939e788f1bd2146f33081f4";
-const PINS_SHA256 = "75cddb1b2935008b419c80d9a04c7efbe76f7e09fa3318817b5828edb7f5eb0e";
+const PINS_SHA256 = "7bcc69b5d65237e4025a8a5fdc69720d71c73355600058ab04fb309cf9e33a63";
 
 const text = (...path) => readFileSync(join(repoRoot, ...path), "utf8");
 const bot = readJson(join(templateRoot, "bot.json"));
@@ -61,9 +61,14 @@ test(`the instructions stay version ${INSTRUCTIONS_VERSION}, byte for byte the t
   assert.equal(versions.length, INSTRUCTIONS_VERSION);
 });
 
-test("this release changes no routine prompt and no module pin, so the automatic update behaves as it did", () => {
+test("this release changes no routine prompt, and it moves only the tasks, records and compliance pins", () => {
   assert.equal(sha256(text("template", "routines.md")), ROUTINES_SHA256, "template/routines.md is the file template 0.4.6 had");
-  assert.equal(sha256(text("template", "modules.lock.json")), PINS_SHA256, "template/modules.lock.json is the file template 0.4.6 had");
+  assert.equal(sha256(text("template", "modules.lock.json")), PINS_SHA256, "template/modules.lock.json pins tasks 0.1.3, records 0.1.1 and compliance 0.1.1");
+  const versions = Object.fromEntries(readJson(join(templateRoot, "modules.lock.json")).map((row) => [row.module, row.version]));
+  assert.deepEqual(
+    { tasks: versions.tasks, records: versions.records, compliance: versions.compliance, contracts: versions.contracts, audit: versions.audit, video: versions.video, scheduling: versions.scheduling, constraints: versions.constraints },
+    { tasks: "0.1.3", records: "0.1.1", compliance: "0.1.1", contracts: "0.1.0", audit: "0.3.0", video: "0.1.0", scheduling: "0.1.0", constraints: "0.1.0" },
+  );
   const history = readJson(join(templateRoot, "routines.json"));
   for (const [name, { current }] of Object.entries(history)) {
     assert.notEqual(current.firstTemplate, KIT_VERSION, `${name} has no prompt first published by ${KIT_VERSION}`);
@@ -75,7 +80,7 @@ test(`the README and the package guides name the ${KIT_VERSION} release files an
   for (const name of ["kit", "lint", "depcruise"]) assert.ok(readme.includes(`file:vendor/ambitious-${name}-${KIT_VERSION}.tgz`), name);
   assert.ok(readme.includes(`\`kit-v${KIT_VERSION}\``));
   const notes = readme.split(`\n### ${KIT_VERSION}\n`)[1]?.split("\n### ")[0] ?? "";
-  for (const required of ["`--help`", "`fields`", "`example`", "`listed-shapes`", "`parseActor`", "`parse_actor`", "stay at version 13", "unchanged from 0.4.6", "no skill rule changes", "`withinDays`", "`list move`", "do not have them yet"]) {
+  for (const required of ["tasks 0.1.3", "records 0.1.1", "compliance 0.1.1", "`ambitious-tasks-page`", "stay at version 13", "Other module pins are unchanged", "`--help`", "`input`"]) {
     assert.ok(notes.includes(required), `the ${KIT_VERSION} release notes say: ${required}`);
   }
   assert.ok(readme.indexOf(`### ${KIT_VERSION}`) < readme.indexOf("### 0.4.6"), "the newest release notes come first, and the earlier ones stay as history");

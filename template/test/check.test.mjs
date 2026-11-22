@@ -1593,7 +1593,7 @@ test('sync compares the bot\'s routines with the template\'s: the template\'s pr
 });
 
 test('the size budget is one constant, and the template fits it: every skill body with its description within the budget for one skill, and all of them with the routine prompts within the total', () => {
-  assert.deepEqual(TEMPLATE_BUDGET, { totalBytes: 32768, perSkillBytes: 8192 });
+  assert.deepEqual(TEMPLATE_BUDGET, { totalBytes: 33280, perSkillBytes: 8192 });
   const bot = readJson(join(root, 'bot.json'));
   const sizes = templateSizes(bot.skills, bot.routines);
   assert.deepEqual(sizes.items.map(({ kind, name }) => `${kind} ${name}`), [...expectedSkills.map((name) => `skill ${name}`), 'routine prompt ambitious-selfcheck', 'routine prompt ambitious-snapshot']);
@@ -1628,7 +1628,7 @@ test('a skill over the budget for one skill, and a template over the total, each
 
   const five = [1, 2, 3, 4, 5].map((index) => skill(`ambitious-part-${index}`, 7000));
   const totalTooLarge = templateBudgetFailure(five, routines);
-  assert.match(totalTooLarge, /The template is 37000 bytes \(every skill body and description and every routine prompt, UTF-8\), which is 4232 over the budget of 32768 bytes\./u);
+  assert.match(totalTooLarge, /The template is 37000 bytes \(every skill body and description and every routine prompt, UTF-8\), which is 3720 over the budget of 33280 bytes\./u);
   assert.match(totalTooLarge, /The largest items are the skill ambitious-part-1 \(7000\), the skill ambitious-part-2 \(7000\), the skill ambitious-part-3 \(7000\)\./u);
   assert.match(totalTooLarge, /into the installer's help/u);
   assert.doesNotMatch(totalTooLarge, /for one skill/u, 'no single skill is over its own budget here');

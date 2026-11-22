@@ -1107,7 +1107,7 @@ test('a bot on template 0.2.4 gets to this version in the order the installer sk
   const after = viaLink(['--instructions', instructions, '--routines', routines]);
   assert.equal(after.ok, true, JSON.stringify(after.errors));
   assert.equal(after.meta.version, version);
-  assert.deepEqual(statesOf(after), all('unchanged', { tasks: 'upgraded', audit: 'upgraded', scheduling: 'installed', constraints: 'installed' }));
+  assert.deepEqual(statesOf(after), all('unchanged', { tasks: 'upgraded', audit: 'upgraded', records: 'installed', compliance: 'installed', scheduling: 'installed', constraints: 'installed' }));
   assert.deepEqual(after.data.modules.map(({ module, version: at }) => `${module} ${at}`), rows.map(({ module, version: at }) => `${module} ${at}`));
   for (const report of after.data.modules.filter(({ module }) => !needPython.includes(module) || hasPython313)) assert.equal(report.selfcheck, 'ok', `${report.module}: ${report.problems.join(' ')}`);
   assert.equal(after.data.template.update, 'current');

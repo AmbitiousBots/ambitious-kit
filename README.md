@@ -23,7 +23,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.7`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.8`.
 
 | File | Use |
 |---|---|
@@ -43,9 +43,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.7.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.7.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.7.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.8.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.8.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.8.tgz",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.7.2",
      "esbuild": "0.28.2",
@@ -306,6 +306,12 @@ jobs:
 `tlc.yml` installs the toolchain from the calling repo's `.mise.toml` and runs its `scripts/tlc.mjs`; both come from the template. Input `spec-directory` defaults to `spec`. `lean.yml` installs the Lean version named in the `lean-toolchain` file and runs `lake build`; input `directory` (default `proofs`) is where the Lake package lives.
 
 ## Release notes
+
+### 0.4.8
+
+- Pins tasks 0.1.3, records 0.1.1 and compliance 0.1.1, and retargets those modules' skills to the new releases. The copied `ambitious-tasks-page` skill is the 0.1.3 text. Other module pins are unchanged. Instructions stay at version 13, byte for byte, and the routine prompts and the automatic update are unchanged.
+- The contract tests now refuse a `--help` listing whose `input` is the number `1` or `0` where `commands` lists a boolean, in both the TypeScript and the Python runners.
+- The skills-and-routines size budget's total is raised so the larger copied `ambitious-tasks-page` skill from tasks 0.1.3 still fits. It remains a conservative budget, not a measured platform limit.
 
 ### 0.4.7
 

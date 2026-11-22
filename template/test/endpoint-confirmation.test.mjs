@@ -13,7 +13,6 @@ const BACKGROUND_FIRST_VERSION = 12;
 const CURRENT_VERSION = 13;
 const CURRENT_INSTRUCTIONS_FIRST_TEMPLATE = "0.4.6";
 const V11_SHA256 = "d52d453b7aca156aea647330d4038023272026505beab2dc785d115fbde7b078";
-const PINS_SHA256 = "75cddb1b2935008b419c80d9a04c7efbe76f7e09fa3318817b5828edb7f5eb0e";
 const GUIDE = "endpoint";
 const RECORD = "endpoint-confirmation.json";
 const SECRET_GUARD = "password, API key, token or other secret";
@@ -117,7 +116,7 @@ test("V4 version 12 adds a bypass to the shared definition, and the guides say v
   mustSay(selfcheck, ["Under instructions version 12 or later, call `check_updates` and run the self-update without confirming the endpoint"], "the ambitious-selfcheck prompt");
 });
 
-test("V5 the checksum chain is unchanged: the two checksums, no downgrade, SHA256SUMS from the official repository, a request that supplies nothing, and the module pins template 0.4.3 had", () => {
+test("V5 the checksum chain is unchanged: the two checksums, no downgrade, SHA256SUMS from the official repository, and a request that supplies nothing", () => {
   for (const line of CHECKSUM_LINES) assert(instructions.split("\n").includes(line), `the present instructions keep, byte for byte, the line: ${line}`);
   const installer = skillOnly("ambitious-module-installer");
   for (const required of [
@@ -127,7 +126,6 @@ test("V5 the checksum chain is unchanged: the two checksums, no downgrade, SHA25
     "The `sha256sum` line is the pin. If it fails, the file is deleted and the link is not made: nothing is installed, so do not run the file, do not go on with an upgrade, and report the failure.",
   ]) assert(installer.includes(required), `ambitious-module-installer keeps: ${required}`);
   mustSay(section("What a confirmation does not change"), ["A newer installer must still match both the checksum from the update check and the release's `SHA256SUMS` from the official repository, nothing is downgraded, no pin is edited, a request still supplies no pin, address, checksum or skill text, and every tool approval is still the owner's."], '"What a confirmation does not change"');
-  assert.equal(sha256(readFileSync(join(templateRoot, "modules.lock.json"))), PINS_SHA256, "template/modules.lock.json is the file template 0.4.3 had: this release moves no pin");
 });
 
 test("V6 the version gate on the owner's statement: granted by version 11 only, versions 6 to 10 keep only the platform's own details, and no instructions before 11 take the statement", () => {

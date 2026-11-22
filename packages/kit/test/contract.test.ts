@@ -37,6 +37,7 @@ const BROKEN: readonly (readonly [name: string, mustCatch: string, alsoFails: re
   ["refuses-help", "envelope-shape", []],
   ["help-runs-the-command", "envelope-shape", []],
   ["help-lists-every-command", "envelope-shape", []],
+  ["help-input-as-number", "envelope-shape", []],
   ["example-is-refused", "listed-shapes", []],
   ["required-field-is-optional", "listed-shapes", []],
 ];

@@ -3,7 +3,7 @@ name: ambitious-audit-collector
 description: For the Ambitious Bot only. Gather a collector document for ambitious-audit, writing every unseen value as null and saying what it could not see. Use when the Ambitious Bot collects an audit or a snapshot.
 ---
 
-Template version: 0.4.7
+Template version: 0.4.8
 
 # Audit collector
 
