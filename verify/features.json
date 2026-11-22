@@ -15,6 +15,11 @@
     "check": "node verify/checks/greet-and-list.mjs"
   },
   {
+    "id": "help",
+    "userVisible": "A bot can ask a module what it offers: --help and the commands command list every command, and for a command that says so, the fields of its input and one example to send.",
+    "check": "node verify/checks/help.mjs"
+  },
+  {
     "id": "contract",
     "userVisible": "Every module answers the same way: one JSON answer per command, fixed exit codes, repeatable output, no access to the bot's private data, and analysis that never changes data.",
     "check": "npm run --silent contract -- examples/hello/dist/ambitious-hello.mjs"

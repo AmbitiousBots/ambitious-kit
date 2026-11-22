@@ -4,8 +4,10 @@ The Python mirror of [`@ambitious/kit`](../kit): the same envelope, command-line
 
 | Import | What it gives you |
 |---|---|
-| `ambitious_kit.cli.runner` | `run_cli(spec)` and `ModuleSpec`: parses the arguments, reads input, opens the database, runs the command, prints the one envelope and returns the exit code. Adds `selfcheck` and `commands` to every module. |
-| `ambitious_kit.cli.command` | `read_command`, `write_command`, `pure_command`, `no_input`, and the `Context` and `DbContext` a command receives. |
+| `ambitious_kit.cli.runner` | `run_cli(spec)` and `ModuleSpec`: parses the arguments, reads input, opens the database, runs the command, prints the one envelope and returns the exit code. Adds `selfcheck` and `commands` to every module, and answers `--help` with the same listing in one envelope. |
+| `ambitious_kit.cli.command` | `read_command`, `write_command`, `pure_command`, `no_input`, and the `Context` and `DbContext` a command receives. A command that takes input may pass an `InputShape` as its third argument, which `commands` and `--help` then list. |
+| `ambitious_kit.domain.input_shape` | `InputShape`, `InputField`, `FIELD_TYPES`, and `shape_problems`, which `run_cli` uses to refuse a wrong shape as a spec problem. |
+| `ambitious_kit.domain.actor` | `parse_actor(raw)`: the one rule for who made a write. 1 to 200 Unicode characters, no control characters or line breaks, no half of a surrogate pair, no leading or trailing whitespace; internal spaces are allowed and nothing is trimmed. Anything else is `E_INPUT_SCHEMA` with the rule, `ACTOR_RULE`, in the hint. |
 | `ambitious_kit.domain.envelope` | `ok`, `err`, `failure`, `Failure`, `envelope_problems` and the envelope types. |
 | `ambitious_kit.domain.clock` | `parse_now`, `parse_seed`, `format_instant`. |
 | `ambitious_kit.db.sqlite` | `open_db(path, readonly=...)`, `migrate`, `load_migrations`, `require_current_schema`, `integrity_check`. |
@@ -19,7 +21,9 @@ It behaves like the TypeScript kit, with Python's own types: a command receives 
 
 ```python
 commands = {
-    "greet": write_command(greet, parse_greeting_request),
+    "greet": write_command(
+        greet, parse_greeting_request, InputShape([InputField("name", "string", True)], {"name": "world"})
+    ),
     "list": read_command(list_greetings, no_input),
 }
 ```

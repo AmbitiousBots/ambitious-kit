@@ -6,7 +6,9 @@ import { test, type TestContext } from "node:test";
 import { pureCommand, readCommand, writeCommand } from "../src/cli/command.ts";
 import { cliEnvelope, type Io, type ModuleSpec } from "../src/cli/run-cli.ts";
 import { envelopeProblems, exitCodeOf, type Envelope } from "../src/domain/envelope.ts";
+import { FLAG_USAGE } from "../src/domain/args.ts";
 import { failure } from "../src/domain/failure.ts";
+import type { InputShape } from "../src/domain/input-shape.ts";
 import { isRecord } from "../src/domain/json.ts";
 
 const NOW = "2026-01-01T00:00:00Z";
@@ -25,6 +27,13 @@ const spec: ModuleSpec = {
   commands: {
     add: writeCommand({
       input: parseNote,
+      shape: {
+        fields: [
+          { name: "body", type: "string", required: true },
+          { name: "actor", type: "string", required: false },
+        ],
+        example: { body: "Ship the release", actor: "owner" },
+      },
       run: ({ input, db, clock }) => {
         db.prepare("INSERT INTO notes (body, at) VALUES (?, ?)").run(input.body, clock.now().toISOString());
         if (input.body === "refuse me") throw failure("E_REFUSED", "This note is refused.", "Send another body.", { body: input.body });
@@ -46,6 +55,28 @@ const spec: ModuleSpec = {
 
 type Run = { readonly envelope: Envelope; readonly stderr: string; readonly home: string };
 
+const ADD_LISTING = {
+  name: "add",
+  access: "write",
+  input: true,
+  fields: [
+    { name: "body", type: "string", required: true },
+    { name: "actor", type: "string", required: false },
+  ],
+  example: { body: "Ship the release", actor: "owner" },
+};
+
+const ioFor = (argv: readonly string[]): Io => ({
+  argv,
+  env: {},
+  binaryPath: import.meta.filename,
+  readStdin: () => Promise.resolve(""),
+  systemNow: () => new Date(0),
+  systemSeed: () => 0,
+  writeStdout: () => undefined,
+  writeStderr: () => undefined,
+});
+
 const run = async (t: TestContext, argv: readonly string[], options: { stdin?: string; home?: string; env?: Record<string, string> } = {}): Promise<Run> => {
   const home = options.home ?? mkdtempSync(join(tmpdir(), "ambitious-kit-cli-"));
   if (options.home === undefined) t.after(() => rmSync(home, { recursive: true, force: true }));
@@ -54,7 +85,7 @@ const run = async (t: TestContext, argv: readonly string[], options: { stdin?: s
     argv,
     env: { AMBITIOUS_HOME: home, ...options.env },
     binaryPath: import.meta.filename,
-    readStdin: () => Promise.resolve(options.stdin ?? ""),
+    readStdin: () => (options.stdin === "never read" ? Promise.reject(new Error("stdin was read")) : Promise.resolve(options.stdin ?? "")),
     systemNow: () => new Date("2030-06-01T12:00:00Z"),
     systemSeed: () => 123,
     writeStdout: () => undefined,
@@ -192,7 +223,7 @@ test("the built-in commands command lists every command with how it touches the 
   const listed = await run(t, ["commands"]);
   assert.deepEqual(listed.envelope.data, {
     commands: [
-      { name: "add", access: "write", input: true },
+      ADD_LISTING,
       { name: "commands", access: "none", input: false },
       { name: "count", access: "read", input: false },
       { name: "count sneaky", access: "read", input: false },
@@ -204,22 +235,98 @@ test("the built-in commands command lists every command with how it touches the 
   assert.equal(existsSync(join(listed.home, "notes")), false);
 });
 
+test("--help with no command answers ok with the same listing as commands, and reads and creates nothing", async (t) => {
+  const listed = await run(t, ["commands", "--now", NOW, "--seed", "7"]);
+  for (const argv of [["--help"], ["--help", "--json"], ["--json", "--help"]]) {
+    const helped = await run(t, [...argv, "--now", NOW, "--seed", "7"], { stdin: "never read" });
+    assert.deepEqual(helped.envelope, listed.envelope, argv.join(" "));
+    assert.equal(exitCodeOf(helped.envelope), 0);
+    assert.equal(helped.stderr, "");
+    assert.equal(existsSync(join(helped.home, "notes")), false);
+  }
+  assert.deepEqual((await run(t, ["commands", "--json"])).envelope.data, listed.envelope.data);
+});
+
+test("--help with a command name answers ok with that command's listing and does not run it", async (t) => {
+  const added = await run(t, ["add", "--help"], { stdin: "never read" });
+  assert.deepEqual([added.envelope.ok, added.envelope.command, added.envelope.data], [true, "add", { commands: [ADD_LISTING] }]);
+  assert.equal(existsSync(join(added.home, "notes")), false);
+  const file = join(added.home, "note.json");
+  writeFileSync(file, '{"body":"from a file"}');
+  assert.deepEqual((await run(t, ["--help", "add", "--in", file], { home: added.home, stdin: "never read" })).envelope.data, { commands: [ADD_LISTING] });
+  const checked = await run(t, ["selfcheck", "--help"], { home: added.home });
+  assert.deepEqual([checked.envelope.ok, checked.envelope.data], [true, { commands: [{ name: "selfcheck", access: "write", input: false }] }]);
+  const rolled = await run(t, ["dice", "roll", "--help"], { home: added.home });
+  assert.deepEqual([rolled.envelope.command, rolled.envelope.data], ["dice roll", { commands: [{ name: "dice roll", access: "none", input: false }] }]);
+  const counted = await run(t, ["count", "--help"], { home: added.home });
+  assert.deepEqual([counted.envelope.ok, counted.envelope.data], [true, { commands: [{ name: "count", access: "read", input: false }] }]);
+  assert.equal(existsSync(join(added.home, "notes")), false);
+});
+
+test("--help does not excuse another usage problem, and every other unknown flag is still E_USAGE", async (t) => {
+  const cases: readonly (readonly [readonly string[], string, string])[] = [
+    [["--help", "--verbose"], "", 'Unknown flag "--verbose".'],
+    [["add", "--help", "--verbose"], "add", 'Unknown flag "--verbose".'],
+    [["cuont", "--help"], "", 'Unknown command "cuont".'],
+    [["--help", "--help"], "", "The flag --help was given more than once."],
+    [["--help=yes"], "", "No command was given."],
+    [["add", "--help=yes"], "add", 'Unknown flag "--help=yes".'],
+    [["add", "-h"], "", 'Unknown command "add -h".'],
+    [["count", "--usage"], "count", 'Unknown flag "--usage".'],
+    [["--help", "--now", "noon"], "", 'The --now value "noon" is not a time with a time zone.'],
+  ];
+  for (const [argv, command, message] of cases) {
+    const result = await run(t, argv, { stdin: "never read" });
+    assert.deepEqual([codes(result)[0], result.envelope.command, result.envelope.errors[0]?.message], ["E_USAGE", command, message], argv.join(" "));
+    assert.equal(exitCodeOf(result.envelope), 1);
+  }
+  const unknown = await run(t, ["count", "--verbose"]);
+  assert.equal(unknown.envelope.errors[0]?.hint, "Use only these flags: [--in file] [--db path] [--now ISO8601] [--seed int] [--json] [--help].");
+  assert.equal(FLAG_USAGE, "[--in file] [--db path] [--now ISO8601] [--seed int] [--json] [--help]");
+});
+
+test("--help still refuses a path under the bot's private data directory", async (t) => {
+  assert.deepEqual(codes(await run(t, ["--help", "--db", "/home/box/agent-data/notes.sqlite"])), ["E_FORBIDDEN_PATH"]);
+  assert.deepEqual(codes(await run(t, ["add", "--help"], { env: { AMBITIOUS_HOME: "/home/box/agent-data" } })), ["E_FORBIDDEN_PATH"]);
+});
+
+test("a command that takes input and declares no shape is listed without fields, as before", async (t) => {
+  const plain: ModuleSpec = { ...spec, commands: { note: writeCommand({ input: parseNote, run: () => ({}) }) } };
+  const home = mkdtempSync(join(tmpdir(), "ambitious-kit-cli-"));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  const listed = await cliEnvelope(plain, { ...ioFor(["commands"]), env: { AMBITIOUS_HOME: home } });
+  assert.deepEqual(listed.data, {
+    commands: [
+      { name: "commands", access: "none", input: false },
+      { name: "note", access: "write", input: true },
+      { name: "selfcheck", access: "write", input: false },
+    ],
+  });
+});
+
+test("a declared shape that is wrong is a reported spec problem that names the command, before any command runs", async () => {
+  const withShape = (shape: InputShape): ModuleSpec => ({ ...spec, commands: { note: pureCommand({ input: parseNote, shape, run: () => ({}) }) } });
+  const body = { name: "body", type: "string", required: true } as const;
+  const due = { name: "due", type: "integer", required: false } as const;
+  await assert.rejects(
+    cliEnvelope(withShape({ fields: [body], example: { body: null } }), ioFor(["--help"])),
+    /The module spec is not valid: command "note": the example field "body" is null, but its type is string; null is never an example value, so give a string or leave the field out\./,
+  );
+  await assert.rejects(
+    cliEnvelope(withShape({ fields: [body, due], example: { body: "x", due: null } }), ioFor(["commands"])),
+    /command "note": the example field "due" is null, but its type is integer/,
+  );
+  await assert.rejects(cliEnvelope(withShape({ fields: [body, body] }), ioFor(["commands"])), /command "note": field "body" is listed more than once/);
+  await assert.rejects(cliEnvelope(withShape({ fields: [body], example: { body: 7 } }), ioFor(["note"])), /the example field "body" must be a string, but is a number/);
+});
+
 test("a command may be asynchronous and reads its key only from the environment of that call", async (t) => {
   assert.deepEqual((await run(t, ["slow"])).envelope.data, { key: "absent" });
   assert.deepEqual((await run(t, ["slow"], { env: { NOTES_KEY: "k" } })).envelope.data, { key: "present" });
 });
 
 test("a module spec that breaks the naming rules is refused before any command runs", async () => {
-  const io: Io = {
-    argv: ["commands"],
-    env: {},
-    binaryPath: import.meta.filename,
-    readStdin: () => Promise.resolve(""),
-    systemNow: () => new Date(0),
-    systemSeed: () => 0,
-    writeStdout: () => undefined,
-    writeStderr: () => undefined,
-  };
+  const io = ioFor(["commands"]);
   await assert.rejects(cliEnvelope({ ...spec, module: "Notes" }, io), /lower-case name/);
   await assert.rejects(cliEnvelope({ ...spec, commands: { selfcheck: spec.commands.add ?? pureCommand({ run: () => ({}) }) } }, io), /provided by the kit/);
 });

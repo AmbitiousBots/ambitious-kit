@@ -8,6 +8,7 @@ from ambitious_kit.cli.runner import ModuleSpec, run_cli
 from ambitious_kit.db.sqlite import load_migrations
 from ambitious_kit.domain.clock import format_instant
 from ambitious_kit.domain.envelope import JsonObject, failure
+from ambitious_kit.domain.input_shape import InputField, InputShape
 
 OPENINGS = ("Hello", "Good day", "Welcome")
 MAX_NAME_LENGTH = 100
@@ -58,7 +59,11 @@ def main() -> int:
             schema_version=1,
             migrations=load_migrations(files("hello") / "migrations"),
             commands={
-                "greet": write_command(greet, parse_greeting_request),
+                "greet": write_command(
+                    greet,
+                    parse_greeting_request,
+                    InputShape([InputField("name", "string", True)], {"name": "world"}),
+                ),
                 "list": read_command(list_greetings, no_input),
             },
         )

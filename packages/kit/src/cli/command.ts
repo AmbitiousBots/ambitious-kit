@@ -1,4 +1,5 @@
 import type { Clock, Rng } from "../domain/clock.ts";
+import type { InputShape } from "../domain/input-shape.ts";
 import type { JsonObject } from "../domain/json.ts";
 import type { Db } from "../db/open-db.ts";
 
@@ -20,11 +21,15 @@ export type Runtime = Omit<CommandContext<never>, "input"> & { readonly openDb: 
 export type Command = {
   readonly access: Access;
   readonly takesInput: boolean;
+  readonly shape?: InputShape;
   readonly parse: (rawInput: unknown) => (runtime: Runtime) => Output;
 };
 
-type InputOf<Input> = { readonly input: (raw: unknown) => Input };
-type NoInput = { readonly input?: undefined };
+type InputOf<Input> = { readonly input: (raw: unknown) => Input; readonly shape?: InputShape };
+
+const declared = (spec: { readonly shape?: InputShape | undefined }): { readonly shape?: InputShape } =>
+  spec.shape === undefined ? {} : { shape: spec.shape };
+type NoInput = { readonly input?: undefined; readonly shape?: undefined };
 
 const parsed = <Input>(spec: InputOf<Input> | NoInput, raw: unknown): Input | undefined =>
   spec.input === undefined ? undefined : spec.input(raw);
@@ -38,6 +43,7 @@ const withDb = (access: "read" | "write") => {
     return {
       access,
       takesInput: spec.input !== undefined,
+      ...declared(spec),
       parse: (rawInput) => {
         const input = parsed(spec, rawInput);
         return ({ openDb, ...context }) => spec.run({ ...context, input, db: openDb() });
@@ -59,6 +65,7 @@ export function pureCommand<Input>(
   return {
     access: "none",
     takesInput: spec.input !== undefined,
+    ...declared(spec),
     parse: (rawInput) => {
       const input = parsed(spec, rawInput);
       return ({ openDb: _openDb, ...context }) => spec.run({ ...context, input });

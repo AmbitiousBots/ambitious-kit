@@ -1,0 +1,163 @@
+[
+  {
+    "title": "one character",
+    "actor": "a",
+    "problem": null
+  },
+  {
+    "title": "a plain name",
+    "actor": "owner",
+    "problem": null
+  },
+  {
+    "title": "internal spaces stay",
+    "actor": "Night  shift lead",
+    "problem": null
+  },
+  {
+    "title": "letters of any script",
+    "actor": "Zo\u00eb \u5c71\u7530 \u03a9mega",
+    "problem": null
+  },
+  {
+    "title": "an internal no-break space is not an edge",
+    "actor": "a\u00a0b",
+    "problem": null
+  },
+  {
+    "title": "200 characters",
+    "repeat": "a",
+    "times": 200,
+    "problem": null
+  },
+  {
+    "title": "201 characters",
+    "repeat": "a",
+    "times": 201,
+    "problem": "has 201 characters"
+  },
+  {
+    "title": "200 astral characters, each one character",
+    "repeat": "\ud83d\ude00",
+    "times": 200,
+    "problem": null
+  },
+  {
+    "title": "201 astral characters",
+    "repeat": "\ud83d\ude00",
+    "times": 201,
+    "problem": "has 201 characters"
+  },
+  {
+    "title": "empty",
+    "actor": "",
+    "problem": "is empty"
+  },
+  {
+    "title": "one space",
+    "actor": " ",
+    "problem": "starts or ends with whitespace"
+  },
+  {
+    "title": "only spaces",
+    "actor": "   ",
+    "problem": "starts or ends with whitespace"
+  },
+  {
+    "title": "a leading space",
+    "actor": " owner",
+    "problem": "starts or ends with whitespace"
+  },
+  {
+    "title": "a trailing space",
+    "actor": "owner ",
+    "problem": "starts or ends with whitespace"
+  },
+  {
+    "title": "a trailing no-break space",
+    "actor": "owner\u00a0",
+    "problem": "starts or ends with whitespace"
+  },
+  {
+    "title": "a leading ideographic space",
+    "actor": "\u3000owner",
+    "problem": "starts or ends with whitespace"
+  },
+  {
+    "title": "a tab inside",
+    "actor": "a\tb",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a line feed inside",
+    "actor": "a\nb",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a trailing line feed",
+    "actor": "owner\n",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a carriage return",
+    "actor": "a\rb",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a null character",
+    "actor": "a\u0000b",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a delete character",
+    "actor": "a\u007fb",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a next-line control",
+    "actor": "a\u0085b",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a line separator",
+    "actor": "a\u2028b",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a paragraph separator",
+    "actor": "a\u2029b",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a lone high surrogate",
+    "actor": "a\ud800b",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a lone low surrogate",
+    "actor": "\udc00",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a reversed surrogate pair",
+    "actor": "\udc00\ud800",
+    "problem": "has a control character, a line break or half of a surrogate pair"
+  },
+  {
+    "title": "a number",
+    "actor": 7,
+    "problem": "is not a string"
+  },
+  {
+    "title": "null",
+    "actor": null,
+    "problem": "is not a string"
+  },
+  {
+    "title": "a list",
+    "actor": [
+      "owner"
+    ],
+    "problem": "is not a string"
+  }
+]

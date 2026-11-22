@@ -6,8 +6,10 @@ There is no index file. Import each name from the file that defines it:
 
 | Import | What it gives you |
 |---|---|
-| `@ambitious/kit/cli/run-cli` | `runCli(spec)`: parses the arguments, reads input, opens the database, runs the command, prints the one envelope and sets the exit code. Adds the `selfcheck` and `commands` commands to every module. |
-| `@ambitious/kit/cli/command` | `readCommand`, `writeCommand`, `pureCommand`: how a module declares a command and whether it reads the database, writes it, or needs none. |
+| `@ambitious/kit/cli/run-cli` | `runCli(spec)`: parses the arguments, reads input, opens the database, runs the command, prints the one envelope and sets the exit code. Adds the `selfcheck` and `commands` commands to every module, and answers `--help` with the same listing in one envelope. |
+| `@ambitious/kit/cli/command` | `readCommand`, `writeCommand`, `pureCommand`: how a module declares a command and whether it reads the database, writes it, or needs none. A command that takes `input` may also declare `shape`, its field list and one example, which `commands` and `--help` then list. |
+| `@ambitious/kit/domain/input-shape` | `InputShape`, `InputField`, `FIELD_TYPES`, and `shapeProblems`, which `runCli` uses to refuse a wrong shape as a spec problem. |
+| `@ambitious/kit/domain/actor` | `parseActor(raw)`: the one rule for who made a write. 1 to 200 Unicode characters, no control characters or line breaks, no half of a surrogate pair, no leading or trailing whitespace; internal spaces are allowed and nothing is trimmed. Anything else is `E_INPUT_SCHEMA` with the rule, `ACTOR_RULE`, in the hint. |
 | `@ambitious/kit/cli/embedded` | `embedded()`: the module name, version and migrations that the build put into the bundle. |
 | `@ambitious/kit/cli/selfcheck` | `selfcheck(context)`: the report behind the `selfcheck` command. |
 | `@ambitious/kit/domain/envelope` | `envelope.ok`, `envelope.err`, `exitCodeOf`, `envelopeProblems` and the envelope types. |
@@ -37,6 +39,7 @@ await runCli({
   commands: {
     greet: writeCommand({
       input: parseGreetingRequest,
+      shape: { fields: [{ name: "name", type: "string", required: true }], example: { name: "world" } },
       run: ({ input, clock, rng, db }) => ({ greeting: saveGreeting(db, greet(input, clock, rng)) }),
     }),
     list: readCommand({ run: ({ db }) => ({ greetings: listGreetings(db) }) }),
@@ -73,7 +76,7 @@ esbuild is a development dependency of the module. The result is one file with n
 npx ambitious-contract dist/ambitious-<module>.mjs
 ```
 
-runs six checks against the built binary, each in its own temporary `AMBITIOUS_HOME`, and prints one row per check: `envelope-shape`, `exit-codes`, `now-determinism`, `agent-data-refusal`, `read-only-analysis`, `no-stdout-noise`. It works on `.mjs`, `.pyz` and any executable. To run the same checks inside the module's test suite, call `contractTests(binPath)` from a test file. The checks need only `selfcheck` and `commands`, which the kit provides, so they work on every module; they find the module's read commands through `commands`.
+runs seven checks against the built binary, each in its own temporary `AMBITIOUS_HOME`, and prints one row per check: `envelope-shape`, `exit-codes`, `now-determinism`, `agent-data-refusal`, `read-only-analysis`, `no-stdout-noise`, `listed-shapes`. `envelope-shape` includes that `--help` succeeds, lists what `commands` lists and does not run the command. `listed-shapes` sends every example that `commands` lists to its command as input, which must not be answered with `E_INPUT_SCHEMA`, and sends it again without each field listed as required, which must be; so an example must be safe to run against a fresh `AMBITIOUS_HOME`. It works on `.mjs`, `.pyz` and any executable. To run the same checks inside the module's test suite, call `contractTests(binPath)` from a test file. The checks need only `selfcheck` and `commands`, which the kit provides, so they work on every module; they find the module's read commands through `commands`.
 
 `test/fixtures/broken/` holds binaries that each break one rule, and `test/contract.test.ts` asserts that each is caught.
 

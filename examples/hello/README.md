@@ -4,14 +4,14 @@ The smallest module built on the kit. It stores greetings and lists them. It exi
 
 ## Commands
 
-Every command accepts `[--in file] [--db path] [--now ISO8601] [--seed int] [--json]` and prints one JSON envelope, as the [module contract](../../MODULE_CONTRACT.md) describes.
+Every command accepts `[--in file] [--db path] [--now ISO8601] [--seed int] [--json] [--help]` and prints one JSON envelope, as the [module contract](../../MODULE_CONTRACT.md) describes.
 
 | Command | Kind | Input | What it does |
 |---|---|---|---|
 | `greet` | write | `{ "name": "world" }`, 1 to 100 characters | Stores a greeting for the name and returns it in `data.greeting`. `--seed` chooses the opening words and `--now` is the stored time. |
 | `list` | read | none | Returns every stored greeting, oldest first, in `data.greetings`. |
 | `selfcheck` | write | none | Creates the database if it is missing, applies pending migrations and reports the runtime, the binary checksum and the database state. Provided by the kit. |
-| `commands` | no database | none | Lists every command with its kind and whether it takes input. Provided by the kit. |
+| `commands` | no database | none | Lists every command with its kind, whether it takes input and, for `greet`, its input fields and one example. `--help` answers the same listing, and `greet --help` only the entry for `greet`, without running anything. Provided by the kit. |
 
 ```text
 $ echo '{"name":"world"}' | node dist/ambitious-hello.mjs greet --now 2026-01-01T00:00:00Z --seed 7
