@@ -1795,7 +1795,8 @@ const IN_THE_SKILL_ITSELF = {
   'ambitious-records-for-bots': ['Agree the type with the owner before defining it.', 'Present counts and totals only as the module returned them', 'Never place credentials in record fields.'],
   'ambitious-video-for-bots': [
     'Always run `estimate` and get the owner\'s go-ahead on the price before `render`.',
-    'only when this bot\'s instructions allow a module to call an outside provider, the owner asked for spoken voiceover, and the owner supplied the key in the environment. Never write the key to a file, a script or a log.',
+    'Pass `--offline` to `plan`, `estimate` and `render`, so no provider is called.',
+    'only when this bot\'s instructions allow a module to call an outside provider, the owner asked for that paid step, and the owner supplied that provider\'s key in the environment. Never write a key to a file, a script or a log.',
     'Keep scripts and media out of `/home/box/agent-data`.',
     'do not upload or send it anywhere',
   ],

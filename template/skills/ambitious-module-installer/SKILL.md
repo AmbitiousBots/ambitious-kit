@@ -71,7 +71,7 @@ Then check the pin and link it:
 
 ```sh
 cd "${AMBITIOUS_HOME:-/workspace/ambitious}/bin" &&
-echo "1a1b6c7f1aead061eddb78d7c258facef39c4652d679220e733cecd491eb40a4  ambitious-modules-0.4.10.mjs" | sha256sum -c - &&
+echo "21ea8e74b7064bf2c382b79ed1739ab5846ad79095b0cde3f635498fe1f161bc  ambitious-modules-0.4.10.mjs" | sha256sum -c - &&
 chmod 755 ambitious-modules-0.4.10.mjs && ln -sfn ambitious-modules-0.4.10.mjs ambitious-modules ||
 { rm -f ambitious-modules-0.4.10.mjs; false; }
 ```

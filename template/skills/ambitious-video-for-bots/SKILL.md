@@ -20,5 +20,5 @@ If `guide` fails, first fetch the pinned installer (`ambitious-module-installer`
 Hard rules:
 
 - Always run `estimate` and get the owner's go-ahead on the price before `render`. Quote costs only from `estimate` and `ledger`; never work out a price yourself.
-- Leave `voice` unset: voiceover clips are then captions only and nothing leaves the computer. Set `voice`, which sends the voiceover text to the speech provider, only when this bot's instructions allow a module to call an outside provider, the owner asked for spoken voiceover, and the owner supplied the key in the environment. Never write the key to a file, a script or a log.
+- Pass `--offline` to `plan`, `estimate` and `render`, so no provider is called. Omit `--offline`, which sends a `speech`, generated-scene or lip-sync step to an outside provider, only when this bot's instructions allow a module to call an outside provider, the owner asked for that paid step, and the owner supplied that provider's key in the environment. Never write a key to a file, a script or a log.
 - Keep scripts and media out of `/home/box/agent-data`. The rendered file stays on this computer: tell the owner where it is, and do not upload or send it anywhere.
