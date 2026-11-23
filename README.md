@@ -23,7 +23,7 @@ Ambitious modules are open-source, single-purpose command-line tools with no use
 
 ## Start a module on the kit
 
-A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.9`.
+A kit release, tagged `kit-v<version>`, has these files. Start from the [latest release](https://github.com/AmbitiousBots/ambitious-kit/releases/latest); the file names in the steps below are from `kit-v0.4.10`.
 
 | File | Use |
 |---|---|
@@ -43,9 +43,9 @@ For a TypeScript module:
 
    ```json
    "devDependencies": {
-     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.9.tgz",
-     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.9.tgz",
-     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.9.tgz",
+     "@ambitious/kit": "file:vendor/ambitious-kit-0.4.10.tgz",
+     "@ambitious/lint": "file:vendor/ambitious-lint-0.4.10.tgz",
+     "@ambitious/depcruise": "file:vendor/ambitious-depcruise-0.4.10.tgz",
      "@ambitious/typescript7": "npm:typescript@7.0.2",
      "@types/node": "24.19.2",
      "dependency-cruiser": "18.9.0",
@@ -101,7 +101,7 @@ npm run release:check
 | [template/INSTRUCTIONS.md](template/INSTRUCTIONS.md) | The bot's instructions: who it is, a pointer to the skills, and the hard limits. Short and stable; see [Instructions that stay compatible](#instructions-that-stay-compatible). |
 | [template/instructions.json](template/instructions.json) | Every instructions text a template has published: its `Instructions version`, its SHA-256 as published and with whitespace set aside, the `grants` it gives, and under `reasons` one line for each grant beyond the oldest supported text. The earlier texts are kept in [template/instructions](template/instructions). |
 | [template/permissions.json](template/permissions.json) | For each skill and each routine, the grants it requires, the ones it uses only when the instructions allow them (`optional`), and the ones it names only to forbid (`rulesOut`). |
-| [template/skills](template/skills) | One directory per skill. Each is a short job description: when to use it, the one or two commands to run, what to read in the result, and the hard rules. `ambitious-module-installer`, `ambitious-capability-probe`, `ambitious-getting-started` and `ambitious-factory-for-bots` are written here. The skills listed under `copied` in [template/skills/SOURCES.json](template/skills/SOURCES.json) come from a module's release tag, with only the `name` and `description` lines of the frontmatter changed and the template version line added here; those under `written` were written here for that module, and the record keeps the pinned release used as their source. The daily audit skills also document the required 0.3.0 interface, which must be released and pinned before daily reports run. |
+| [template/skills](template/skills) | One directory per skill. Each is a short job description: when to use it, the one or two commands to run, what to read in the result, and the hard rules. `ambitious-module-installer`, `ambitious-capability-probe`, `ambitious-getting-started` and `ambitious-factory-for-bots` are written here. The skills listed under `copied` in [template/skills/SOURCES.json](template/skills/SOURCES.json) come from a module's release tag, with only the `name` and `description` lines of the frontmatter changed and the template version line added here; those under `written` were written here for that module, and the record keeps the pinned release used as their source. The daily audit skills also document the pinned audit 0.4.1 `send_report.v4` interface. |
 | [template/routines.json](template/routines.json) | For each routine, the SHA-256 (with whitespace set aside) of the prompt every template release published, so a bot that still runs an earlier prompt can be told. Under `variants` each prompt also has the SHA-256 of the same text with its `Destination:` line added at the end, which is how some copies of the template stored their routines. |
 | [template/guides](template/guides) | The reference text the skills point at: field tables, step-by-step procedures and edge cases, one file per topic. The installer carries them and prints one with `ambitious-modules guide <topic>`, because a skill is typed by a bot and has to stay short. |
 | [template/routines.md](template/routines.md) | The routines: a daily selfcheck and daily snapshot, both active under instructions version 6 or later and silent unless something changed or needs the owner. The snapshot does nothing until the owner chooses monitoring. It then keeps its evidence current every day, builds its review Page once a week, and sends its report and compliance status: under instructions version 12 or later in the background once the connection is ready, and under versions 6 to 11 only when the owner has asked for that and the connection is ready; the owner can pause either. Each has a default time and runs in the owner's time zone, which the bot takes from the platform and asks for only when the platform gives none. A routine on the platform has no destination field, only a prompt, so each prompt says in words that the run reports as its reply in the bot's own chat. |
@@ -191,7 +191,7 @@ Both daily routines start active under version 6 or later, and the owner can pau
 
 The weekly rule is a command, not a judgment: `ambitious-modules review-page` answers `due` on the first run after monitoring is chosen and when the last review Page was recorded as built 7 or more days ago, counted to the nearest whole day, and `review-page --built` records a build. The time is kept in `$AMBITIOUS_HOME/template/review-page.json`, never in the bot's private data directory. On the other days the snapshot does only the lightweight work: the sync, the capability probe, a collector document and the audit commands that keep the evidence current. It then ends with an empty reply unless something needs the owner now, such as a module command that failed or a high-priority finding the run before did not have, which the same command reports as `newHighPriority`. A report, when reports are on, is built and sent on the weekly run only.
 
-Reports use the pinned audit 0.3.0's `send_report.v3` interface: high priority items before low priority items, each labelled finding, recommendation or announcement. Announcements are copied only from the saved endpoint-confirmed `check_updates` result. The skill blocks report delivery if the required interface is absent.
+Reports use the pinned audit 0.4.1 `send_report.v4` interface: high priority items before low priority items, each labelled finding, recommendation or announcement. Announcements are copied only from the saved endpoint-confirmed `check_updates` result. The skill blocks report delivery if the required interface is absent.
 
 Under instructions version 12 or later the routine sends its report, compliance status and feedback in the background, with no owner approval and no payload preview, once the connection is ready; the one payload guard is that no password, API key, token or other secret is ever sent. Under versions 6 to 11, after reviewing a sample payload Page the owner approves the `send_report` tool of the Ambitious connection for this bot once, for example with "always allow", a routine sends only when the platform confirms that pre-approval covers the call, otherwise it keeps the review Page and sends nothing, and `send_feedback` still requires approval for each call.
 
@@ -304,6 +304,11 @@ jobs:
 `tlc.yml` installs the toolchain from the calling repo's `.mise.toml` and runs its `scripts/tlc.mjs`; both come from the template. Input `spec-directory` defaults to `spec`. `lean.yml` installs the Lean version named in the `lean-toolchain` file and runs `lake build`; input `directory` (default `proofs`) is where the Lake package lives.
 
 ## Release notes
+
+### 0.4.10
+
+- Pins tasks 0.1.4, records 0.1.2, contracts 0.1.1, compliance 0.1.2, audit 0.4.1, video 0.1.1, scheduling 0.1.1 and constraints 0.1.1, and retargets those modules' skills to the new releases. The copied `ambitious-tasks-page` skill is unchanged from tasks 0.1.3. The constraints runtime pin is unchanged.
+- Audit 0.4.1 carries the `send_report.v4` interface, and the collector document is schema version 2. Instructions stay at version 13, byte for byte, and the routine prompts are unchanged.
 
 ### 0.4.9
 

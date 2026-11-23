@@ -806,15 +806,15 @@ test('the module lock pins the eight released modules, scheduling and constraint
   const pinOf = (module) => lock().find((row) => row.module === module);
   assert.deepEqual(pinOf('scheduling'), {
     module: 'scheduling',
-    version: '0.1.0',
-    url: 'https://github.com/AmbitiousBots/ambitious-scheduling/releases/download/scheduling-v0.1.0/ambitious-scheduling-0.1.0.mjs',
-    sha256: '45a0626793f3cfb2a2e4af84738c691d927d4e399c7702cf7742f0c0c91eede6',
+    version: '0.1.1',
+    url: 'https://github.com/AmbitiousBots/ambitious-scheduling/releases/download/scheduling-v0.1.1/ambitious-scheduling-0.1.1.mjs',
+    sha256: '83586f59fca0f3cb7f62f58c84b7dc4ccda1cdc1152d87d27c9a94ca302af975',
   });
   assert.deepEqual(pinOf('constraints'), {
     module: 'constraints',
-    version: '0.1.0',
-    url: 'https://github.com/AmbitiousBots/ambitious-constraints/releases/download/constraints-v0.1.0/ambitious-constraints-0.1.0.pyz',
-    sha256: 'ee739745882ce837e33bb1b5abfe9daf6367dedde786d2c747f0b02346cfc0c1',
+    version: '0.1.1',
+    url: 'https://github.com/AmbitiousBots/ambitious-constraints/releases/download/constraints-v0.1.1/ambitious-constraints-0.1.1.pyz',
+    sha256: '76a4a2c10c6822f9fe1ca7bcc4971507b94e6b549228de9d9576d256bccbb23f',
     runtimeSha256: '4c836ddf3d703f7dbc6a551182599942f002c491b8121e34c8f6c6531f27f11b',
   });
   assert.deepEqual(parseLock(lock()).filter((row) => row.runtimeSha256 !== undefined).map(({ module }) => module), ['constraints'], 'only the constraints module pins a runtime lock');
