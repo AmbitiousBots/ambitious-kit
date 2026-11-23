@@ -593,13 +593,13 @@ test('the eight released modules install, repair, upgrade and selfcheck in a fre
     assert.deepEqual(inSkill.values, inSchema.values, 'the collector skill must list the allowed values of every field the schema restricts');
 
     assert(inSchema.fields['evidence[]'].required.includes('kind') && inSchema.values['evidence[].kind'].length > 0, 'the schema walk reaches fields behind a list and a reference');
-    assert.deepEqual(inSchema.fields[''].optional, ['usageOther', 'weeklyLimitUsed']);
-    assert.deepEqual(inSchema.fields['bots[].usage'], { required: ['unit'], optional: ['amount7d', 'period', 'periodStart', 'periodEnd', 'share'] }, 'a bot\'s usage has the share form of the pinned audit module');
+    assert.deepEqual(inSchema.fields[''].optional, ['usageOther', 'weeklyLimitUsed', 'planUsage']);
+    assert.deepEqual(inSchema.fields['bots[].usage'], { required: ['unit'], optional: ['amount7d', 'period', 'periodStart', 'periodEnd', 'share', 'shareBelow'] }, 'a bot\'s usage has the share form of the pinned audit module');
     assert.deepEqual(inSchema.values['bots[].usage.unit'], ['credits', 'percent', 'share']);
     assert.deepEqual(inSchema.fields['routines[].usage'], { required: ['unit', 'amount7d'], optional: [] }, 'a routine\'s usage has no share form');
     assert.notDeepEqual(shapeInSkill(collectorSkill.replace('`credits`, `percent`, `share`', '`credits`, `percent`')).values, inSchema.values, 'a value list that omits the share unit is caught');
     assert.notDeepEqual(shapeInSkill(collectorSkill.replace('; optional `usageOther`, `weeklyLimitUsed`', '')).fields, inSchema.fields, 'a field list that omits the optional usage fields is caught');
-    assert.notDeepEqual(shapeInSkill(collectorSkill.replace('`id`, `kind`, `text`', '`id`, `text`')).fields, inSchema.fields, 'a field list that omits a required field is caught');
+    assert.notDeepEqual(shapeInSkill(collectorSkill.replace('`id`, `kind`, `source`', '`id`, `source`')).fields, inSchema.fields, 'a field list that omits a required field is caught');
     assert.notDeepEqual(shapeInSkill(collectorSkill.replace('`excerpt`, `count`', '`excerpt`')).values, inSchema.values, 'a value list that omits an allowed value is caught');
   });
 
@@ -671,7 +671,7 @@ test('the eight released modules install, repair, upgrade and selfcheck in a fre
       const findings = audit(['findings'], id);
       assert.equal(findings.data.mode, mode);
       assert.deepEqual([...new Set(findings.data.findings.map(({ kind }) => kind))].sort(), ['rule', 'visibility']);
-      assert.equal(findings.data.findings.filter(({ kind }) => kind === 'visibility').length, unseen.length, 'one visibility finding for each unseen signal');
+      assert.ok(findings.data.findings.filter(({ kind }) => kind === 'visibility').length >= unseen.length, 'a visibility finding for each signal the collector did not fully see');
       const withheld = findings.data.findings.filter((finding) => finding.withheld !== undefined);
       assert.equal(withheld.length > 0, mode === 'partial', 'findings are marked withheld only when the role is unknown');
 
@@ -692,13 +692,20 @@ test('the eight released modules install, repair, upgrade and selfcheck in a fre
       assert.equal(report.ok, true, JSON.stringify(report.errors));
       assert.deepEqual(report.data.next, { kind: 'waitForReview', reportId: report.data.reportId });
       const { payload } = report.data;
-      assert.equal(payload.schemaVersion, 3);
+      assert.equal(payload.schemaVersion, 4);
       assert.deepEqual(payload.announcements, []);
       assert.equal(payload.accountKind, document.account.kind);
       assert.deepEqual(payload.moduleVersions, { audit: rows.find((row) => row.module === 'audit').version });
       assert.deepEqual(payload.counts.pages, document.pages);
-      assert.deepEqual(payload.counts.tasks, document.tasks);
-      assert.deepEqual(payload.visibility.filter(({ seen }) => !seen).map(({ signal }) => signal), unseen);
+      assert.deepEqual(
+        { open: payload.counts.tasks.open, stale7d: payload.counts.tasks.stale7d, blocked: payload.counts.tasks.blocked },
+        document.tasks,
+      );
+      const incomplete = payload.visibility.filter(({ seen }) => seen !== true).map(({ signal }) => signal);
+      for (const signal of unseen) assert.ok(incomplete.includes(signal), signal);
+      for (const signal of payload.visibility.filter(({ seen }) => seen === false).map(({ signal }) => signal)) {
+        assert.ok(unseen.includes(signal));
+      }
       assert.equal(Object.hasOwn(payload, 'organisationId') || Object.hasOwn(payload, 'organizationId'), false);
       const reviewed = audit(['report', 'mark'], { reportId: report.data.reportId, state: 'reviewed', at: '2026-01-08T00:05:00Z' });
       assert.equal(reviewed.ok, true, JSON.stringify(reviewed.errors));
@@ -744,8 +751,8 @@ test('the eight released modules install, repair, upgrade and selfcheck in a fre
     const report = audit(['report', 'build'], { ...id, reviewRequired: true, announcements });
     assert.equal(report.ok, true, JSON.stringify(report.errors));
     const { payload, reportId } = report.data;
-    assert.equal(payload.schemaVersion, 3);
-    assert.deepEqual(payload.moduleVersions, { audit: '0.3.0' });
+    assert.equal(payload.schemaVersion, 4);
+    assert.deepEqual(payload.moduleVersions, { audit: '0.4.0' });
     assert.deepEqual(payload.findings, findings.data.findings);
     assert.deepEqual(payload.recommendations, advice.data.recommendations);
     assert.deepEqual([...new Set(payload.findings.map(({ priority }) => priority))].sort(), ['high', 'low']);
