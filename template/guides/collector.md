@@ -10,23 +10,24 @@ When unsure about a field, run `ambitious-audit schema`. It prints the full sche
 
 Each object takes exactly the fields listed for it. `[]` after a name means each entry of that list. Every field is required unless it is listed as optional.
 
-- The document: `schemaVersion`, `collectedAt`, `account`, `bots`, `routines`, `connectors`, `tasks`, `pages`, `visibility`, `evidence`; optional `usageOther`, `weeklyLimitUsed`
+- The document: `schemaVersion`, `collectedAt`, `account`, `bots`, `routines`, `connectors`, `tasks`, `pages`, `visibility`, `evidence`; optional `usageOther`, `weeklyLimitUsed`, `planUsage`
 - `account`: `kind`, `label`
 - `bots[]`: `id`, `name`, `lastActiveAt`, `routineCount`, `usage`
-- `routines[]`: `id`, `botId`, `schedule`, `state`, `lastRunAt`, `usage`; optional `pausedAt`, `createdAt`, `lastError`
-- `bots[].usage`: `unit`; optional `amount7d`, `period`, `periodStart`, `periodEnd`, `share`
+- `routines[]`: `id`, `botId`, `schedule`, `state`, `lastRunAt`, `usage`; optional `pausedAt`, `createdAt`, `lastError`, `runs7d`, `failedRuns7d`
+- `bots[].usage`: `unit`; optional `amount7d`, `period`, `periodStart`, `periodEnd`, `share`, `shareBelow`
 - `routines[].usage`: `unit`, `amount7d`
 - `usageOther`: `share`; optional `botCount`
 - `weeklyLimitUsed`: `percent`, `asOf`
+- `planUsage`: `weeklyLimitUsedPercent`, `extraCreditsLeftUsdCents`, `observedAt`, `period`
 - `connectors[]`: `name`, `status`
-- `tasks`: `open`, `stale7d`, `blocked`
+- `tasks`: `open`, `stale7d`, `blocked`; optional `closed7d`
 - `pages`: `count`, `updated7d`
-- `visibility[]`: `signal`, `seen`, `why`
-- `evidence[]`: `id`, `kind`, `text`, `source`
+- `visibility[]`: `signal`, `seen`; optional `why`, `scope`
+- `evidence[]`: `id`, `kind`, `source`; optional `text`, `sourceKind`
 
 These fields take only the values listed:
 
-- `schemaVersion`: `1`
+- `schemaVersion`: `2`
 - `account.kind`: `owner`, `guest`, `team`, `unknown`
 - `routines[].state`: `active`, `paused`, `failing`
 - `bots[].usage.unit`: `credits`, `percent`, `share`
@@ -34,7 +35,11 @@ These fields take only the values listed:
 - `routines[].usage.unit`: `credits`, `percent`
 - `connectors[].status`: `ok`, `needsAuth`, `needsGrant`, `initializing`, `error`
 - `visibility[].signal`: `transcripts`, `usage`, `otherBots`, `auditLog`, `accountRole`, `tasks`, `pages`, `botActivity`, `routines`
+- `visibility[].seen`: `true`, `false`, `partial`
+- `visibility[].scope`: `all`, `shared_only`, `limited`
 - `evidence[].kind`: `excerpt`, `count`
+- `evidence[].sourceKind`: `bot`, `routine`, `connector`, `tasks`
+- `planUsage.period`: `this_week`, `last_7_days`, `last_30_days`, `null`
 
 ## Write what was observed, and null for the rest
 

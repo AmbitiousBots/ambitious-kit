@@ -9,7 +9,7 @@ const INSTRUCTIONS_VERSION = 13;
 const INSTRUCTIONS_FIRST_TEMPLATE = "0.4.6";
 const INSTRUCTIONS_SHA256 = "897ae5617ea294be7c76ec60c7c5baa9780d23b2765780b17080e798eb6d3d55";
 const ROUTINES_SHA256 = "33d424e85eb6f9a3bfd2a2f021e741f43aa330101939e788f1bd2146f33081f4";
-const PINS_SHA256 = "7bcc69b5d65237e4025a8a5fdc69720d71c73355600058ab04fb309cf9e33a63";
+const PINS_SHA256 = "b236db896c9b6cfa724a96b83befd5a54b156a9b4259772cbe67945e568de91e";
 
 const text = (...path) => readFileSync(join(repoRoot, ...path), "utf8");
 const bot = readJson(join(templateRoot, "bot.json"));
@@ -67,7 +67,7 @@ test("the routine prompts and module pins match template 0.4.8", () => {
   const versions = Object.fromEntries(readJson(join(templateRoot, "modules.lock.json")).map((row) => [row.module, row.version]));
   assert.deepEqual(
     { tasks: versions.tasks, records: versions.records, compliance: versions.compliance, contracts: versions.contracts, audit: versions.audit, video: versions.video, scheduling: versions.scheduling, constraints: versions.constraints },
-    { tasks: "0.1.3", records: "0.1.1", compliance: "0.1.1", contracts: "0.1.0", audit: "0.3.0", video: "0.1.0", scheduling: "0.1.0", constraints: "0.1.0" },
+    { tasks: "0.1.3", records: "0.1.1", compliance: "0.1.1", contracts: "0.1.0", audit: "0.4.0", video: "0.1.0", scheduling: "0.1.0", constraints: "0.1.0" },
   );
   const history = readJson(join(templateRoot, "routines.json"));
   for (const [name, { current }] of Object.entries(history)) {
