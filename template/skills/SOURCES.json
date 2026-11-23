@@ -3,8 +3,8 @@
     {
       "skill": "ambitious-tasks-page",
       "repository": "AmbitiousBots/ambitious-tasks",
-      "tag": "tasks-v0.1.3",
-      "commit": "b2c88d747e567e101a51482e7b2d2e436e2b9bf9",
+      "tag": "tasks-v0.1.4",
+      "commit": "e091f9e36b14f0710bfc780cb2ca60dbc7c9aaaa",
       "path": "skills/tasks-page/SKILL.md",
       "sha256": "593ece9f9a30f49045d48202965a46109f81fed488bb59810a56bd15c0e5ca42",
       "releasedFrontmatter": {
@@ -17,62 +17,62 @@
     {
       "skill": "ambitious-audit-collector",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.3.0",
-      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
+      "tag": "audit-v0.4.1",
+      "commit": "ed033081b5b38f3e567c6e057064a2ff72f20eec"
     },
     {
       "skill": "ambitious-audit-page",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.3.0",
-      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
+      "tag": "audit-v0.4.1",
+      "commit": "ed033081b5b38f3e567c6e057064a2ff72f20eec"
     },
     {
       "skill": "ambitious-snapshot-routine",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.3.0",
-      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
+      "tag": "audit-v0.4.1",
+      "commit": "ed033081b5b38f3e567c6e057064a2ff72f20eec"
     },
     {
       "skill": "ambitious-send-feedback",
       "repository": "AmbitiousBots/ambitious-audit",
-      "tag": "audit-v0.3.0",
-      "commit": "e425f790496ecf7bb9e1b85baf9a1c00caf31552"
+      "tag": "audit-v0.4.1",
+      "commit": "ed033081b5b38f3e567c6e057064a2ff72f20eec"
     },
     {
       "skill": "ambitious-tasks-for-bots",
       "repository": "AmbitiousBots/ambitious-tasks",
-      "tag": "tasks-v0.1.3",
-      "commit": "b2c88d747e567e101a51482e7b2d2e436e2b9bf9"
+      "tag": "tasks-v0.1.4",
+      "commit": "e091f9e36b14f0710bfc780cb2ca60dbc7c9aaaa"
     },
     {
       "skill": "ambitious-contracts-for-bots",
       "repository": "AmbitiousBots/ambitious-contracts",
-      "tag": "contracts-v0.1.0",
-      "commit": "f41bec610b2fbe12c612acb4c80b9e9acc95cc5c"
+      "tag": "contracts-v0.1.1",
+      "commit": "d2dc4d80755cc4871adfa0b4f343590de81abfaa"
     },
     {
       "skill": "ambitious-compliance-for-bots",
       "repository": "AmbitiousBots/ambitious-compliance",
-      "tag": "compliance-v0.1.1",
-      "commit": "32d082b7154cc5bff7c2c4dfe02b2e34a637571f"
+      "tag": "compliance-v0.1.2",
+      "commit": "bbac166935ae907ff5234b00882ae745c05ac311"
     },
     {
       "skill": "ambitious-records-for-bots",
       "repository": "AmbitiousBots/ambitious-records",
-      "tag": "records-v0.1.1",
-      "commit": "be5e3cbce0035e65de9652bfdfda925412a17684"
+      "tag": "records-v0.1.2",
+      "commit": "3ca059f90aa6c83adc7449e899d0768751d38bba"
     },
     {
       "skill": "ambitious-video-for-bots",
       "repository": "AmbitiousBots/ambitious-video",
-      "tag": "video-v0.1.0",
-      "commit": "062ad9401bb071dd406049663644a980c1da8d9e"
+      "tag": "video-v0.1.1",
+      "commit": "03900502650d6fcba64bf1d923ea417936e06936"
     },
     {
       "skill": "ambitious-scheduling-for-bots",
       "repository": "AmbitiousBots/ambitious-scheduling",
-      "tag": "scheduling-v0.1.0",
-      "commit": "0ce946b11dcfb95ba0d58ac741e89ca4a4b21a5e"
+      "tag": "scheduling-v0.1.1",
+      "commit": "eeb442bf116349a1911b484a93a386de5a91b38d"
     }
   ]
 }

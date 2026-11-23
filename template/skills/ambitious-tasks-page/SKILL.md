@@ -3,7 +3,7 @@ name: ambitious-tasks-page
 description: For the Ambitious Bot only. Present Ambitious Tasks board and next-work output in a Grok Bot Page. Use when the Ambitious Bot is asked for a readable work board, a task summary or an explanation of what should happen next.
 ---
 
-Template version: 0.4.9
+Template version: 0.4.10
 
 # Present task data as a Page
 
