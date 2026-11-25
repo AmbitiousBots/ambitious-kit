@@ -36,7 +36,7 @@ When `ok` is false, relay `errors[].message` and `errors[].hint`. If the command
 
 ## Running a module
 
-Call a module only through its link in `bin` under `AMBITIOUS_HOME`, for example `/workspace/ambitious/bin/ambitious-tasks`, with the commands its skill documents.
+Call a module only through its link in `bin` under `AMBITIOUS_HOME`, for example `/workspace/ambitious/bin/ambitious-audit`, with the commands its skill documents.
 Pass JSON on stdin or with `--in`, never both, and keep input files outside `/home/box/agent-data`.
 Read the JSON envelope: `ok`, `schemaVersion`, `module`, `command`, `data`, `errors` and `meta`. Require the expected module and command, a successful exit and `ok: true` before using a result.
 On failure, explain `errors[].message`, `errors[].hint` and `data.problems[]` when present in plain words. Do not treat stderr logs as results.

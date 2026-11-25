@@ -37,14 +37,22 @@
         "modules",
         "pages"
       ],
-      "optional": [],
+      "optional": [
+        "record-tools",
+        "commitment-tools",
+        "compliance-status-tool"
+      ],
       "rulesOut": []
     },
     "ambitious-contracts-for-bots": {
       "requires": [
-        "modules"
+        "modules",
+        "pages"
       ],
-      "optional": [],
+      "optional": [
+        "record-tools",
+        "commitment-tools"
+      ],
       "rulesOut": []
     },
     "ambitious-factory-for-bots": {
@@ -104,7 +112,9 @@
       "requires": [
         "modules"
       ],
-      "optional": [],
+      "optional": [
+        "record-tools"
+      ],
       "rulesOut": []
     },
     "ambitious-scheduling-for-bots": {
@@ -143,9 +153,13 @@
     },
     "ambitious-tasks-for-bots": {
       "requires": [
-        "modules"
+        "modules",
+        "pages"
       ],
-      "optional": [],
+      "optional": [
+        "commitment-tools",
+        "workflow-tools"
+      ],
       "rulesOut": []
     },
     "ambitious-tasks-page": {
@@ -153,7 +167,10 @@
         "modules",
         "pages"
       ],
-      "optional": [],
+      "optional": [
+        "commitment-tools",
+        "workflow-tools"
+      ],
       "rulesOut": []
     },
     "ambitious-video-for-bots": {

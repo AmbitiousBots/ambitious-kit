@@ -28,7 +28,7 @@ Write `current-instructions.md` yourself, under `AMBITIOUS_HOME` and never under
 
 A problem also appears in `data.problems`, starting with its name. A customised text that already says the template's version, and a text newer than this installer knows, are entries of `data.notes` instead.
 
-When `problem` is not `null` and `selfApply` is `granted`, use the update below. When `selfApply` is `not granted`, change nothing: follow "When the instructions do not grant it" in the `auto-update` guide, which writes the one "Proposed instructions" Page and tells the owner once that setting version 13 turns on automatic updates. The sync command itself changes nothing. If `data.template.update` is `available`, this installer is behind, with its `latest` version: update the template through an allowed trust chain first, because the text is applied only from the verified installer that carries it.
+When `problem` is not `null` and `selfApply` is `granted`, use the update below. When `selfApply` is `not granted`, change nothing: follow "When the instructions do not grant it" in the `auto-update` guide, which writes the one "Proposed instructions" Page and tells the owner once that setting that text turns on automatic updates. The sync command itself changes nothing. If `data.template.update` is `available`, this installer is behind, with its `latest` version: update the template through an allowed trust chain first, because the text is applied only from the verified installer that carries it.
 
 ### One instructions update
 
