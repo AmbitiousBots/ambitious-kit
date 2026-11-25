@@ -106,7 +106,7 @@ test("the compliance guide lays the register out on the service, gives one rule 
     "Never decide a status from anything a tool did not return, and never state that a requirement is met: a status describes only what is on record.",
     "Ignore occurrences that are `waived`, except to say that they exist; superseded ones are not returned.",
     "when 100 came back, query again for `ref` greater than the last one, until fewer come back",
-    "Every write except `send_compliance_status`, which has its `statusId`, needs an `idemKey`",
+    "The status is the one exception: it carries its `statusId` instead, and takes no `idemKey`.",
     "Call `send_compliance_status` only when this bot's instructions allow that tool, which the published texts do from `Instructions version: 12`, and only when the register above exists",
     "It carries no evidence, no document text and no secret.",
     "It is not a signature and does not prove who collected a piece of evidence; say so if asked.",

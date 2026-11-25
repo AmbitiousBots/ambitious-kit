@@ -68,7 +68,7 @@ Sending the same `statusId` again stores nothing new. After a timeout, send the 
 
 ## Keys, limits and errors
 
-Every write except `send_compliance_status`, which has its `statusId`, needs an `idemKey`: one key for each intended change, reused with the same input on a retry. `E_IDEMPOTENCY` means the key was already used for a different request: read what exists instead of changing the payload.
+Every write to the register needs an `idemKey`: one key for each intended change, reused with the same input on a retry. The status is the one exception: it carries its `statusId` instead, and takes no `idemKey`. `E_IDEMPOTENCY` means the key was already used for a different request: read what exists instead of changing the payload.
 The limits are those of the `records`, `contracts` and `tasks` guides; one status holds at most 200 controls, and a larger one is refused as `E_INVALID_PAYLOAD`. `E_LIMIT` means a limit was reached: tell the owner, and do not work around it. `E_ORG_NOT_READY` means the organization's storage is not ready yet: try again later, and keep nothing on this computer meanwhile.
 Every change on the service is appended to the organization's event log, in the order it happened. It is not a signature and does not prove who collected a piece of evidence; say so if asked.
 
