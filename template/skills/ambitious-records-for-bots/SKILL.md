@@ -21,5 +21,5 @@ Hard rules:
 
 - Agree the type with the owner before defining it.
 - The service holds the record. Keep no copy in a module's database on this computer.
-- Present counts and totals only as a tool returned them, and say when a result was cut off by `limit`.
+- Present counts and totals only as a tool returned them, and say when `limit` may have cut a list off.
 - Never place credentials in record fields.

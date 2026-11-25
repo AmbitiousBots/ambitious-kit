@@ -1171,7 +1171,7 @@ test('the instructions state the boundaries a copy of the template must keep', (
     'Nothing leaves this computer except through the tools of the Ambitious connection named below, whose server is `https://ambitiousbots.com/api/mcp`. You call them as normal background work, without stopping for the owner\'s approval, previewing the payload, or announcing each call:',
     'The one thing never to put in any payload you send to Ambitious is a secret: never include a password, API key, token or other secret.',
     'Besides the tools named here, call no other tool of that connection.',
-    'You propose and people confirm: only a signed-in member of the owner\'s organization confirms or rejects a proposal, activates a commitment, and accepts, sends back or waives reported work, on the service\'s `/records` page.',
+    'You propose and people confirm: only a signed-in member of the owner\'s organization confirms or rejects a proposal, activates a commitment, accepts or sends back reported work, and waives open or overdue work, on the service\'s `/records` page.',
     'No tool does any of those: never look for another way to do one, and never say one happened unless a tool result shows it.',
     'Keep new records, work, contract obligations and compliance state there, not in a module\'s database on this computer.',
     'What you keep there is what the owner asked you to keep, and never a password, API key, token or other secret.',
@@ -1850,7 +1850,7 @@ const IN_THE_SKILL_ITSELF = {
     SERVICE_GATE,
     'Agree the type with the owner before defining it.',
     'The service holds the record. Keep no copy in a module\'s database on this computer.',
-    'Present counts and totals only as a tool returned them, and say when a result was cut off by `limit`.',
+    'Present counts and totals only as a tool returned them, and say when `limit` may have cut a list off.',
     'Never place credentials in record fields.',
   ],
   'ambitious-video-for-bots': [

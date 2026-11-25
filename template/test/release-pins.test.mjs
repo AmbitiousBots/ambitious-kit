@@ -7,7 +7,7 @@ import { readJson, repoRoot, sha256, skillOnly, templateRoot } from "./support.m
 const KIT_VERSION = "0.5.0";
 const INSTRUCTIONS_VERSION = 14;
 const INSTRUCTIONS_FIRST_TEMPLATE = "0.5.0";
-const INSTRUCTIONS_SHA256 = "a7e65c66456f351e775864b9222a45b829c649f8d03909d5be3f62e1ade1bca0";
+const INSTRUCTIONS_SHA256 = "1ea37da67bd0f5366fc9138cfa2f94d37ee705c9dd9446b359dd4d28b4cf8b83";
 const PREVIOUS_INSTRUCTIONS_SHA256 = "897ae5617ea294be7c76ec60c7c5baa9780d23b2765780b17080e798eb6d3d55";
 const NEW_GRANTS = ["record-tools", "commitment-tools", "workflow-tools", "feedback-queue-tools"];
 const PROMPT_FIRST_TEMPLATES = { "ambitious-selfcheck": "0.4.6", "ambitious-snapshot": "0.4.5" };

@@ -104,6 +104,9 @@ test("the compliance guide lays the register out on the service, gives one rule 
     "| `yellow` | An occurrence is `open` or `submitted`: proof is due, or reported and not yet accepted |",
     "| `green` | An occurrence is `satisfied` |",
     "Never decide a status from anything a tool did not return, and never state that a requirement is met: a status describes only what is on record.",
+    "Ignore occurrences that are `waived`, except to say that they exist; superseded ones are not returned.",
+    "when 100 came back, query again for `ref` greater than the last one, until fewer come back",
+    "Every write except `send_compliance_status`, which has its `statusId`, needs an `idemKey`",
     "Call `send_compliance_status` only when this bot's instructions allow that tool, which the published texts do from `Instructions version: 12`, and only when the register above exists",
     "It carries no evidence, no document text and no secret.",
     "It is not a signature and does not prove who collected a piece of evidence; say so if asked.",
@@ -147,13 +150,15 @@ test("the tasks guide says what a commitment's rule is, which states an occurren
   const guide = guideText("tasks");
   for (const required of [
     "A `rule` is one of four kinds. `recurring`: every `month`, `quarter` or `year` from a `start` fact",
-    "`before_date`: `days` before the date in a fact. `on_date`: on the date in a fact, opening `leadDays` before. `after_signal`: `days` after a signal arrives.",
+    "`before_date`: `days` before the date in a fact. `on_date`: on the date in a fact, opening `leadDays` before. `after_signal`: `days` after the rule's `signal` arrives.",
     "The service, not the bot, works out every date.",
     "It is `scheduled`, then `open` when its time comes; `submitted` once the bot reported it done; `satisfied` once a member accepted it; `overdue` when open work passes its date; `waived` or `superseded` when it no longer applies.",
     "send the `rev` you read with `complete_obligation`, and on `E_CONFLICT` read it again before deciding",
     "That list and `list_commitments` are the truth the service holds. Do not keep a second list, and never work out a count, a ranking or a date yourself",
     "To do a step: read the run with `get_workflow_run` for its current `version`, claim the step, and only then do the work.",
-    "A step for a person is done by a person; never claim one.",
+    "Never claim a step for a person: the service answers `E_STEP_NOT_CLAIMABLE`, and `list_claimable_workflow_steps` does not list one.",
+    "`yields` lists entries such as `{\"signal\": \"report.accepted\"}`, each with an optional `on` of `satisfied` or `overdue` that says when it is sent. `needs` lists signal names; only an `after_signal` rule takes `needs`, and its `signal` must be among them.",
+    "only `open` or `overdue` work can be reported done, and `complete_obligation` on anything else answers `E_TRANSITION`",
     "The module still supplies the task rows a schedule plan places, as the `scheduling` guide says; a plan never changes what the service holds.",
   ]) {
     assert.ok(guide.includes(required), `the tasks guide says: ${required}`);
@@ -163,6 +168,8 @@ test("the tasks guide says what a commitment's rule is, which states an occurren
     assert.ok(page.includes(required), `the Page layout says: ${required}`);
   }
   assert.deepEqual(jsonExamples("tasks"), [], "the tasks guide holds no module command example");
+  for (const topic of ["records", "tasks", "contracts"]) assert.ok(guideText(topic).includes("`E_UNAUTHENTICATED` means the connection is not signed in, and `E_FORBIDDEN` means its credential may not use this tool for an organization"), `${topic} tells the two refusals apart`);
+  for (const [topic, refused] of [["records", "A record whose fields are over 8,192 bytes is refused as `E_INVALID_PAYLOAD`."], ["tasks", "is refused as `E_INVALID_PAYLOAD`. The service schedules at most 24 occurrences of a commitment, up to 400 days ahead."], ["contracts", "A fact whose value is over 2,048 bytes is refused as `E_INVALID_PAYLOAD`."], ["compliance", "a larger one is refused as `E_INVALID_PAYLOAD`"]]) assert.ok(guideText(topic).includes(refused), `${topic} names the refusal a too-large input gets, which is not E_LIMIT`);
   assert.match(skillOnly("ambitious-tasks-page"), /guide tasks --json/u);
 });
 

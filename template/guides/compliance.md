@@ -42,7 +42,7 @@ When proof is collected, write or update its document as a Grok Bot Page, keep i
 
 ## Where a control stands
 
-Read the controls with `query_records` for the type `compliance-control` and the stage `active`. For each, call `get_commitment` with its `commitment` and read the commitment's status, `missingFacts` and occurrences. Take the first row that fits, top to bottom, and nothing else:
+Read the controls with `query_records` for the type `compliance-control` and the stage `active`, ordered by `ref`. A query returns at most 100 records and no sign that more exist: when 100 came back, query again for `ref` greater than the last one, until fewer come back. For each, call `get_commitment` with its `commitment` and read the commitment's status, `missingFacts` and occurrences. Take the first row that fits, top to bottom, and nothing else:
 
 | Status | When |
 | --- | --- |
@@ -52,13 +52,13 @@ Read the controls with `query_records` for the type `compliance-control` and the
 | `green` | An occurrence is `satisfied` |
 | `unknown` | Anything else: no proof has been due yet |
 
-Ignore occurrences that are `waived` or `superseded`, except to say that they exist. Each reason is one plain sentence that names the period and the state as returned, for example that the proof for a period is overdue, with no evidence content. Never decide a status from anything a tool did not return, and never state that a requirement is met: a status describes only what is on record.
+Ignore occurrences that are `waived`, except to say that they exist; superseded ones are not returned. Each reason is one plain sentence that names the period and the state as returned, for example that the proof for a period is overdue, with no evidence content. Never decide a status from anything a tool did not return, and never state that a requirement is met: a status describes only what is on record.
 `whats_due` shows what is coming for planning renewals: say which number of days was used.
 
 ## Send the status
 
 Call `send_compliance_status` only when this bot's instructions allow that tool, which the published texts do from `Instructions version: 12`, and only when the register above exists; the snapshot does it on its weekly run. The payload is `schemaVersion` 1, `statusId`, `asOf`, `moduleVersion` and `controls`: one entry for each active control with its `ref`, `title`, `status` and at most 5 `reasons` of at most 280 characters. It carries no evidence, no document text and no secret.
-`moduleVersion` is this template's version, from the `Template version` line of the stored skill: this guide's rule produced the statuses. Make `statusId` and `asOf` with this command, at the time the tools were read, and never write either by hand:
+`moduleVersion` is this template's version, from the `Template version` line of the stored skill: this guide's rule produced the statuses. Where that tool's own field descriptions still speak of a module on the bot's computer, this section stands; the fields and their shapes are the same. Make `statusId` and `asOf` with this command, at the time the tools were read, and never write either by hand:
 
 ```sh
 node -e 'const now=new Date();const t=now.getTime().toString(16).padStart(12,"0");const r=require("node:crypto").randomBytes(10).toString("hex");const v=(8+(parseInt(r[3],16)&3)).toString(16);console.log(JSON.stringify({statusId:`${t.slice(0,8)}-${t.slice(8)}-7${r.slice(0,3)}-${v}${r.slice(4,7)}-${r.slice(7,19)}`,asOf:now.toISOString().replace(/\.\d+Z$/,"Z")}))'
@@ -68,8 +68,8 @@ Sending the same `statusId` again stores nothing new. After a timeout, send the 
 
 ## Keys, limits and errors
 
-Every write needs an `idemKey`: one key for each intended change, reused with the same input on a retry. `E_IDEMPOTENCY` means the key was already used for a different request: read what exists instead of changing the payload.
-The limits are those of the `records`, `contracts` and `tasks` guides; one status holds at most 200 controls. `E_LIMIT` means one was reached: tell the owner, and do not work around it. `E_ORG_NOT_READY` means the organization's storage is not ready yet: try again later, and keep nothing on this computer meanwhile.
+Every write except `send_compliance_status`, which has its `statusId`, needs an `idemKey`: one key for each intended change, reused with the same input on a retry. `E_IDEMPOTENCY` means the key was already used for a different request: read what exists instead of changing the payload.
+The limits are those of the `records`, `contracts` and `tasks` guides; one status holds at most 200 controls, and a larger one is refused as `E_INVALID_PAYLOAD`. `E_LIMIT` means a limit was reached: tell the owner, and do not work around it. `E_ORG_NOT_READY` means the organization's storage is not ready yet: try again later, and keep nothing on this computer meanwhile.
 Every change on the service is appended to the organization's event log, in the order it happened. It is not a signature and does not prove who collected a piece of evidence; say so if asked.
 
 ## A register an earlier template kept on this computer
