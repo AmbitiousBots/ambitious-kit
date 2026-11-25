@@ -10,8 +10,9 @@ const ENDPOINT = "https://ambitiousbots.com/api/mcp";
 const GRANT = "owner-confirmed-endpoint";
 const STATEMENT_FIRST_VERSION = 11;
 const BACKGROUND_FIRST_VERSION = 12;
-const CURRENT_VERSION = 13;
-const CURRENT_INSTRUCTIONS_FIRST_TEMPLATE = "0.4.6";
+const CURRENT_VERSION = 14;
+const CURRENT_INSTRUCTIONS_FIRST_TEMPLATE = "0.5.0";
+const RECORD_GRANTS = ["record-tools", "commitment-tools", "workflow-tools", "feedback-queue-tools"];
 const V11_SHA256 = "d52d453b7aca156aea647330d4038023272026505beab2dc785d115fbde7b078";
 const GUIDE = "endpoint";
 const RECORD = "endpoint-confirmation.json";
@@ -28,7 +29,7 @@ const CHECKSUM_LINES = [
 const CLAIMS = /(?:server_info|check_updates|saved (?:result|file)|identity|sign-in|tool result)[^.\n]*\b(?:confirm(?:s|ed)?|prove[sn]?|authori[sz]e[sd]?|vouch(?:es)? for)\b[^.\n]*\bendpoint\b/iu;
 const DENIES = /\b(?:never|not|no|nothing|cannot|neither|only after|only when|without)\b/iu;
 const INDUSTRY = /\b(?:dental|dentist|clinic|hospital|restaurant|law firm|attorney|real estate|realtor|retail|insurance|construction|salon|plumb\w*|HIPAA|SOC ?2|GDPR|PCI)\b/iu;
-const KNOWN_NAMES = ["Ambitious", "Grok", "Bot", "Page", "Pages", "Instructions", "Field", "Value", "Source", "Either", "The", "On", "When", "What", "API", "Under", "Studying", "UpdateProfile", "UpdateRoutine", "UpdateAgent"];
+const KNOWN_NAMES = ["Ambitious", "Grok", "Bot", "Page", "Pages", "Instructions", "Field", "Value", "Source", "Either", "The", "On", "When", "What", "API", "Under", "Studying", "UpdateProfile", "UpdateRoutine", "UpdateAgent", "Date"];
 
 const maybe = (path) => (existsSync(join(templateRoot, path)) ? readFileSync(join(templateRoot, path), "utf8") : "");
 const registry = readJson(join(templateRoot, "instructions.json"));
@@ -172,7 +173,9 @@ test("V8 what this release added is generic: no person, customer, bot or industr
     ["the ambitious-selfcheck prompt", selfcheck],
     ["the verified-self-apply grant", registry.grants["verified-self-apply"] ?? ""],
     ["the verified-self-apply reason", present.reasons["verified-self-apply"] ?? ""],
-    ["the instruction lines version 13 added", instructions.split("\n").filter((line) => !earlierLines.includes(line)).join("\n")],
+    ["the instruction lines versions 13 and 14 added", instructions.split("\n").filter((line) => !earlierLines.includes(line)).join("\n")],
+    ...RECORD_GRANTS.flatMap((grant) => [[`the ${grant} grant`, registry.grants[grant] ?? ""], [`the ${grant} reason`, present.reasons[grant] ?? ""]]),
+    ...["records", "tasks", "contracts", "compliance"].map((topic) => [`the ${topic} guide`, maybe(`guides/${topic}.md`)]),
     ["the auto-update guide", maybe("guides/auto-update.md")],
   ];
   for (const [where, text] of added) {

@@ -24,18 +24,18 @@ Once the owner has described the business and what they need, offer one optional
 For yes, follow the `ambitious-factory-for-bots` skill after the first audit Page is written. Offering the choice sends nothing, and a yes here approves no bot: it only starts the factory step.
 For no, carry on. The owner can ask for it later.
 
-## What the modules are for
+## What the skills are for
 
-The sync installs every pinned module; each has its own `ambitious-*` skill. When the owner describes what they need, name the ones that fit, and install nothing else.
+The sync installs every pinned module, and each kind of work has its own `ambitious-*` skill. Records, work, contracts and the compliance register are kept in the owner's organization on the Ambitious service, through the tools of the Ambitious connection, only when this bot's instructions allow those tools; the rest run as modules on this computer. When the owner describes what they need, name the skills that fit, and install nothing else.
 
-| The owner needs | Skill | Modules |
+| The owner needs | Skill | Kept or run with |
 | --- | --- | --- |
-| Shared work, dependencies and status | `ambitious-tasks-for-bots` | `ambitious-tasks` |
-| Calendars, working hours, a schedule, calendar holds, or a decision that must satisfy rules | `ambitious-scheduling-for-bots` | `ambitious-scheduling`, `ambitious-constraints` |
-| Things of one kind moving through stages | `ambitious-records-for-bots` | `ambitious-records` |
-| Obligations from a contract | `ambitious-contracts-for-bots` | `ambitious-contracts` |
-| Controls, evidence and attestations | `ambitious-compliance-for-bots` | `ambitious-compliance` |
-| A video from a script | `ambitious-video-for-bots` | `ambitious-video` |
+| What is owed and when, and repeatable work | `ambitious-tasks-for-bots` | The connection's commitment and workflow tools |
+| Calendars, working hours, a schedule, calendar holds, or a decision that must satisfy rules | `ambitious-scheduling-for-bots` | The modules `ambitious-scheduling` and `ambitious-constraints` |
+| Things of one kind moving through stages | `ambitious-records-for-bots` | The connection's record tools |
+| Obligations from a contract | `ambitious-contracts-for-bots` | The connection's document, fact and commitment tools |
+| Controls, evidence and attestations | `ambitious-compliance-for-bots` | The connection's record, document and commitment tools |
+| A video from a script | `ambitious-video-for-bots` | The module `ambitious-video` |
 
 ## Time zone
 

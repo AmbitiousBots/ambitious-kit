@@ -58,7 +58,9 @@ Then `plan propose`, with the task rows wrapped as a `tasks-snapshot.v1` and a 1
 
 Put the unchanged rows of `ambitious-tasks list` in `tasks`. A task is placed on the calendar whose `person_ref` is its assignee.
 
-`ambitious-tasks schedule suggest` is a different flow with a different input: `horizon_days` and a `people` roster of `id`, `capacity_days_per_week` and `windows`, sent with every call and never stored. `plan propose` refuses `horizon_days` and `people`, and `schedule suggest` knows no calendar. Do not mix the two inputs in one command; the tasks guide shows that one.
+The `ambitious-tasks` module is the planning input here: the list of tasks a plan places, kept on this computer. What is owed and when is kept as commitments on the Ambitious service, as the `tasks` guide says, and a plan never changes a commitment or its date.
+
+`ambitious-tasks schedule suggest` is a different flow with a different input: `horizon_days` and a `people` roster of `id`, `capacity_days_per_week` and `windows`, sent with every call and never stored. `plan propose` refuses `horizon_days` and `people`, and `schedule suggest` knows no calendar. Do not mix the two inputs in one command; that module's documentation at https://github.com/AmbitiousBots/ambitious-tasks#readme shows that one.
 
 ## Plan, approve, commit
 

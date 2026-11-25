@@ -4,11 +4,13 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { readJson, repoRoot, sha256, skillOnly, templateRoot } from "./support.mjs";
 
-const KIT_VERSION = "0.4.10";
-const INSTRUCTIONS_VERSION = 13;
-const INSTRUCTIONS_FIRST_TEMPLATE = "0.4.6";
-const INSTRUCTIONS_SHA256 = "897ae5617ea294be7c76ec60c7c5baa9780d23b2765780b17080e798eb6d3d55";
-const ROUTINES_SHA256 = "33d424e85eb6f9a3bfd2a2f021e741f43aa330101939e788f1bd2146f33081f4";
+const KIT_VERSION = "0.5.0";
+const INSTRUCTIONS_VERSION = 14;
+const INSTRUCTIONS_FIRST_TEMPLATE = "0.5.0";
+const INSTRUCTIONS_SHA256 = "a7e65c66456f351e775864b9222a45b829c649f8d03909d5be3f62e1ade1bca0";
+const PREVIOUS_INSTRUCTIONS_SHA256 = "897ae5617ea294be7c76ec60c7c5baa9780d23b2765780b17080e798eb6d3d55";
+const NEW_GRANTS = ["record-tools", "commitment-tools", "workflow-tools", "feedback-queue-tools"];
+const PROMPT_FIRST_TEMPLATES = { "ambitious-selfcheck": "0.4.6", "ambitious-snapshot": "0.4.5" };
 const PINS_SHA256 = "8291fe6e57927db8a893fc92458b980cee09018ea07552c135d26537108441f3";
 
 const text = (...path) => readFileSync(join(repoRoot, ...path), "utf8");
@@ -42,10 +44,10 @@ test(`bot.json, every skill and the installer pin carry template version ${KIT_V
   assert.ok(bot.skills.every(({ body }) => body.startsWith(`Template version: ${KIT_VERSION}\n`)));
   const installerSkill = skillOnly("ambitious-module-installer");
   assert.ok(installerSkill.includes(`releases/download/kit-v${KIT_VERSION}/ambitious-modules-${KIT_VERSION}.mjs`));
-  assert.doesNotMatch(installerSkill, /ambitious-modules-0\.4\.9\.mjs/u, "the installer skill pins this release, not the one before");
+  assert.doesNotMatch(installerSkill, /ambitious-modules-0\.4\.10\.mjs/u, "the installer skill pins this release, not the one before");
 });
 
-test(`the instructions stay version ${INSTRUCTIONS_VERSION}, byte for byte the text template ${INSTRUCTIONS_FIRST_TEMPLATE} published, in the file and in bot.json`, () => {
+test(`the instructions are version ${INSTRUCTIONS_VERSION}, first published by this release, in the file and in bot.json, and version ${INSTRUCTIONS_VERSION - 1} is kept byte for byte with the four new grants as the only difference in what is allowed`, () => {
   const instructions = text("template", "INSTRUCTIONS.md");
   assert.ok(instructions.startsWith(`Instructions version: ${INSTRUCTIONS_VERSION}\n`));
   assert.equal(sha256(instructions), INSTRUCTIONS_SHA256);
@@ -56,14 +58,17 @@ test(`the instructions stay version ${INSTRUCTIONS_VERSION}, byte for byte the t
   assert.deepEqual(
     [current.version, current.firstTemplate, current.file, current.sha256],
     [INSTRUCTIONS_VERSION, INSTRUCTIONS_FIRST_TEMPLATE, "INSTRUCTIONS.md", INSTRUCTIONS_SHA256],
-    "no instructions version was published by this release",
+    "this release publishes one instructions version",
   );
   assert.equal(versions.length, INSTRUCTIONS_VERSION);
+  const previous = versions.at(-2);
+  assert.deepEqual([previous.version, previous.file, previous.sha256, sha256(text("template", previous.file))], [INSTRUCTIONS_VERSION - 1, `instructions/${INSTRUCTIONS_VERSION - 1}.md`, PREVIOUS_INSTRUCTIONS_SHA256, PREVIOUS_INSTRUCTIONS_SHA256], "the text templates 0.4.6 to 0.4.10 published is kept unchanged");
+  assert.deepEqual([current.grants.filter((grant) => !previous.grants.includes(grant)), previous.grants.filter((grant) => !current.grants.includes(grant))], [NEW_GRANTS, []], "the new version adds four grants and takes none away");
+  assert.deepEqual(Object.keys(current.reasons).slice(-NEW_GRANTS.length), NEW_GRANTS, "each new grant carries its reason");
 });
 
-test("the routine prompts are unchanged and the module pins are the 0.4.10 releases", () => {
-  assert.equal(sha256(text("template", "routines.md")), ROUTINES_SHA256, "template/routines.md is the file template 0.4.6 had");
-  assert.equal(sha256(text("template", "modules.lock.json")), PINS_SHA256, "template/modules.lock.json pins the 0.4.10 module releases");
+test("the routine prompts are unchanged and the module pins are the ones template 0.4.10 had", () => {
+  assert.equal(sha256(text("template", "modules.lock.json")), PINS_SHA256, "template/modules.lock.json pins the module releases template 0.4.10 pinned");
   const versions = Object.fromEntries(readJson(join(templateRoot, "modules.lock.json")).map((row) => [row.module, row.version]));
   assert.deepEqual(
     { tasks: versions.tasks, records: versions.records, compliance: versions.compliance, contracts: versions.contracts, audit: versions.audit, video: versions.video, scheduling: versions.scheduling, constraints: versions.constraints },
@@ -71,7 +76,7 @@ test("the routine prompts are unchanged and the module pins are the 0.4.10 relea
   );
   const history = readJson(join(templateRoot, "routines.json"));
   for (const [name, { current }] of Object.entries(history)) {
-    assert.notEqual(current.firstTemplate, KIT_VERSION, `${name} has no prompt first published by ${KIT_VERSION}`);
+    assert.equal(current.firstTemplate, PROMPT_FIRST_TEMPLATES[name], `${name} keeps the prompt an earlier template first published`);
   }
 });
 
@@ -85,10 +90,10 @@ test(`the README and the package guides name the ${KIT_VERSION} release files an
   }
   assert.ok(readme.includes(`\`kit-v${KIT_VERSION}\``));
   const notes = readme.split(`\n### ${KIT_VERSION}\n`)[1]?.split("\n### ")[0] ?? "";
-  for (const required of ["tasks 0.1.4", "records 0.1.2", "contracts 0.1.1", "compliance 0.1.2", "audit 0.4.1", "video 0.1.1", "scheduling 0.1.1", "constraints 0.1.1", "`ambitious-tasks-page`", "`send_report.v4`", "schema version 2", "stay at version 13"]) {
+  for (const required of ["Instructions version 14 adds four grants to version 13 and takes nothing away", ...NEW_GRANTS.map((grant) => `\`${grant}\``), "the bot proposes and a signed-in member of the owner's organization confirms on the service's `/records` page", "Version 13 is kept as `template/instructions/13.md`", "A bot on version 13 applies version 14 itself on its daily selfcheck", "The routine prompts are unchanged, and so are the module pins", "tasks 0.1.4", "records 0.1.2", "contracts 0.1.1", "compliance 0.1.2", "audit 0.4.1", "video 0.1.1", "scheduling 0.1.1", "constraints 0.1.1", "`ambitious-tasks-page` is no longer copied", "Nothing a bot already keeps in a module's database is moved or deleted."]) {
     assert.ok(notes.includes(required), `the ${KIT_VERSION} release notes say: ${required}`);
   }
-  assert.ok(readme.indexOf(`### ${KIT_VERSION}`) < readme.indexOf("### 0.4.9"), "the newest release notes come first, and the earlier ones stay as history");
+  assert.ok(readme.indexOf(`### ${KIT_VERSION}`) < readme.indexOf("### 0.4.10"), "the newest release notes come first, and the earlier ones stay as history");
   assert.ok(text("packages", "kit", "README.md").includes(`ambitious-modules-${KIT_VERSION}.mjs`));
   assert.ok(text("packages", "kit-python", "README.md").includes(`ambitious_kit-${KIT_VERSION}.pyz`));
   assert.ok(text("MODULE_CONTRACT.md").includes(`ambitious-install-${KIT_VERSION}.mjs`));

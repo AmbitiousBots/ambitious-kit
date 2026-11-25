@@ -1,18 +1,5 @@
 {
-  "copied": [
-    {
-      "skill": "ambitious-tasks-page",
-      "repository": "AmbitiousBots/ambitious-tasks",
-      "tag": "tasks-v0.1.4",
-      "commit": "e091f9e36b14f0710bfc780cb2ca60dbc7c9aaaa",
-      "path": "skills/tasks-page/SKILL.md",
-      "sha256": "593ece9f9a30f49045d48202965a46109f81fed488bb59810a56bd15c0e5ca42",
-      "releasedFrontmatter": {
-        "name": "name: tasks-page",
-        "description": "description: Present Ambitious Tasks board and next-work output in a Grok Bot Page. Use when a user wants a readable work board, task summary or explanation of what should happen next."
-      }
-    }
-  ],
+  "copied": [],
   "written": [
     {
       "skill": "ambitious-audit-collector",
@@ -37,30 +24,6 @@
       "repository": "AmbitiousBots/ambitious-audit",
       "tag": "audit-v0.4.1",
       "commit": "ed033081b5b38f3e567c6e057064a2ff72f20eec"
-    },
-    {
-      "skill": "ambitious-tasks-for-bots",
-      "repository": "AmbitiousBots/ambitious-tasks",
-      "tag": "tasks-v0.1.4",
-      "commit": "e091f9e36b14f0710bfc780cb2ca60dbc7c9aaaa"
-    },
-    {
-      "skill": "ambitious-contracts-for-bots",
-      "repository": "AmbitiousBots/ambitious-contracts",
-      "tag": "contracts-v0.1.1",
-      "commit": "d2dc4d80755cc4871adfa0b4f343590de81abfaa"
-    },
-    {
-      "skill": "ambitious-compliance-for-bots",
-      "repository": "AmbitiousBots/ambitious-compliance",
-      "tag": "compliance-v0.1.2",
-      "commit": "bbac166935ae907ff5234b00882ae745c05ac311"
-    },
-    {
-      "skill": "ambitious-records-for-bots",
-      "repository": "AmbitiousBots/ambitious-records",
-      "tag": "records-v0.1.2",
-      "commit": "3ca059f90aa6c83adc7449e899d0768751d38bba"
     },
     {
       "skill": "ambitious-video-for-bots",
