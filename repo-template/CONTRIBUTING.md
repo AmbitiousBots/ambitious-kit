@@ -27,7 +27,7 @@ npm install --strict-peer-deps
 npm ci --strict-peer-deps
 ```
 
-Run `npm install --strict-peer-deps`, then `npm ci --strict-peer-deps`. `npm ci --strict-peer-deps` reinstalls the packages pinned in `package-lock.json`. For a TypeScript module using kit 0.5.0, pin `@ambitious/typescript7` to `npm:typescript@7.0.2` and `typescript` to `npm:@typescript/typescript6@6.0.2`. Check the installed tree with `npm ls --all`. Skip installation if the repository has no lockfile yet.
+Run `npm install --strict-peer-deps`, then `npm ci --strict-peer-deps`. `npm ci --strict-peer-deps` reinstalls the packages pinned in `package-lock.json`. For a TypeScript module using kit 0.6.0, pin `@ambitious/typescript7` to `npm:typescript@7.0.2` and `typescript` to `npm:@typescript/typescript6@6.0.2`. Check the installed tree with `npm ls --all`. Skip installation if the repository has no lockfile yet.
 
 ## Run the checks
 

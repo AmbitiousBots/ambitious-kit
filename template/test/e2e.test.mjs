@@ -7,8 +7,8 @@ import test from 'node:test';
 import { lineDiff } from '../../packages/kit/src/domain/instructions.ts';
 import { buildInstaller, gh, ghSignedIn, guideText, installer, lock, NO_GH, readJson, releaseOf, repoRoot, sha256, skillProse, sync, templateRoot } from './support.mjs';
 
-const PRESENT_GRANTS = ['background-tools', 'compliance-status-tool', 'verified-self-apply', 'record-tools', 'commitment-tools', 'workflow-tools', 'feedback-queue-tools'];
-const PRESENT_VERSION = 14;
+const PRESENT_GRANTS = ['background-tools', 'compliance-status-tool', 'verified-self-apply', 'workflow-tools', 'feedback-queue-tools', 'fact-tools', 'recipe-tools'];
+const PRESENT_VERSION = 15;
 const presentInstructions = () => readFileSync(join(templateRoot, 'INSTRUCTIONS.md'), 'utf8');
 const olderInstructions = (n) => readFileSync(join(templateRoot, 'instructions', `${n}.md`), 'utf8');
 
@@ -179,7 +179,7 @@ test('the installer places the template fixtures where the skills point, and dec
   assert.match(edited.tellOwner[0], /its text differs/u);
 });
 
-test('a bot on template 0.4.10, with its version 13 instructions, its stored skills and its routine prompts, reaches this template by itself: the sync reports version 14 with the four grants it adds and says the bot may apply it, every skill is updated and the five work skills no longer send the bot to a module, apply-plan plans the published text, and the routine prompts are left as they are', (t) => {
+test('a bot on template 0.4.10, with its version 13 instructions, its stored skills and its routine prompts, reaches this template by itself: the sync reports version 15 with the four grants it adds and says the bot may apply it, every skill is updated and the five work skills no longer send the bot to a module, apply-plan plans the published text, and the routine prompts are left as they are', (t) => {
   const tagged = spawnSync('git', ['show', 'kit-v0.4.10:template/bot.json'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
   if (tagged.status !== 0) {
     t.skip('Skipped: this checkout does not have the tag kit-v0.4.10, so the upgrade was not run from that release\'s own skills and prompts. Fetch the tags to run it.');
@@ -193,7 +193,7 @@ test('a bot on template 0.4.10, with its version 13 instructions, its stored ski
   const before = JSON.parse(tagged.stdout);
   const bot = readJson(join(templateRoot, 'bot.json'));
   const serviceSkills = ['ambitious-compliance-for-bots', 'ambitious-contracts-for-bots', 'ambitious-records-for-bots', 'ambitious-tasks-for-bots', 'ambitious-tasks-page'];
-  const newGrants = ['record-tools', 'commitment-tools', 'workflow-tools', 'feedback-queue-tools'];
+  const newGrants = ['workflow-tools', 'feedback-queue-tools', 'fact-tools', 'recipe-tools'];
   assert.deepEqual([before.version, before.instructions], ['0.4.10', olderInstructions(13)], 'template 0.4.10 published the version 13 text that is kept as instructions/13.md');
   const current = join(home, 'current-instructions.md');
   const routines = join(home, 'current-routines.json');
@@ -204,7 +204,7 @@ test('a bot on template 0.4.10, with its version 13 instructions, its stored ski
   const { envelope } = sync(home, ['--lock', emptyLock, '--instructions', current, '--routines', routines]);
   const { instructions } = envelope.data;
   assert.deepEqual([instructions.state, instructions.current, instructions.template, instructions.match, instructions.selfApply, instructions.upgradeOn], ['out-of-date', 13, PRESENT_VERSION, 'exact', 'granted', 'any request'], 'the stored version 13 text lets the bot apply the verified release itself');
-  assert.deepEqual([instructions.permissions.added.map(({ grant }) => grant), instructions.permissions.removed], [newGrants, []], 'version 14 adds the four grants and takes nothing away');
+  assert.deepEqual([instructions.permissions.added.map(({ grant }) => grant), instructions.permissions.removed], [newGrants, []], 'version 15 adds the four grants to version 13 and takes nothing away from it');
   for (const { permission, reason } of instructions.permissions.added) assert(permission.length > 0 && reason.length > 0, 'each added permission is stated in plain words with its reason');
   assert.deepEqual(envelope.data.routines.routines.map(({ name, problem }) => [name, problem]), before.routines.map(({ name }) => [name, null]), 'the prompts template 0.4.10 published are the present ones, so no routine is touched');
 
@@ -219,7 +219,7 @@ test('a bot on template 0.4.10, with its version 13 instructions, its stored ski
     const [stored, present] = [before.skills.find((skill) => skill.name === name).body, bot.skills.find((skill) => skill.name === name).body];
     assert.match(stored, /ambitious-(?:records|tasks|contracts|compliance)`|tasks module/u, `${name} of template 0.4.10 worked through a module on the bot's computer`);
     assert.doesNotMatch(present, /`ambitious-(?:records|tasks|contracts|compliance)`|installed `ambitious-[a-z]+` binary/u, `${name} no longer sends the bot to a module`);
-    assert.match(present, /only when this bot's instructions allow them \(version 14 or later\); otherwise call none and tell the owner\./u, `${name} calls the service's tools only under instructions that allow them`);
+    assert.match(present, /only when this bot's instructions allow them \(version 15 or later\); otherwise call none and tell the owner\./u, `${name} calls the service's tools only under instructions that allow them`);
   }
 
   const published = join(work, 'published-instructions.md');
@@ -230,9 +230,73 @@ test('a bot on template 0.4.10, with its version 13 instructions, its stored ski
   };
   const planned = plan(before.instructions);
   assert.equal(planned.ok, true, JSON.stringify(planned.errors));
-  assert.deepEqual([planned.data.action, planned.data.selfApply, planned.data.instructions.planned.source, planned.data.instructions.planned.text, planned.data.previous.archiveFirst], ['apply', 'granted', 'published', presentInstructions(), false], 'the bot writes the published version 14 text to itself, with nothing to archive first');
+  assert.deepEqual([planned.data.action, planned.data.selfApply, planned.data.instructions.planned.source, planned.data.instructions.planned.text, planned.data.previous.archiveFirst], ['apply', 'granted', 'published', presentInstructions(), false], 'the bot writes the published version 15 text to itself, with nothing to archive first');
   assert.deepEqual(planned.data.permissions.added.map(({ grant }) => grant), newGrants);
   assert.deepEqual(planned.data.write.instructions, { tool: 'UpdateProfile', field: 'description', target: 'this bot only' });
+  assert.deepEqual(planned.data.routines.routines.map(({ name, action }) => [name, action]), before.routines.map(({ name }) => [name, 'no-change']), 'no routine prompt is replaced');
+  const settled = plan(planned.data.instructions.planned.text);
+  assert.deepEqual([settled.data.action, settled.data.instructions.planned], ['no-change', null], 'once applied, the next daily run plans nothing');
+});
+
+test('a bot on template 0.5.0, with its version 14 instructions and its stored skills, reaches this template by itself: the sync reports version 15, which adds the fact and recipe grants and takes away the two grants of the earlier stores, the bot may apply it, every skill is updated, and the five work skills name none of the earlier tools and hold no propose-then-confirm rule', (t) => {
+  const tagged = spawnSync('git', ['show', 'kit-v0.5.0:template/bot.json'], { cwd: repoRoot, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  if (tagged.status !== 0) {
+    t.skip('Skipped: this checkout does not have the tag kit-v0.5.0, so the upgrade was not run from that release\'s own skills and prompts. Fetch the tags to run it.');
+    return;
+  }
+  buildInstaller();
+  const work = scratch(t, 'from-0-5-0');
+  const home = join(work, 'home');
+  const emptyLock = join(work, 'empty.lock.json');
+  writeFileSync(emptyLock, '[]\n');
+  const before = JSON.parse(tagged.stdout);
+  const bot = readJson(join(templateRoot, 'bot.json'));
+  const serviceSkills = ['ambitious-compliance-for-bots', 'ambitious-contracts-for-bots', 'ambitious-records-for-bots', 'ambitious-tasks-for-bots', 'ambitious-tasks-page'];
+  const EARLIER_TOOLS = /\b(?:ingest_document|propose_facts|list_proposals|get_proposal|explain_facts|search_documents|list_documents|define_record_type|list_record_types|create_record|update_record|move_record|get_record|query_records|record_history|evaluate_workflow|list_evaluations|get_evaluation|propose_commitment|bind_commitments|whats_due|complete_obligation|get_commitment|list_commitments)\b/u;
+  assert.deepEqual([before.version, before.instructions], ['0.5.0', olderInstructions(14)], 'template 0.5.0 published the version 14 text that is kept as instructions/14.md');
+  assert.match(before.instructions, EARLIER_TOOLS, 'version 14 named the tools of the earlier stores');
+  assert.doesNotMatch(presentInstructions(), EARLIER_TOOLS, 'version 15 names none of them');
+  assert.doesNotMatch(presentInstructions(), /You propose|people confirm|confirms or rejects a proposal/u, 'version 15 holds no propose-then-confirm rule');
+  assert.match(presentInstructions(), /A fact is usable as soon as you write it\./u);
+  assert.match(presentInstructions(), /only a signed-in member of the owner's organization marks a fact verified, activates a recipe that waits for a person, or answers a step that waits for a person/u);
+  const current = join(home, 'current-instructions.md');
+  const routines = join(home, 'current-routines.json');
+  mkdirSync(home, { recursive: true });
+  writeFileSync(current, before.instructions);
+  writeFileSync(routines, JSON.stringify(before.routines.map(({ name, schedule, prompt }) => ({ name, schedule, prompt }))));
+
+  const { envelope } = sync(home, ['--lock', emptyLock, '--instructions', current, '--routines', routines]);
+  const { instructions } = envelope.data;
+  assert.deepEqual([instructions.state, instructions.current, instructions.template, instructions.match, instructions.selfApply, instructions.upgradeOn], ['out-of-date', 14, PRESENT_VERSION, 'exact', 'granted', 'any request'], 'the stored version 14 text lets the bot apply the verified release itself');
+  assert.deepEqual([instructions.permissions.added.map(({ grant }) => grant), instructions.permissions.removed.map(({ grant }) => grant)], [['fact-tools', 'recipe-tools'], ['record-tools', 'commitment-tools']], 'version 15 adds the fact and recipe grants and takes away the two grants of the earlier stores');
+  for (const { permission, reason } of instructions.permissions.added) assert(permission.length > 0 && reason.length > 0, 'each added permission is stated in plain words with its reason');
+  assert.deepEqual(envelope.data.routines.routines.map(({ name, problem }) => [name, problem]), before.routines.map(({ name }) => [name, null]), 'the prompts template 0.5.0 published are the present ones, so no routine is touched');
+
+  const offers = bot.skills.map(({ name, body }) => ({ name, stored: before.skills.find((skill) => skill.name === name)?.body ?? null, candidate: body }));
+  const file = join(work, 'skills.json');
+  writeFileSync(file, JSON.stringify(offers));
+  const decided = JSON.parse(spawnSync(process.execPath, [installer, 'skills', '--json', '--in', file], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } }).stdout);
+  assert.equal(decided.ok, true);
+  assert.deepEqual(Object.fromEntries(decided.data.skills.map(({ name, action }) => [name, action])), Object.fromEntries(bot.skills.map(({ name }) => [name, 'update'])), 'every stored 0.5.0 skill is replaced by this template\'s');
+  for (const name of serviceSkills) {
+    const [stored, present] = [before.skills.find((skill) => skill.name === name).body, bot.skills.find((skill) => skill.name === name).body];
+    assert.match(stored, EARLIER_TOOLS, `${name} of template 0.5.0 used the tools of the earlier stores`);
+    assert.doesNotMatch(present, EARLIER_TOOLS, `${name} names none of them now`);
+    assert.doesNotMatch(present, /You propose|\bpropos(?:e|ed|al)\b|\bconfirms?\b/u, `${name} holds no propose-then-confirm rule`);
+    assert.match(present, /only when this bot's instructions allow them \(version 15 or later\); otherwise call none and tell the owner\./u, `${name} calls the service's tools only under instructions that allow them`);
+    assert.doesNotMatch(skillProse(name), EARLIER_TOOLS, `${name} and its guide name none of the earlier tools`);
+  }
+
+  const published = join(work, 'published-instructions.md');
+  writeFileSync(published, presentInstructions());
+  const plan = (ours) => {
+    writeFileSync(current, ours);
+    return JSON.parse(spawnSync(process.execPath, [installer, 'apply-plan', '--current', current, '--published', published, '--published-sha256', sha256(presentInstructions()), '--routines', routines, '--json'], { encoding: 'utf8', env: { ...process.env, AMBITIOUS_HOME: home } }).stdout);
+  };
+  const planned = plan(before.instructions);
+  assert.equal(planned.ok, true, JSON.stringify(planned.errors));
+  assert.deepEqual([planned.data.action, planned.data.selfApply, planned.data.instructions.planned.source, planned.data.instructions.planned.text, planned.data.previous.archiveFirst], ['apply', 'granted', 'published', presentInstructions(), false], 'the bot writes the published version 15 text to itself, with nothing to archive first');
+  assert.deepEqual([planned.data.permissions.added.map(({ grant }) => grant), planned.data.permissions.removed.map(({ grant }) => grant)], [['fact-tools', 'recipe-tools'], ['record-tools', 'commitment-tools']]);
   assert.deepEqual(planned.data.routines.routines.map(({ name, action }) => [name, action]), before.routines.map(({ name }) => [name, 'no-change']), 'no routine prompt is replaced');
   const settled = plan(planned.data.instructions.planned.text);
   assert.deepEqual([settled.data.action, settled.data.instructions.planned], ['no-change', null], 'once applied, the next daily run plans nothing');
@@ -1014,7 +1078,7 @@ test('an agent asks a bot on instructions version 4 for an upgrade: the pinned i
   assert.deepEqual(result.wanted, scene.bot.skills.map(({ name }) => name).filter((name) => name !== INSTALLER_SKILL), 'the skills that would be written are named for the owner');
   assert.deepEqual(result.checked.data.instructions.permissions.added.map(({ grant }) => grant), ['upgrade-on-any-request', 'check-updates-tool', 'service-verified-downloads', 'daily-upgrades', 'active-snapshot', 'factory-tools', 'factory-description', 'factory-pages', 'owner-approved-bots', 'primary-bot-message', 'solver-runtime-download', 'ambitious-connection-setup', ...PRESENT_GRANTS]);
   assert(result.said.some((line) => line === 'The release\'s instructions would add: Run the documented template upgrade, including writing the template\'s ambitious- skills, when any agent or person asks for it.'), 'the owner is told that the release\'s text lets any agent ask for upgrades');
-  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 14.')));
+  assert(result.said.some((line) => line.startsWith('instructions-out-of-date: This bot\'s instructions are version 4 and this template\'s are version 15.')));
   assert.equal(readFileSync(join(scene.home, 'current-instructions.md'), 'utf8'), instructionsText('instructions/4.md'), 'the instructions were not changed');
 
   for (const file of ['instructions/1.md', 'instructions/2.md', 'instructions/3.md']) {

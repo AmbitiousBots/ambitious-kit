@@ -10,9 +10,9 @@ const ENDPOINT = "https://ambitiousbots.com/api/mcp";
 const GRANT = "owner-confirmed-endpoint";
 const STATEMENT_FIRST_VERSION = 11;
 const BACKGROUND_FIRST_VERSION = 12;
-const CURRENT_VERSION = 14;
-const CURRENT_INSTRUCTIONS_FIRST_TEMPLATE = "0.5.0";
-const RECORD_GRANTS = ["record-tools", "commitment-tools", "workflow-tools", "feedback-queue-tools"];
+const CURRENT_VERSION = 15;
+const CURRENT_INSTRUCTIONS_FIRST_TEMPLATE = "0.6.0";
+const RECORD_GRANTS = ["workflow-tools", "feedback-queue-tools", "fact-tools", "recipe-tools"];
 const V11_SHA256 = "d52d453b7aca156aea647330d4038023272026505beab2dc785d115fbde7b078";
 const GUIDE = "endpoint";
 const RECORD = "endpoint-confirmation.json";
@@ -173,7 +173,7 @@ test("V8 what this release added is generic: no person, customer, bot or industr
     ["the ambitious-selfcheck prompt", selfcheck],
     ["the verified-self-apply grant", registry.grants["verified-self-apply"] ?? ""],
     ["the verified-self-apply reason", present.reasons["verified-self-apply"] ?? ""],
-    ["the instruction lines versions 13 and 14 added", instructions.split("\n").filter((line) => !earlierLines.includes(line)).join("\n")],
+    ["the instruction lines versions 13 to 15 added", instructions.split("\n").filter((line) => !earlierLines.includes(line)).join("\n")],
     ...RECORD_GRANTS.flatMap((grant) => [[`the ${grant} grant`, registry.grants[grant] ?? ""], [`the ${grant} reason`, present.reasons[grant] ?? ""]]),
     ...["records", "tasks", "contracts", "compliance"].map((topic) => [`the ${topic} guide`, maybe(`guides/${topic}.md`)]),
     ["the auto-update guide", maybe("guides/auto-update.md")],

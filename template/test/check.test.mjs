@@ -30,12 +30,17 @@ const MONITORING_ADDRESS = 'https://ambitiousbots.com/api/mcp';
 const MONITORING_IDENTITY = 'ambitiousbots.com/mcp/v1';
 const MONITORING_TOOLS = ['server_info', 'send_report', 'send_feedback'];
 const FACTORY_TOOLS = ['factory_environment', 'factory_version', 'factory_match', 'factory_plan'];
-const RECORD_TOOLS = ['ingest_document', 'propose_facts', 'list_proposals', 'get_proposal', 'explain_facts', 'search_documents', 'list_documents', 'define_record_type', 'list_record_types', 'create_record', 'update_record', 'move_record', 'get_record', 'query_records', 'record_history', 'evaluate_workflow', 'list_evaluations', 'get_evaluation'];
-const COMMITMENT_TOOLS = ['propose_commitment', 'bind_commitments', 'whats_due', 'complete_obligation', 'get_commitment', 'list_commitments'];
+const FACT_TOOLS = ['add_document', 'get_document', 'upsert_facts', 'list_facts', 'define_view', 'query_view'];
+const RECIPE_TOOLS = ['define_recipe', 'compile_recipe', 'list_definitions', 'plan_recipe', 'run_recipe', 'list_schedules', 'get_run', 'emit_signal', 'list_claimable_steps', 'claim_step', 'complete_step', 'fail_step'];
+const RETIRED_RECORD_TOOLS = ['ingest_document', 'propose_facts', 'list_proposals', 'get_proposal', 'explain_facts', 'search_documents', 'list_documents', 'define_record_type', 'list_record_types', 'create_record', 'update_record', 'move_record', 'get_record', 'query_records', 'record_history', 'evaluate_workflow', 'list_evaluations', 'get_evaluation'];
+const RETIRED_COMMITMENT_TOOLS = ['propose_commitment', 'bind_commitments', 'whats_due', 'complete_obligation', 'get_commitment', 'list_commitments'];
 const WORKFLOW_TOOLS = ['send_workflows', 'list_workflows', 'start_workflow_run', 'list_workflow_runs', 'get_workflow_run', 'list_claimable_workflow_steps', 'claim_workflow_step', 'complete_workflow_step', 'fail_workflow_step', 'release_workflow_step', 'cancel_workflow_run'];
 const FEEDBACK_QUEUE_TOOLS = ['list_unprocessed_feedback', 'acknowledge_feedback'];
-const SERVICE_RECORD_GRANTS = { 'record-tools': RECORD_TOOLS, 'commitment-tools': COMMITMENT_TOOLS, 'workflow-tools': WORKFLOW_TOOLS, 'feedback-queue-tools': FEEDBACK_QUEUE_TOOLS };
+const RETIRED_GRANTS = { 'record-tools': RETIRED_RECORD_TOOLS, 'commitment-tools': RETIRED_COMMITMENT_TOOLS };
+const SERVICE_RECORD_GRANTS = { 'workflow-tools': WORKFLOW_TOOLS, 'feedback-queue-tools': FEEDBACK_QUEUE_TOOLS, 'fact-tools': FACT_TOOLS, 'recipe-tools': RECIPE_TOOLS };
 const RECORD_GRANTS = Object.keys(SERVICE_RECORD_GRANTS);
+const VERSION_14_GRANTS = [...Object.keys(RETIRED_GRANTS), 'workflow-tools', 'feedback-queue-tools'];
+const FACT_GRANTS = ['fact-tools', 'recipe-tools'];
 const whitespaceSha256 = (text) => sha256(foldWhitespace(text));
 const earlierTemplates = ['0.2.0', '0.2.1', '0.2.2', '0.2.3', '0.2.4', '0.2.5', '0.2.6', '0.2.7', '0.3.0', '0.3.1', '0.3.2', '0.4.0', '0.4.1', '0.4.2', '0.4.3'];
 const TEMPLATES_THAT_KEPT_THE_TEXT_BEFORE = ['0.3.1', '0.4.0'];
@@ -46,7 +51,8 @@ const CONNECTION_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.3';
 const STATEMENT_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.4';
 const BACKGROUND_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.5';
 const SELF_APPLY_INSTRUCTIONS_FIRST_TEMPLATE = '0.4.6';
-const PRESENT_INSTRUCTIONS_FIRST_TEMPLATE = '0.5.0';
+const RECORDS_INSTRUCTIONS_FIRST_TEMPLATE = '0.5.0';
+const PRESENT_INSTRUCTIONS_FIRST_TEMPLATE = '0.6.0';
 const PRIMARY_BOT_GRANT = 'primary-bot-message';
 const SOLVER_RUNTIME_GRANT = 'solver-runtime-download';
 const CONNECTION_GRANT = 'ambitious-connection-setup';
@@ -77,7 +83,7 @@ const BACKGROUND_GRANTS = ['background-tools', 'compliance-status-tool'];
 const SELF_APPLY_GRANT = 'verified-self-apply';
 const LATEST_GRANTS = [...BACKGROUND_GRANTS, SELF_APPLY_GRANT, ...RECORD_GRANTS];
 const SELF_APPLY_VERSION = 13;
-const CURRENT = 14;
+const CURRENT = 15;
 const UPGRADE_GRANT = 'upgrade-on-any-request';
 const withDestination = (prompt, destination) => `${prompt}\nDestination: ${destination}`;
 const skillText = skillProse;
@@ -191,8 +197,9 @@ test('the instructions are short and hold nothing that changes with a release: n
   for (const [, skill] of contents.matchAll(/`(ambitious-[a-z-]+)` skill/gu)) assert(expectedSkills.includes(skill), `the instructions point at ${skill}, which is not a skill of this template`);
   for (const skill of ['ambitious-getting-started', 'ambitious-module-installer']) assert(contents.includes(`\`${skill}\` skill`), `the instructions must point at ${skill}`);
   const namedTools = [...new Set([...contents.matchAll(/`([a-z]+_[a-z_]+)`/gu)].map(([, tool]) => tool))].sort();
-  assert.deepEqual(namedTools, [...MONITORING_TOOLS, 'check_updates', 'send_compliance_status', ...FACTORY_TOOLS, ...RECORD_TOOLS, ...COMMITMENT_TOOLS, ...WORKFLOW_TOOLS, ...FEEDBACK_QUEUE_TOOLS].sort(), 'the instructions name the tools of the Ambitious connection that a bot may call, and no other');
-  assert.equal(namedTools.length, 46);
+  assert.deepEqual(namedTools, [...MONITORING_TOOLS, 'check_updates', 'send_compliance_status', ...FACTORY_TOOLS, ...FACT_TOOLS, ...RECIPE_TOOLS, ...WORKFLOW_TOOLS, ...FEEDBACK_QUEUE_TOOLS].sort(), 'the instructions name the tools of the Ambitious connection that a bot may call, and no other');
+  assert.equal(namedTools.length, 40);
+  for (const tool of [...RETIRED_RECORD_TOOLS, ...RETIRED_COMMITMENT_TOOLS]) assert(!contents.includes(tool), `the instructions name ${tool}, a tool of the earlier stores that the service is retiring`);
 });
 
 const SHA256 = /^[0-9a-f]{64}$/u;
@@ -218,7 +225,7 @@ test('instructions.json records every published instructions text by version, wi
   }
   const [oldest, second, third, fourth, fifth] = published.versions;
   const current = published.versions.at(-1);
-  assert.deepEqual(published.versions.map(({ file, firstTemplate }) => [file, firstTemplate]), [['instructions/1.md', '0.2.1'], ['instructions/2.md', '0.2.4'], ['instructions/3.md', '0.2.5'], ['instructions/4.md', '0.2.6'], ['instructions/5.md', '0.2.7'], ['instructions/6.md', '0.3.0'], ['instructions/7.md', FACTORY_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/8.md', MESSAGE_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/9.md', RUNTIME_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/10.md', CONNECTION_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/11.md', STATEMENT_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/12.md', BACKGROUND_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/13.md', SELF_APPLY_INSTRUCTIONS_FIRST_TEMPLATE], ['INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE]]);
+  assert.deepEqual(published.versions.map(({ file, firstTemplate }) => [file, firstTemplate]), [['instructions/1.md', '0.2.1'], ['instructions/2.md', '0.2.4'], ['instructions/3.md', '0.2.5'], ['instructions/4.md', '0.2.6'], ['instructions/5.md', '0.2.7'], ['instructions/6.md', '0.3.0'], ['instructions/7.md', FACTORY_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/8.md', MESSAGE_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/9.md', RUNTIME_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/10.md', CONNECTION_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/11.md', STATEMENT_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/12.md', BACKGROUND_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/13.md', SELF_APPLY_INSTRUCTIONS_FIRST_TEMPLATE], ['instructions/14.md', RECORDS_INSTRUCTIONS_FIRST_TEMPLATE], ['INSTRUCTIONS.md', PRESENT_INSTRUCTIONS_FIRST_TEMPLATE]]);
   assert.equal(current.version, published.current);
   assert.equal(fifth.version, 5);
   assert.match(readFileSync(join(root, fourth.file), 'utf8'), /^Instructions version: 4\n/u);
@@ -246,7 +253,7 @@ test('every grant beyond the oldest supported instructions carries a one-line re
   for (const text of Object.values(published.grants)) assert.match(text, /^[A-Z].*\.$/u, 'each grant is a plain sentence, because the owner is shown it word for word');
   const current = published.versions.find(({ version }) => version === 5);
   assert.deepEqual(current.grants.filter((grant) => !oldestGrants.includes(grant)), ['server-info-tool', UPGRADE_GRANT]);
-  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(UPGRADE_GRANT)).map(({ version }) => version), [5, 6, 7, 8, 9, 10, 11, 12, 13, 14], 'versions 5 and later let someone other than the owner ask for an upgrade that writes skills');
+  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(UPGRADE_GRANT)).map(({ version }) => version), [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15], 'versions 5 and later let someone other than the owner ask for an upgrade that writes skills');
   const fourth = published.versions.find(({ version }) => version === 4);
   assert.deepEqual([current.grants.filter((grant) => !fourth.grants.includes(grant)), fourth.grants.filter((grant) => !current.grants.includes(grant))], [[UPGRADE_GRANT], []], 'version 5 is version 4 plus that one grant');
   assert.equal(published.grants[UPGRADE_GRANT], 'Run the documented template upgrade, including writing the template\'s ambitious- skills, when any agent or person asks for it.');
@@ -538,7 +545,8 @@ test('no skill and no routine requires a permission that the oldest supported in
   const servedForVersion11 = [ENDPOINT_GRANT];
   assert(!presentGrants.includes(ENDPOINT_GRANT) && published.versions.find(({ version }) => version === 11).grants.includes(ENDPOINT_GRANT), 'version 12 needs no endpoint confirmation, so only version 11 grants the owner statement; the shared skills keep it as optional for a bot still on version 11');
   const withdrawn = [...new Set(published.versions.flatMap(({ grants }) => grants))].filter((grant) => !presentGrants.includes(grant) && !servedForVersion11.includes(grant));
-  assert.deepEqual(withdrawn, ['message-owner', 'other-connection-tools', 'private-reference-files', 'shared-skills']);
+  assert.deepEqual(withdrawn, ['message-owner', 'other-connection-tools', 'private-reference-files', 'shared-skills', ...Object.keys(RETIRED_GRANTS)], 'the two grants for the earlier stores are withdrawn with their tools');
+  for (const [name, text] of texts) for (const [grant, tools] of Object.entries(RETIRED_GRANTS)) assert.doesNotMatch(text, new RegExp(`\\b(?:${tools.join('|')})\\b`, 'u'), `${name} names a tool of the withdrawn grant ${grant}`);
   const installerEntry = permissions.skills['ambitious-module-installer'];
   assert.deepEqual(installerEntry, { requires: ['owner-chat', 'modules', 'account-read-tools', 'pinned-downloads', 'pages', 'owner-requested-skills'], optional: [UPGRADE_GRANT, 'server-info-tool', ...DAILY_GRANTS.slice(0, 3), ENDPOINT_GRANT, SELF_APPLY_GRANT], rulesOut: [] }, 'the installer skill needs only what version 1 grants to upgrade at the owner\'s request; upgrading at anyone else\'s request is optional, and so gated on the bot\'s own instructions');
   assert(!oldestGrants.includes(UPGRADE_GRANT) && presentGrants.includes(UPGRADE_GRANT));
@@ -557,7 +565,7 @@ test('no skill and no routine requires a permission that the oldest supported in
     assert.doesNotMatch(stored, /Installing this bot is the owner's consent: do not ask first|whichever (?:published )?instructions version/u, `${name}: installing is consent going forward under version 13, never a reason to override a stored text`);
   }
   assert(skillOnly('ambitious-module-installer').includes('A failed write, or one automatic review blocked, is a failed apply: report it, never work around it.'), 'the stored skill itself, not only its guide, says that a write automatic review blocked is a failed apply');
-  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(SELF_APPLY_GRANT)).map(({ version }) => version), [SELF_APPLY_VERSION, CURRENT], 'version 13 is the first text that says the bot applies a verified release itself, and version 14 keeps it');
+  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(SELF_APPLY_GRANT)).map(({ version }) => version), [SELF_APPLY_VERSION, 14, CURRENT], 'version 13 is the first text that says the bot applies a verified release itself, and versions 14 and 15 keep it');
   for (const [name, , entry] of texts) {
     if (name !== 'ambitious-module-installer') assert(![...entry.requires, ...entry.optional].includes(UPGRADE_GRANT), `${name} must not write skills at anyone's request: only the installer skill documents the upgrade`);
   }
@@ -722,9 +730,9 @@ test('the collector takes task counts from the counts command of the pinned task
   assert.match(collector, /When it is `false`, no task has ever been in that list, so the list was not seen: all three are `null`, the `tasks` signal is `seen: false`, and its `why` says which list was missing, from `data\.list`/u);
   assert.match(collector, /A list that does not exist is never a list with 0 tasks\./u);
   assert.match(skillText('ambitious-capability-probe'), /`ambitious-tasks counts`, and its `exists` was `true`\. A list that does not exist was not seen\./u);
-  assert.match(collector, /Work kept as commitments on the Ambitious service is not counted here: the service returns no such counts, and due work listed there is never counted by hand\./u);
+  assert.match(collector, /Work kept as facts on the Ambitious service is not counted here: this audit takes no counts from there, and due work listed there is never counted by hand\./u);
   for (const name of ['ambitious-tasks-for-bots', 'ambitious-tasks-page']) {
-    assert.match(skillText(name), /That list and `list_commitments` are the truth the service holds\. Do not keep a second list, and never work out a count, a ranking or a date yourself/u, name);
+    assert.match(skillText(name), /That view is the truth the service holds\. Do not keep a second list, and never work out a count, a ranking or a date yourself/u, name);
     assert.doesNotMatch(skillOnly(name), /ambitious-tasks\b(?!-)/u, `${name} no longer sends the bot to the tasks module`);
   }
 });
@@ -1171,7 +1179,7 @@ test('the instructions state the boundaries a copy of the template must keep', (
     'Nothing leaves this computer except through the tools of the Ambitious connection named below, whose server is `https://ambitiousbots.com/api/mcp`. You call them as normal background work, without stopping for the owner\'s approval, previewing the payload, or announcing each call:',
     'The one thing never to put in any payload you send to Ambitious is a secret: never include a password, API key, token or other secret.',
     'Besides the tools named here, call no other tool of that connection.',
-    'You propose and people confirm: only a signed-in member of the owner\'s organization confirms or rejects a proposal, activates a commitment, accepts or sends back reported work, and waives open or overdue work, on the service\'s `/records` page.',
+    'A fact is usable as soon as you write it. Whether a fact is verified is a person\'s review, recorded on the fact with who reviewed it and when: only a signed-in member of the owner\'s organization marks a fact verified, activates a recipe that waits for a person, or answers a step that waits for a person, on the service\'s `/records` page.',
     'No tool does any of those: never look for another way to do one, and never say one happened unless a tool result shows it.',
     'Keep new records, work, contract obligations and compliance state there, not in a module\'s database on this computer.',
     'What you keep there is what the owner asked you to keep, and never a password, API key, token or other secret.',
@@ -1429,17 +1437,24 @@ test('sync compares the bot\'s instructions with the template\'s: an earlier pub
 
   const beforeSelfApply = check(text('instructions/12.md'));
   assert.deepEqual([about(beforeSelfApply), beforeSelfApply.instructions.template], [['out-of-date', 'instructions-out-of-date', 12, 'exact'], CURRENT], 'a bot on the text of template 0.4.5, which never applied instructions itself, is told the present version');
-  assert.equal(beforeSelfApply.instructions.permissions.statement, stated([SELF_APPLY_GRANT, ...RECORD_GRANTS]), 'the grants versions 13 and 14 add to version 12 are stated in plain words');
-  assert.deepEqual(beforeSelfApply.instructions.permissions.removed, [], 'and versions 13 and 14 take nothing away');
+  assert.equal(beforeSelfApply.instructions.permissions.statement, stated([SELF_APPLY_GRANT, ...RECORD_GRANTS]), 'the grants versions 13 to 15 add to version 12 are stated in plain words');
+  assert.deepEqual(beforeSelfApply.instructions.permissions.removed, [], 'and versions 13 to 15 take nothing away from version 12');
   assert.deepEqual(beforeSelfApply.instructions.diff, lineDiff(text('instructions/12.md'), presentText));
   assert(beforeSelfApply.instructions.diff.includes('- Never change your own instructions or another bot\'s. Put a proposed text in a Grok Bot Page; using it is the owner\'s choice.'), 'version 13 replaces the line that forbade every self-application');
 
   const beforeRecords = check(text('instructions/13.md'));
   assert.deepEqual([about(beforeRecords), beforeRecords.instructions.template, beforeRecords.instructions.selfApply], [['out-of-date', 'instructions-out-of-date', SELF_APPLY_VERSION, 'exact'], CURRENT, 'granted'], 'a bot on the text of templates 0.4.6 to 0.4.10 is told the present version, and its own text lets it apply it');
-  assert.equal(beforeRecords.instructions.permissions.statement, stated(RECORD_GRANTS), 'the four grants version 14 adds to version 13 are stated in plain words');
-  assert.deepEqual(beforeRecords.instructions.permissions.removed, [], 'and version 14 takes nothing away');
+  assert.equal(beforeRecords.instructions.permissions.statement, stated(RECORD_GRANTS), 'the four grants versions 14 and 15 add to version 13 are stated in plain words');
+  assert.deepEqual(beforeRecords.instructions.permissions.removed, [], 'and they take nothing away from version 13');
   assert.deepEqual(beforeRecords.instructions.diff, lineDiff(text('instructions/13.md'), presentText));
-  assert(beforeRecords.instructions.diff.includes('- Besides the tools named here, call no other tool of that connection.'), 'version 14 replaces the line that closed the list of tools with one that names the feedback queue first');
+  assert(beforeRecords.instructions.diff.includes('- Besides the tools named here, call no other tool of that connection.'), 'version 14 replaced the line that closed the list of tools with one that names the feedback queue first');
+  const beforeFacts = check(text('instructions/14.md'));
+  assert.deepEqual([about(beforeFacts), beforeFacts.instructions.template, beforeFacts.instructions.selfApply], [['out-of-date', 'instructions-out-of-date', 14, 'exact'], CURRENT, 'granted'], 'a bot on the text of template 0.5.0 is told the present version, and its own text lets it apply it');
+  assert.deepEqual(published.versions.find(({ version }) => version === 14).grants.slice(-VERSION_14_GRANTS.length), VERSION_14_GRANTS, 'version 14 keeps the grants it was published with');
+  assert.equal(beforeFacts.instructions.permissions.statement, `${stated(FACT_GRANTS)} It takes away these permissions: ${Object.keys(RETIRED_GRANTS).map((grant, index) => `(${index + 1}) ${grantText(grant)}`).join(' ')}`, 'the two grants version 15 adds to version 14, and the two it takes away, are stated in plain words');
+  assert.deepEqual([beforeFacts.instructions.permissions.added.map(({ grant }) => grant), beforeFacts.instructions.permissions.removed.map(({ grant }) => grant)], [FACT_GRANTS, Object.keys(RETIRED_GRANTS)], 'version 15 adds the fact and recipe grants and takes away the two grants of the stores the service is retiring');
+  assert.deepEqual(beforeFacts.instructions.diff, lineDiff(text('instructions/14.md'), presentText));
+  assert(beforeFacts.instructions.diff.some((line) => line.startsWith('- You propose and people confirm:')) && beforeFacts.instructions.diff.some((line) => line.startsWith('+ A fact is usable as soon as you write it.')), 'version 15 replaces the propose-then-confirm line with one that says a fact is usable when written and that only a person verifies, activates and answers');
 
   const nbsp = String.fromCharCode(0xa0);
   const handCopies = {
@@ -1725,7 +1740,7 @@ test('the installer prints each guide from inside itself: the list with no topic
   assert.equal(run(['guide', 'sync'], { AMBITIOUS_HOME: '/home/box/agent-data/ambitious' }).errors[0].code, 'E_FORBIDDEN_PATH', 'a guide file is never written under the private data directory');
 });
 
-const SERVICE_GATE = 'only when this bot\'s instructions allow them (version 14 or later); otherwise call none and tell the owner.';
+const SERVICE_GATE = 'only when this bot\'s instructions allow them (version 15 or later); otherwise call none and tell the owner.';
 const IN_THE_SKILL_ITSELF = {
   'ambitious-module-installer': [
     'never do those steps by hand, and never edit pins',
@@ -1820,10 +1835,10 @@ const IN_THE_SKILL_ITSELF = {
   ],
   'ambitious-tasks-for-bots': [
     SERVICE_GATE,
-    'You propose; people decide. A member of the owner\'s organization activates a proposed commitment and accepts reported work on the service\'s `/records` page; no tool does.',
-    'never say it happened unless a tool result shows it',
-    '`whats_due` and `list_commitments` return the truth the service holds. Keep no second list on this computer, and never work out a date, a count or a ranking yourself.',
-    'Claim a workflow step before doing its work.',
+    'A fact is usable once written. Only a signed-in member of the owner\'s organization marks a fact verified, activates a draft recipe or answers a step that waits for a person, on the service\'s `/records` page; no tool does.',
+    'Never say one happened unless a tool result shows it.',
+    'A view returns the truth the service holds. Keep no second list on this computer, and never work out a date, a count or a ranking yourself.',
+    'Claim a step before doing its work.',
     'Never place credentials in any field.',
   ],
   'ambitious-tasks-page': [
@@ -1835,23 +1850,24 @@ const IN_THE_SKILL_ITSELF = {
   'ambitious-compliance-for-bots': [
     SERVICE_GATE,
     'It does not judge whether the business meets any law, standard or certification, and neither do you: report what is on record, never a compliance opinion.',
-    'You propose; a member of the owner\'s organization confirms, activates and accepts on the service\'s `/records` page. No tool does.',
+    'A fact is usable once written. Only a signed-in member of the owner\'s organization marks a fact verified or accepts proof, on the service\'s `/records` page; no tool does.',
     'A control\'s status comes only from the guide\'s rule over what the tools returned; otherwise it is `unknown`.',
     'Never place credentials in any field.',
   ],
   'ambitious-contracts-for-bots': [
     SERVICE_GATE,
-    'You propose; people confirm. A member of the owner\'s organization confirms proposed facts and activates proposed commitments on the service\'s `/records` page; no tool does.',
-    'The service does not decide what a clause legally means, and neither do you: a person reviews it before anyone relies on it.',
-    'Propose only what the text says. Never paraphrase a value to make it fit, and never calculate a due date: the service does.',
+    'A fact is usable once written. Only a signed-in member of the owner\'s organization marks a fact verified or activates the compiled recipe, on the service\'s `/records` page; no tool does. Say which draft waits there.',
+    'The service does not decide what a clause legally means, and neither do you.',
+    'Write only what the text says. Never paraphrase a value to make it fit, and never calculate a due date: the service does.',
     'Never place credentials in any field.',
   ],
   'ambitious-records-for-bots': [
     SERVICE_GATE,
-    'Agree the type with the owner before defining it.',
+    'Agree the kind and its keys with the owner before the first write.',
+    'A fact is usable once written. Only a signed-in member of the owner\'s organization marks one verified, on the service\'s `/records` page; no tool does. Never say one is unless a tool result shows it.',
     'The service holds the record. Keep no copy in a module\'s database on this computer.',
     'Present counts and totals only as a tool returned them, and say when `limit` may have cut a list off.',
-    'Never place credentials in record fields.',
+    'Never place credentials in a fact.',
   ],
   'ambitious-video-for-bots': [
     'Always run `estimate` and get the owner\'s go-ahead on the price before `render`.',
@@ -1904,7 +1920,7 @@ test('getting started and the bot factory point to the scheduling skill and its 
     'ambitious-modules" sync --json --runtime constraints',
   ]) assert(guide.includes(required), `the scheduling guide must say: ${required}`);
   assert.deepEqual(permissions.skills[skill], { requires: ['modules', 'owner-chat', 'pages', 'account-read-tools'], optional: [SOLVER_RUNTIME_GRANT], rulesOut: [] }, 'the skill requires only what the oldest supported instructions grant; building the solver runtime is optional, and so gated on the bot\'s own instructions');
-  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(SOLVER_RUNTIME_GRANT)).map(({ version }) => version), [9, 10, 11, 12, 13, 14], 'version 9 is the first text recorded as allowing that download');
+  assert.deepEqual(published.versions.filter(({ grants }) => grants.includes(SOLVER_RUNTIME_GRANT)).map(({ version }) => version), [9, 10, 11, 12, 13, 14, 15], 'version 9 is the first text recorded as allowing that download');
   const { skills, routines } = readJson(join(root, 'bot.json'));
   const sizes = templateSizes(skills, routines);
   const item = sizes.items.find(({ name }) => name === skill);
