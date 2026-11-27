@@ -10,12 +10,56 @@ const ACTOR_SENTENCE =
   "A write `actor` is 1 to 200 Unicode characters, with no control characters or line breaks, no leading or trailing whitespace, and internal spaces allowed. Nothing is trimmed. The `E_INPUT_SCHEMA` hint states this rule. When the installed module refuses such an actor, it has its own older rule: follow its message.";
 const ACTOR_GUIDES = ["scheduling"];
 const SERVICE_GUIDES = ["records", "tasks", "contracts", "compliance"];
+const FROM_0_5_0 = /\nTemplate 0\.5\.0 kept [^\n]* on the service through earlier tools of the connection, which this bot's instructions no longer name\. Call none of them\. The tools above do not read what was kept that way\. /u;
 const MODULE_OF = { records: "ambitious-records", tasks: "ambitious-tasks", contracts: "ambitious-contracts", compliance: "ambitious-compliance" };
 const EARLIER_SECTION = { records: "Records an earlier template kept on this computer", tasks: "Tasks an earlier template kept on this computer", contracts: "Contracts an earlier template kept on this computer", compliance: "A register an earlier template kept on this computer" };
-const RECORD_TOOLS = ["ingest_document", "propose_facts", "list_proposals", "get_proposal", "explain_facts", "search_documents", "list_documents", "define_record_type", "list_record_types", "create_record", "update_record", "move_record", "get_record", "query_records", "record_history", "evaluate_workflow", "list_evaluations", "get_evaluation"];
-const COMMITMENT_TOOLS = ["propose_commitment", "bind_commitments", "whats_due", "complete_obligation", "get_commitment", "list_commitments"];
+const FACT_TOOLS = ["add_document", "get_document", "upsert_facts", "list_facts", "define_view", "query_view"];
+const RECIPE_TOOLS = ["define_recipe", "compile_recipe", "list_definitions", "plan_recipe", "run_recipe", "list_schedules", "get_run", "emit_signal", "list_claimable_steps", "claim_step", "complete_step", "fail_step"];
 const WORKFLOW_TOOLS = ["send_workflows", "list_workflows", "start_workflow_run", "list_workflow_runs", "get_workflow_run", "list_claimable_workflow_steps", "claim_workflow_step", "complete_workflow_step", "fail_workflow_step", "release_workflow_step", "cancel_workflow_run"];
-const GATE = "Call these tools only when this bot's instructions allow them, which the published texts do from `Instructions version: 14`. Under an earlier text call none of them and tell the owner that the instructions update turns this on";
+const SERVICE_TOOLS = [...FACT_TOOLS, ...RECIPE_TOOLS, ...WORKFLOW_TOOLS];
+const RETIRED_TOOLS = ["ingest_document", "propose_facts", "list_proposals", "get_proposal", "explain_facts", "search_documents", "list_documents", "define_record_type", "list_record_types", "create_record", "update_record", "move_record", "get_record", "query_records", "record_history", "evaluate_workflow", "list_evaluations", "get_evaluation", "propose_commitment", "bind_commitments", "whats_due", "complete_obligation", "get_commitment", "list_commitments"];
+const SERVICE_SKILLS = ["ambitious-records-for-bots", "ambitious-tasks-for-bots", "ambitious-tasks-page", "ambitious-contracts-for-bots", "ambitious-compliance-for-bots"];
+const GATE = "Call these tools only when this bot's instructions allow them, which the published texts do from `Instructions version: 15`. Under an earlier text call none of them and tell the owner that the instructions update turns this on";
+const SUBJECT = /^[a-z][a-z0-9_]{0,31}$/u;
+const FACT_KEY = /^[a-z][a-z0-9_]{0,31}(?:\.[a-z][a-z0-9_]{0,31}){0,7}$/u;
+const KEBAB = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
+const STEP_ID = /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u;
+const STEP_KINDS = ["eval", "ai", "tool", "human", "wait", "return", "recipe"];
+const ACTION = /^(?:documents\.ingest|facts\.upsert|views\.query|signals\.emit|bot\.[a-z][a-z0-9_]{0,63})$/u;
+const REVIEW_KEY = /(?:^|\.)verified(?:_by|_at)?$/u;
+const factPathsIn = (value) => [...JSON.stringify(value).matchAll(/"(?:\$|field)":"facts\.([a-z0-9_.]+)"/gu)].map(([, key]) => key);
+const checkRecipe = (recipe, where) => {
+  assert.deepEqual([recipe.dslVersion, recipe.kind], [1, "recipe"], where);
+  assert.match(recipe.id, KEBAB, where);
+  assert.match(recipe.subject, SUBJECT, `${where}: a recipe that reads facts names its subject kind`);
+  assert.ok(recipe.steps.length <= 32 && recipe.triggers.length >= 1, where);
+  const ids = recipe.steps.map(({ id }) => id);
+  assert.equal(new Set(ids).size, ids.length, `${where}: each step id once`);
+  for (const step of recipe.steps) {
+    assert.match(step.id, STEP_ID, `${where}: ${step.id}`);
+    assert.ok(STEP_KINDS.includes(step.kind), `${where}: ${step.id} is one of the seven step kinds`);
+    if (step.kind === "tool") assert.match(step.action, ACTION, `${where}: ${step.id} runs a record action or hands bot work to a bot`);
+    if (step.kind === "human") assert.ok((step.choices === undefined) !== (step.verifies === undefined), `${where}: ${step.id} declares exactly one of choices or verifies`);
+    if (step.kind === "wait") assert.equal(["for", "until", "signal"].filter((mode) => step[mode] !== undefined).length, 1, `${where}: ${step.id} waits in exactly one way`);
+    for (const target of [step.next, step.default?.next, ...(step.cases ?? []).map(({ next }) => next)]) if (target !== undefined) assert.ok(ids.includes(target), `${where}: ${step.id} goes to a step that exists`);
+    for (const key of step.from ?? []) assert.match(key, FACT_KEY, `${where}: ${step.id} lists a fact key`);
+  }
+  assert.ok(recipe.steps.some(({ kind }) => kind === "return"), `${where}: every path ends in a return`);
+  assert.equal(recipe.steps.at(-1).kind, "return", where);
+  for (const key of factPathsIn(recipe)) assert.match(key.replace(/\.verified(?:_by|_at)?$/u, ""), FACT_KEY, `${where}: reads the fact ${key}`);
+  assert.doesNotMatch(JSON.stringify(recipe), /facts\.verify|facts\.write|facts\.propose|"confirms"/u, `${where}: no action marks a fact verified, and facts are written with facts.upsert`);
+};
+const checkView = (view, where) => {
+  assert.deepEqual([view.dslVersion, view.kind, view.from.source], [1, "view", "facts"], where);
+  assert.match(view.id, KEBAB, where);
+  assert.match(view.from.subject, SUBJECT, where);
+  assert.ok(view.limit >= 1 && view.limit <= 200, `${where}: a view returns at most 200 rows`);
+  const columns = Array.isArray(view.select) ? view.select.map((path) => path.replace(/^facts\./u, "").replaceAll(".", "_")) : Object.keys(view.select);
+  const paths = Array.isArray(view.select) ? view.select : Object.values(view.select).map(({ field }) => field);
+  for (const path of paths) assert.match(path, /^(?:subject|kind|now|facts\.[a-z0-9_.]+|compute\.[a-z_]+)$/u, `${where}: a view over facts reads subject, kind, now, a fact or a compute field`);
+  for (const { field } of typeof view.orderBy === "string" ? [{ field: view.orderBy.replace(/^facts\./u, "").replaceAll(".", "_") }] : view.orderBy) assert.ok(columns.includes(field), `${where}: orders by the selected column ${field}`);
+  for (const path of paths.filter((candidate) => candidate.startsWith("compute."))) assert.ok(Object.hasOwn(view.compute ?? {}, path.slice(8)), `${where}: ${path} is declared`);
+};
 const toolsNamedIn = (text) => [...new Set([...text.matchAll(/`([a-z]+_[a-z_]+)`/gu)].map(([, name]) => name))];
 const instructions = readFileSync(join(repoRoot, "template", "INSTRUCTIONS.md"), "utf8");
 const NOT_GENERIC = /Alexander|\bDash\b|\bHAL\b|Aristapoint/u;
@@ -48,9 +92,10 @@ test("the records, tasks, contracts and compliance guides keep everything on the
     assert.ok(guide.includes(GATE), `${topic} is gated on the bot's own instructions`);
     assert.ok(guide.includes("Each tool lists its own input schema on the connection, and that schema is the reference for every field: where this text and a schema differ, follow the schema."), `${topic} defers to the tool's own schema`);
     assert.ok(guide.includes("whose server is `https://ambitiousbots.com/api/mcp`"), `${topic} names the one server`);
-    for (const tool of toolsNamedIn(guide).filter((name) => !["send_compliance_status"].includes(name) && /_/u.test(name) && [...RECORD_TOOLS, ...COMMITMENT_TOOLS, ...WORKFLOW_TOOLS].includes(name))) named.add(tool);
+    for (const tool of toolsNamedIn(guide).filter((name) => SERVICE_TOOLS.includes(name))) named.add(tool);
+    for (const tool of RETIRED_TOOLS) assert.ok(!guide.includes(tool), `${topic} names ${tool}, a tool of the earlier stores that the service is retiring`);
     for (const [, name] of guide.matchAll(/`([a-z]+_[a-z_]+)`/gu)) {
-      if ([...RECORD_TOOLS, ...COMMITMENT_TOOLS, ...WORKFLOW_TOOLS, "send_compliance_status"].includes(name)) assert.ok(allowed.includes(name), `${topic} names the tool ${name}, which the instructions do not allow`);
+      if ([...SERVICE_TOOLS, "send_compliance_status"].includes(name)) assert.ok(allowed.includes(name), `${topic} names the tool ${name}, which the instructions do not allow`);
     }
     const earlier = section(topic, EARLIER_SECTION[topic]);
     assert.ok(earlier.length > 0, `${topic} says what happens to what an earlier template kept on this computer`);
@@ -58,74 +103,108 @@ test("the records, tasks, contracts and compliance guides keep everything on the
     assert.match(earlier, /That data stays where it is and stays readable/u, topic);
     assert.match(earlier, /Nothing moves by itself\./u, topic);
     assert.match(earlier, /Add (?:nothing new|no new work) there, and never edit a module's database\./u, topic);
+    assert.match(earlier, FROM_0_5_0, `${topic} says that what template 0.5.0 kept through the earlier tools is not read by the present ones, and that none of them is called`);
     const outside = guide.replace(earlier, "");
     assert.ok(!outside.includes(`\`${MODULE_OF[topic]}\``), `${topic} names ${MODULE_OF[topic]} only in that section: nothing else sends the bot to the module`);
     assert.doesNotMatch(outside, /\bbinary\b|--in\b|on stdin/u, `${topic} gives no module command line`);
     assert.match(guide, /keep nothing on this computer meanwhile/u, `${topic}: storage that is not ready is waited for, never replaced by a local file`);
   }
-  assert.deepEqual([...named].sort(), [...RECORD_TOOLS, ...COMMITMENT_TOOLS, ...WORKFLOW_TOOLS].sort(), "between them the four guides name every record, commitment and workflow tool the instructions allow");
+  assert.deepEqual([...named].sort(), [...SERVICE_TOOLS].sort(), "between them the four guides name every document, fact, view, recipe and workflow tool the instructions allow");
+  for (const tool of RETIRED_TOOLS) assert.ok(!instructions.includes(tool), `the instructions name ${tool}, a tool of the earlier stores`);
 });
 
-test("people confirm: the tasks, contracts and compliance guides say that a member decides on the records page and that no tool does", () => {
+test("facts are usable as soon as they are written, and only a person verifies, activates and answers: every service guide and skill says so, none tells a bot to wait for a person before a fact counts, and none names a tool that does a person's part", () => {
   for (const [topic, required] of Object.entries({
-    tasks: ["A signed-in member of the owner's organization decides on the service's `/records` page. No tool does any of these:", "| `propose_commitment` | Activates it, or rejects it. Nothing is scheduled before that. |", "| `complete_obligation` | Accepts the work, or sends it back. Unless the commitment needs no acceptance, it does not count before that. |", "Never say a commitment is active or work is accepted unless `get_commitment`, `list_commitments` or `whats_due` shows it."],
-    contracts: ["A signed-in member of the owner's organization confirms or rejects a proposal of facts, and activates or rejects a proposed commitment, on the service's `/records` page. No tool does either.", "Until then a proposed fact is not a fact and a proposed commitment schedules nothing.", "never say it was confirmed unless `get_proposal`, `list_proposals` or `explain_facts` shows it"],
-    compliance: ["A signed-in member of the owner's organization does both; no tool does.", "A member accepts it on `/records` before it counts."],
+    records: ["A fact is usable as soon as it is written: every view, recipe and schedule reads it at once, and nothing waits for a person.", "Every fact is written unverified. A signed-in member of the owner's organization may mark a fact verified on the service's `/records` page, and the service records who did and when. No tool does that, and a bot never does.", "A review is optional: do not wait for one, and do not ask for one unless the owner wants the facts reviewed.", "Never say a fact is verified unless `list_facts` shows it."],
+    tasks: ["A fact is usable as soon as it is written, and so is work kept as facts: nothing waits for a person. A signed-in member of the owner's organization does these on the service's `/records` page, and no tool does any of them:", "| Marks a fact verified | An optional review, recorded on the fact with who and when. Do not wait for it. |", "| Activates a recipe whose `activation` is `person` | Until then the recipe is a draft and starts no run. |", "| Answers a `human` step | The run waits at that step. Tell the owner which run waits and for what. |", "Never say a fact is verified, a recipe is active or a step was answered unless `list_facts`, `list_definitions` or `get_run` shows it.", "Never claim or answer a `human` step: the service refuses with `E_FORBIDDEN`, and `list_claimable_steps` does not list one."],
+    contracts: ["A fact is usable as soon as it is written. Nothing waits for a person: a view, a schedule and `compile_recipe` read it at once.", "That review is optional, no tool does it, and a bot never does. Never say a fact is verified unless `list_facts` shows it.", "A recipe compiled from a contract is a draft. It runs only after a signed-in member activates it on `/records`. No tool activates it.", "never say it is active unless `list_definitions` lists it"],
+    compliance: ["The facts are in use as soon as they are written; a member may review them on the service's `/records` page, and no tool does that.", "A signed-in member of the owner's organization then accepts or rejects the proof on `/records`. No tool does, and it does not count before that: never say proof was accepted unless the view shows `accepted`."],
   })) {
     for (const sentence of required) assert.ok(guideText(topic).includes(sentence), `the ${topic} guide says: ${sentence}`);
   }
-  for (const topic of SERVICE_GUIDES) assert.doesNotMatch(guideText(topic), /\b(?:confirm_|activate_|accept_|waive_)[a-z_]+/u, `${topic} names no tool that confirms, activates, accepts or waives: there is none`);
+  for (const topic of SERVICE_GUIDES) {
+    const guide = guideText(topic);
+    assert.doesNotMatch(guide, /\b(?:verify_|confirm_|activate_|accept_|waive_|resolve_)[a-z_]+|facts\.verify/u, `${topic} names no tool or action that verifies, activates or answers for a person: there is none`);
+    assert.doesNotMatch(guide, /\b[Yy]ou propose\b|\bpropos(?:e|es|ed|al|als|ing)\b|\bpeople confirm\b|\bconfirm(?:s|ed|ing)?\b|until (?:a|it is|they are) (?:member )?(?:confirm|verif)/u, `${topic} holds no propose-then-confirm rule: a fact counts when it is written`);
+    assert.doesNotMatch(guide, /"verified":\s*true|`verified` (?:as|to) true/u, `${topic} never has a bot write a fact as verified`);
+  }
+  for (const name of SERVICE_SKILLS) {
+    const skill = skillOnly(name);
+    assert.doesNotMatch(skill, /\b[Yy]ou propose\b|\bpropos(?:e|es|ed|al|als|ing)\b|\bconfirm(?:s|ed|ing)?\b/u, `${name} holds no propose-then-confirm rule`);
+    for (const tool of RETIRED_TOOLS) assert.ok(!skill.includes(tool), `${name} names ${tool}, a tool of the earlier stores`);
+    if (name !== "ambitious-tasks-page") assert.ok(skill.includes("A fact is usable once written. Only a signed-in member of the owner's organization marks "), `${name} states in its hard rules that a fact is usable once written and that only a person marks one verified`);
+    assert.match(skill, /on the service's `\/records` page/u, name);
+  }
 });
 
-test("the records guide says how a type name is spelled, beside the definition keys and the field kinds it already listed", () => {
+test("the records guide keeps a record as a subject and its facts, says how subjects, keys and types are spelled, and shows a view the service's schema accepts", () => {
   const guide = guideText("records");
-  assert.ok(
-    guide.includes("A type name is lower-case words joined by hyphens, for example `sales-deal`, not underscores. Field and stage names are lower-case words joined by underscores.\n"),
-    "the naming rule is one line",
-  );
-  assert.ok(guide.includes("`idemKey` and `definition`: `type`, `version`, `fields`, `stages`, `initial`, `transitions`, `terminal`"));
-  assert.ok(guide.includes("Field kinds are `string`, `text`, `int`, `decimal`, `money`, `date`, `datetime`, `bool`, `enum` and `ref`."));
-  assert.ok(guide.includes("A refused move answers `E_TRANSITION` with the stages it could move to and the fields still missing; nothing is stored, so fill the fields with `update_record` and move again with a new `idemKey`."));
-  assert.ok(guide.includes("`limit` defaults to 50, up to 100."));
+  for (const required of [
+    "A subject is anything the owner keeps a record of, written as its kind, a colon and its id, such as `lead:42`.",
+    "A key is one to eight lower-case segments joined by dots, each starting with a letter and at most 32 characters. A key may not end in `verified`, `verified_by` or `verified_at`: those words read a fact's review.",
+    "A type is `text`, `int`, `number`, `bool`, `date`, `datetime` or `json`.",
+    "So give `type` `date` with a date written `\"YYYY-MM-DD\"`",
+    "Writing an equal value, with the same type and source, changes nothing. Writing a different one replaces the current fact, and the service keeps the old value as history.",
+    "A count limit that was reached answers `E_CONFLICT` with a message that names it",
+    "The answer lists each fact with its `outcome`, `written` or `unchanged`.",
+    "A view returns 50 rows unless `limit` says otherwise, up to 200, and no sign that more exist",
+    "Present counts and totals only as a tool returned them; never add up rows yourself.",
+    "One write holds at most 50 facts, each key once, and a value is at most 4,096 bytes.",
+  ]) {
+    assert.ok(guide.includes(required), `the records guide says: ${required}`);
+  }
+  const [, subject] = /such as `([a-z]+:[0-9]+)`/u.exec(guide) ?? [];
+  assert.match(subject, /^[a-z][a-z0-9_]{0,31}:[A-Za-z0-9][A-Za-z0-9._-]*$/u, "the example subject is spelled as the service requires");
+  const [view] = jsonExamples("records");
+  assert.equal(jsonExamples("records").length, 1);
+  checkView(view, "the records view");
   const skill = skillOnly("ambitious-records-for-bots");
-  assert.doesNotMatch(skill, /`transitions`|`terminal`/u, "the records skill lists no definition key, so the naming rule lives in the guide alone");
+  assert.doesNotMatch(skill, /`orderBy`|`dslVersion`/u, "the records skill lists no definition key, so the view format lives in the guide alone");
   assert.match(skill, /guide records --json/u);
 });
 
-test("the compliance guide lays the register out on the service, gives one rule for where a control stands, and claims no compliance", () => {
+test("the compliance guide lays the register out on the service as facts, one recipe and one view, gives one rule for where a control stands, and claims no compliance", () => {
   const guide = guideText("compliance");
   for (const required of [
     "It does not judge whether the business meets any law, standard or certification, and neither do you: report what is on record, never a compliance opinion.",
-    "| A control | A record of the type `compliance-control` | `define_record_type` once, then `create_record` |",
-    "| A control's regular proof | A commitment whose `subjectId` is the program document | `propose_commitment` |",
-    "| Proof was collected for a control | The due occurrence reported done, with the evidence document | `whats_due`, `complete_obligation` |",
-    "Take the first row that fits, top to bottom, and nothing else:",
-    "| `red` | An occurrence is `overdue` |",
-    "| `yellow` | An occurrence is `open` or `submitted`: proof is due, or reported and not yet accepted |",
-    "| `green` | An occurrence is `satisfied` |",
-    "Never decide a status from anything a tool did not return, and never state that a requirement is met: a status describes only what is on record.",
-    "Ignore occurrences that are `waived`, except to say that they exist; superseded ones are not returned.",
-    "when 100 came back, query again for `ref` greater than the last one, until fewer come back",
+    "| A control | A subject of the kind `control`, with the facts `ref`, `title`, `owner`, `frequency`, `start` and `due_days`, each citing the program document | `upsert_facts` |",
+    "| A control's regular proof | A run of the recipe `control-proof`, which the service starts for each control on its schedule | `define_recipe`, once |",
+    "| Proof was collected for a control | The run's `collect` step completed with the evidence document | `list_claimable_steps`, `claim_step`, `complete_step` |",
+    "For each row take the first line that fits, top to bottom, and nothing else:",
+    "| `red` | `overdue` is true and `state` is `due`, `submitted` or `rejected` |",
+    "| `yellow` | `state` is `due`, `submitted` or `rejected`: proof is due, or reported and not yet accepted |",
+    "| `green` | `state` is `accepted` |",
+    "Never decide a status from anything a tool did not return, never work out `overdue` yourself, and never state that a requirement is met: a status describes only what is on record.",
+    "The view returns at most 200 rows and no sign that more exist: when 200 came back, say that the list may be cut off.",
     "The status is the one exception: it carries its `statusId` instead, and takes no `idemKey`.",
     "Call `send_compliance_status` only when this bot's instructions allow that tool, which the published texts do from `Instructions version: 12`, and only when the register above exists",
     "It carries no evidence, no document text and no secret.",
     "It is not a signature and does not prove who collected a piece of evidence; say so if asked.",
+    "a larger one is refused as `E_INVALID_PAYLOAD`",
   ]) {
     assert.ok(guide.includes(required), `the compliance guide says: ${required}`);
   }
   const statuses = [...section("compliance", "Where a control stands").matchAll(/^\| `([a-z]+)` \| /gmu)].map(([, status]) => status);
   assert.deepEqual(statuses, ["unknown", "red", "yellow", "green", "unknown"], "the rule is ordered: what cannot be read first, then overdue, then due, then accepted, and unknown for anything else");
   assert.doesNotMatch(guide, /\b(?:is|are|stay|stays|become|becomes|makes? (?:you|it|them)) compliant\b|\bcertified\b|\bguarantee/iu, "the guide claims no compliance");
-  const [definition] = jsonExamples("compliance");
-  assert.deepEqual(Object.keys(definition), ["type", "version", "fields", "stages", "initial", "transitions", "terminal"]);
-  assert.match(definition.type, /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u, "the type name is spelled as the service requires");
-  for (const name of [...Object.keys(definition.fields), ...definition.stages]) assert.match(name, /^[a-z][a-z0-9]*(?:_[a-z0-9]+)*$/u, name);
-  assert.ok(definition.stages.includes(definition.initial) && definition.terminal.every((stage) => definition.stages.includes(stage)));
-  for (const { from, to, requires = [] } of definition.transitions) {
-    assert.ok(definition.stages.includes(from) && definition.stages.includes(to) && !definition.terminal.includes(from));
-    for (const field of requires) assert.ok(Object.hasOwn(definition.fields, field), `the move to ${to} requires the declared field ${field}`);
-  }
-  assert.deepEqual([definition.fields.ref.unique, definition.fields.ref.kind], [true, "string"], "a unique field is of a kind the service lets be unique");
+  const [recipe, view] = jsonExamples("compliance");
+  assert.equal(jsonExamples("compliance").length, 2);
+  checkRecipe(recipe, "the control-proof recipe");
+  assert.deepEqual([recipe.id, recipe.subject, recipe.activation], ["control-proof", "control", "auto"]);
+  assert.deepEqual(recipe.triggers, [{ kind: "schedule", every: { $: "facts.frequency" }, start: { $: "facts.start" } }], "the service starts a run for each control every frequency from start");
+  const accept = recipe.steps.find(({ kind }) => kind === "human");
+  assert.deepEqual(accept.choices, ["accepted", "rejected"], "a person accepts or rejects the proof");
+  assert.equal(recipe.steps.findIndex(({ id }) => id === "collect") < recipe.steps.indexOf(accept), true, "the bot's step comes before the person's");
+  const written = recipe.steps.filter(({ action }) => action === "facts.upsert").flatMap(({ input }) => input.facts.map(({ key }) => key));
+  assert.deepEqual([...new Set(written)].sort(), ["proof.document", "proof.due_at", "proof.state"]);
+  for (const key of written) assert.doesNotMatch(key, REVIEW_KEY, "the recipe writes no review field");
+  const states = recipe.steps.filter(({ action }) => action === "facts.upsert").flatMap(({ input }) => input.facts.filter(({ key, value }) => key === "proof.state" && typeof value === "string").map(({ value }) => value));
+  const ruled = [...section("compliance", "Where a control stands").matchAll(/`state` is ((?:`[a-z]+`(?:, | or )?)+)/gu)].flatMap(([, list]) => [...list.matchAll(/`([a-z]+)`/gu)].map(([, state]) => state)).filter((state) => state !== "null");
+  assert.deepEqual([...new Set(ruled)].sort(), [...new Set([...states, ...accept.choices])].sort(), "the status rule covers exactly the states the recipe writes");
+  checkView(view, "the control-status view");
+  assert.deepEqual([view.id, view.from.subject, Object.keys(view.select)], ["control-status", "control", ["ref", "title", "state", "due_at", "overdue"]]);
+  assert.deepEqual(view.compute.overdue, { lt: [{ diffDays: [{ $: "now" }, { $: "facts.proof.due_at" }] }, 0] }, "the service, not the bot, works out whether proof is overdue");
+  for (const fact of ["ref", "title", "frequency", "start", "due_days"]) assert.ok(factPathsIn([recipe, view]).includes(fact), `the recipe or the view reads the control's fact ${fact}`);
   const skill = skillOnly("ambitious-compliance-for-bots");
   assert.ok(skill.includes("report what is on record, never a compliance opinion"));
   assert.ok(skill.includes("A control's status comes only from the guide's rule over what the tools returned; otherwise it is `unknown`."));
@@ -146,48 +225,72 @@ test("the compliance guide's one command prints a statusId and an asOf that the 
   assert.notEqual(first.statusId, second.statusId, "each run makes a new id");
 });
 
-test("the tasks guide says what a commitment's rule is, which states an occurrence has, how a step is claimed, and how work is shown in a Page", () => {
+test("the tasks guide keeps work as facts with a view of what is due, lists the recipe tools and the seven step kinds, says how a step is claimed, and shows how work is presented in a Page", () => {
   const guide = guideText("tasks");
   for (const required of [
-    "A `rule` is one of four kinds. `recurring`: every `month`, `quarter` or `year` from a `start` fact",
-    "`before_date`: `days` before the date in a fact. `on_date`: on the date in a fact, opening `leadDays` before. `after_signal`: `days` after the rule's `signal` arrives.",
-    "The service, not the bot, works out every date.",
-    "It is `scheduled`, then `open` when its time comes; `submitted` once the bot reported it done; `satisfied` once a member accepted it; `overdue` when open work passes its date; `waived` or `superseded` when it no longer applies.",
-    "send the `rev` you read with `complete_obligation`, and on `E_CONFLICT` read it again before deciding",
-    "That list and `list_commitments` are the truth the service holds. Do not keep a second list, and never work out a count, a ranking or a date yourself",
+    "That view is the truth the service holds. Do not keep a second list, and never work out a count, a ranking or a date yourself",
+    "A recipe is a list of steps, and each step's `kind` is one of seven.",
+    "`tool` runs an action: `documents.ingest`, `facts.upsert`, `views.query` or `signals.emit` on the service, or a name starting with `bot.` for work a bot claims and does.",
+    "`human` waits for a person, with `choices`, or with `verifies` naming the step whose facts the person reviews.",
+    "A recipe starts by its `triggers`: `manual`; `event`, one of `document.ingested`, `fact.written`, `fact.verified` or `subject.created`; `schedule`, with `every` or `at`; or `signal`.",
+    "The service, not the bot, works out every date and keeps every timer",
+    "with `person`, and always when compiled, it is a draft until a member activates it.",
+    "No tool lists every draft or every run, so say that the service's `/records` page holds the full list and that both are decided there.",
+    "`E_FORBIDDEN` from `complete_step` or `fail_step` means this bot has not claimed the step: claim it first.",
+    "call `run_recipe` again with the same `triggerKey`",
+    "To do a step: claim it, and only then do the work.",
+    "A claim lasts 60 seconds unless `leaseMs` says otherwise, up to 900,000",
+    "A signal name is two lower-case words joined by a dot, such as `report.accepted`, and may not start with `fact`, `document` or `subject`.",
     "To do a step: read the run with `get_workflow_run` for its current `version`, claim the step, and only then do the work.",
     "Never claim a step for a person: the service answers `E_STEP_NOT_CLAIMABLE`, and `list_claimable_workflow_steps` does not list one.",
-    "`yields` lists entries such as `{\"signal\": \"report.accepted\"}`, each with an optional `on` of `satisfied` or `overdue` that says when it is sent. `needs` lists signal names; only an `after_signal` rule takes `needs`, and its `signal` must be among them.",
-    "only `open` or `overdue` work can be reported done, and `complete_obligation` on anything else answers `E_TRANSITION`",
+    "A recipe has at most 32 steps and a definition is at most 64 KB",
     "The module still supplies the task rows a schedule plan places, as the `scheduling` guide says; a plan never changes what the service holds.",
   ]) {
     assert.ok(guide.includes(required), `the tasks guide says: ${required}`);
   }
+  for (const kind of STEP_KINDS) assert.ok(guide.includes(`\`${kind}\` `), `the tasks guide describes the step kind ${kind}`);
+  assert.doesNotMatch(guide, /fact\.confirmed|`confirms`/u, "the guide names the events and step fields the service has now");
   const page = section("tasks", "Present work as a Page");
   for (const required of ["This is the layout the `ambitious-tasks-page` skill renders.", "Do not rank or re-sort them.", 'Add a section "Waiting for a person"', "Never show either as active or done.", "A Page edit alone never changes what the service holds."]) {
     assert.ok(page.includes(required), `the Page layout says: ${required}`);
   }
-  assert.deepEqual(jsonExamples("tasks"), [], "the tasks guide holds no module command example");
-  for (const topic of ["records", "tasks", "contracts"]) assert.ok(guideText(topic).includes("`E_UNAUTHENTICATED` means the connection is not signed in, and `E_FORBIDDEN` means its credential may not use this tool for an organization"), `${topic} tells the two refusals apart`);
-  for (const [topic, refused] of [["records", "A record whose fields are over 8,192 bytes is refused as `E_INVALID_PAYLOAD`."], ["tasks", "is refused as `E_INVALID_PAYLOAD`. The service schedules at most 24 occurrences of a commitment, up to 400 days ahead."], ["contracts", "A fact whose value is over 2,048 bytes is refused as `E_INVALID_PAYLOAD`."], ["compliance", "a larger one is refused as `E_INVALID_PAYLOAD`"]]) assert.ok(guideText(topic).includes(refused), `${topic} names the refusal a too-large input gets, which is not E_LIMIT`);
+  const [view] = jsonExamples("tasks");
+  assert.equal(jsonExamples("tasks").length, 1, "the tasks guide holds one view and no module command example");
+  checkView(view, "the due-soon view");
+  assert.equal(view.id, "due-soon");
+  assert.ok(page.includes(`\`${view.id}\` when they did not say`), "the Page reads the view the guide defines");
+  assert.ok(JSON.stringify(view.where).includes('"diffDays":[{"$":"now"},{"$":"facts.due_on"}]'), "the service compares each due date with now");
+  for (const topic of ["records", "tasks", "contracts"]) assert.ok(guideText(topic).includes("`E_UNAUTHENTICATED` means the connection is not signed in, and `E_FORBIDDEN` means its credential may not use this tool for an organization".replace("` means its", topic === "tasks" ? "` from any other tool means its" : "` means its")), `${topic} tells the two refusals apart`);
+  for (const topic of ["records", "tasks", "contracts", "compliance"]) assert.ok(guideText(topic).includes("`E_CONFLICT` with a message about the key means it was already used for a different request"), `${topic} says what a reused key answers`);
   assert.match(skillOnly("ambitious-tasks-page"), /guide tasks --json/u);
 });
 
-test("the contracts guide keeps the text, proposes facts with the span they were read from, and handles an amendment as its own document", () => {
+test("the contracts guide keeps the text by its hash, writes facts with the span they were read from, compiles what the contract obliges into a draft a person activates, and handles an amendment as a new version", () => {
   const guide = guideText("contracts");
   for (const required of [
-    "The same text is kept once: sending it again answers with the first copy and `duplicate` true.",
-    "with the `span` of text it was read from: the `start` and `end` character offsets in the kept text",
-    "Write a date as `\"YYYY-MM-DD\"` and a number of days as a whole number, so a rule can use them.",
-    "Propose only what the text says. Never paraphrase a value to make it fit, and leave out what the text does not state: an unknown is no fact, never a guess.",
-    "`list_proposals` shows each one's status: `open`, `applied`, `rejected` or `expired`.",
-    "`ingest_document` with `kind` `amendment` and `amends` set to the contract's `documentId`",
-    "scheduled and open work whose dates changed is replaced, and finished work is untouched",
-    "The service works out every date from confirmed facts. Never calculate one yourself.",
-    "never ingest a text that holds a credential",
+    "The answer holds the document's `id`, which is `doc:sha256:` followed by the hash of the text. The same text is kept once: sending it again answers with the same `id` and `duplicate` true.",
+    "`doc` is the document's `id`, never the series name, and `span` is the start and the end of the supporting text, counted in characters from 0, with the end not included",
+    "Write a date as `\"YYYY-MM-DD\"` with `type` `date`, and a number of days as a whole number, so a recipe can use them.",
+    "Write only what the text says. Never paraphrase a value to make it fit, and leave out what the text does not state: an unknown is no fact, never a guess.",
+    "keeps a step that lists keys in `from` only when the subject has every one of them and none is false",
+    "No model is called, and the same facts and template give the same draft.",
+    "The service sets the draft's `version`, `activation`, `source` and the one subject it runs on.",
+    "`add_document` with the same `series` returns a new `id`, and the earlier version stays readable under its own `id`",
+    "A changed result is the next version of the draft, which a member activates; a run that already started keeps the version it started on and is not stopped.",
+    "A new version starts its own run, also when its date is the same or has passed",
+    "The service works out every date from the facts. Never calculate one yourself.",
+    "never keep a text that holds a credential",
   ]) {
     assert.ok(guide.includes(required), `the contracts guide says: ${required}`);
   }
+  const [template] = jsonExamples("contracts");
+  assert.equal(jsonExamples("contracts").length, 1);
+  checkRecipe(template, "the contract template");
+  for (const set of ["activation", "source", "subjectId"]) assert.ok(!Object.hasOwn(template, set), `the template leaves ${set} to the service, which makes every compiled recipe a draft for a person`);
+  const optional = template.steps.filter(({ from }) => from !== undefined);
+  assert.ok(optional.length >= 2 && template.steps.some(({ kind, from }) => kind === "return" && from === undefined), "steps that depend on a clause list it in from, and the return is always kept");
+  for (const step of optional) for (const key of factPathsIn(step)) assert.ok(step.from.includes(key) || factPathsIn(template.triggers).includes(key), `${step.id} reads ${key}, so it lists it in from or the trigger needs it`);
+  assert.ok(template.steps.some(({ kind, until }) => kind === "wait" && until !== undefined) && template.steps.some(({ action }) => action?.startsWith("bot.")) && template.steps.some(({ kind }) => kind === "human"), "the template shows a deadline, bot work and a person's decision");
 });
 
 test("the scheduling guide shows calendar add with tz, availability set with weekday wall times, and plan propose with a snapshot and a horizon, each as its own command", () => {

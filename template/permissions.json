@@ -38,8 +38,8 @@
         "pages"
       ],
       "optional": [
-        "record-tools",
-        "commitment-tools",
+        "fact-tools",
+        "recipe-tools",
         "compliance-status-tool"
       ],
       "rulesOut": []
@@ -50,8 +50,8 @@
         "pages"
       ],
       "optional": [
-        "record-tools",
-        "commitment-tools"
+        "fact-tools",
+        "recipe-tools"
       ],
       "rulesOut": []
     },
@@ -113,7 +113,7 @@
         "modules"
       ],
       "optional": [
-        "record-tools"
+        "fact-tools"
       ],
       "rulesOut": []
     },
@@ -157,7 +157,8 @@
         "pages"
       ],
       "optional": [
-        "commitment-tools",
+        "fact-tools",
+        "recipe-tools",
         "workflow-tools"
       ],
       "rulesOut": []
@@ -168,7 +169,8 @@
         "pages"
       ],
       "optional": [
-        "commitment-tools",
+        "fact-tools",
+        "recipe-tools",
         "workflow-tools"
       ],
       "rulesOut": []

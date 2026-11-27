@@ -18,7 +18,7 @@ const templateRoutines = routinesOf(text("routines.md"));
 const ACTIONS = ["apply", "apply-published-and-archive", "no-change", "blocked"];
 const SELF_APPLY_GRANT = "verified-self-apply";
 const SELF_APPLY_VERSION = 13;
-const RECORD_GRANTS = ["record-tools", "commitment-tools", "workflow-tools", "feedback-queue-tools"];
+const RECORD_GRANTS = ["workflow-tools", "feedback-queue-tools", "fact-tools", "recipe-tools"];
 const PRESENT = registry.current;
 const OTHER_BOT_TOOL = "UpdateAgent";
 const asIs = ({ name, schedule, prompt }) => ({ name, schedule, prompt });
@@ -116,9 +116,9 @@ test("a wording-only update and a grant-adding update are the same action: apply
   const { plan } = fixture(t);
   const grantAdding = applied(plan({ ours: versionText(12) }));
   assert.equal(grantAdding.action, "apply");
-  assert.deepEqual(grantAdding.permissions.added.map(({ grant }) => grant), [SELF_APPLY_GRANT, ...RECORD_GRANTS], "versions 13 and 14 add grants to version 12, and the text is still applied");
+  assert.deepEqual(grantAdding.permissions.added.map(({ grant }) => grant), [SELF_APPLY_GRANT, ...RECORD_GRANTS], "versions 13 to 15 add grants to version 12, and the text is still applied");
   const fromGranting = applied(plan({ ours: versionText(SELF_APPLY_VERSION) }));
-  assert.deepEqual([fromGranting.action, fromGranting.selfApply, fromGranting.permissions.added.map(({ grant }) => grant), fromGranting.instructions.planned.text], ["apply", "granted", RECORD_GRANTS, present], "a bot on version 13 applies version 14 itself, with the four grants it adds listed");
+  assert.deepEqual([fromGranting.action, fromGranting.selfApply, fromGranting.permissions.added.map(({ grant }) => grant), fromGranting.instructions.planned.text], ["apply", "granted", RECORD_GRANTS, present], "a bot on version 13 applies version 15 itself, with the four grants it adds listed");
   assert.equal(grantAdding.permissions.comparison, "more");
   assert.equal(grantAdding.instructions.planned.text, present);
 

@@ -30,11 +30,11 @@ The sync installs every pinned module, and each kind of work has its own `ambiti
 
 | The owner needs | Skill | Kept or run with |
 | --- | --- | --- |
-| What is owed and when, and repeatable work | `ambitious-tasks-for-bots` | The connection's commitment and workflow tools |
+| Work and when it is due, and repeatable work | `ambitious-tasks-for-bots` | The connection's fact, recipe and workflow tools |
 | Calendars, working hours, a schedule, calendar holds, or a decision that must satisfy rules | `ambitious-scheduling-for-bots` | The modules `ambitious-scheduling` and `ambitious-constraints` |
-| Things of one kind moving through stages | `ambitious-records-for-bots` | The connection's record tools |
-| Obligations from a contract | `ambitious-contracts-for-bots` | The connection's document, fact and commitment tools |
-| Controls, evidence and attestations | `ambitious-compliance-for-bots` | The connection's record, document and commitment tools |
+| Things of one kind moving through stages | `ambitious-records-for-bots` | The connection's fact and view tools |
+| Obligations from a contract | `ambitious-contracts-for-bots` | The connection's document, fact and recipe tools |
+| Controls, evidence and attestations | `ambitious-compliance-for-bots` | The connection's document, fact and recipe tools |
 | A video from a script | `ambitious-video-for-bots` | The module `ambitious-video` |
 
 ## Time zone
